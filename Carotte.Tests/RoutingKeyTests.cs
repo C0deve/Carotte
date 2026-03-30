@@ -23,7 +23,7 @@ public class RoutingKeyTests
         var message = new TestMessage("Hello");
         serializerMock.Setup(s => s.Serialize(message)).Returns([1, 2, 3]);
 
-        var producer = new RabbitMQProducer<TestMessage>(
+        var producer = new RabbitMqProducer<TestMessage>(
             connectionManagerMock.Object, 
             serializerMock.Object, 
             "test-broker", 

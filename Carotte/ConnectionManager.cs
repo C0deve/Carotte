@@ -7,7 +7,7 @@ public interface IConnectionManager : IDisposable
     ValueTask<IConnection> GetConnectionAsync(string brokerName);
 }
 
-public class ConnectionManager(IDictionary<string, RabbitMQOptions> options) : IConnectionManager
+public class ConnectionManager(IDictionary<string, RabbitMqOptions> options) : IConnectionManager
 {
     private readonly IDictionary<string, IConnection> _connections = new Dictionary<string, IConnection>();
     private readonly SemaphoreSlim _semaphore = new(1, 1);

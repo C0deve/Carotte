@@ -9,7 +9,7 @@ using RabbitMQ.Client.Events;
 
 namespace Carotte;
 
-public class RabbitMQConsumerHost<TConsumer>(
+public class RabbitMqConsumerHost<TConsumer>(
     IServiceProvider serviceProvider,
     IConnectionManager connectionManager,
     ISerializer serializer,

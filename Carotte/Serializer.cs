@@ -10,18 +10,18 @@ public interface ISerializer
 
 public class JsonSerializerImpl : ISerializer
 {
-    private static readonly JsonSerializerOptions _options = new()
+    private static readonly JsonSerializerOptions Options = new()
     {
         PropertyNameCaseInsensitive = true
     };
 
     public byte[] Serialize<T>(T message)
     {
-        return JsonSerializer.SerializeToUtf8Bytes(message, _options);
+        return JsonSerializer.SerializeToUtf8Bytes(message, Options);
     }
 
     public T? Deserialize<T>(byte[] data)
     {
-        return JsonSerializer.Deserialize<T>(data, _options);
+        return JsonSerializer.Deserialize<T>(data, Options);
     }
 }

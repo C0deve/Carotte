@@ -12,6 +12,6 @@ public partial class OrderConsumer(ILogger<OrderConsumer> logger) : Consumer, IC
         return Task.CompletedTask;
     }
 
-    [LoggerMessage(LogLevel.Information, "[{Time}] Commande reçue : ID={OrderId}, Client={Customer}, Montant={Amount}€")]
-    static partial void LogTimeCommandeReçueIdOrderidClientCustomerMontantAmount(ILogger<OrderConsumer> logger, string Time, Guid OrderId, string Customer, decimal Amount);
+    [LoggerMessage(LogLevel.Information, "[{time}] Commande reçue : ID={orderId}, Client={customer}, Montant={amount}€")]
+    static partial void LogTimeCommandeReçueIdOrderidClientCustomerMontantAmount(ILogger<OrderConsumer> logger, string time, Guid orderId, string customer, decimal amount);
 }

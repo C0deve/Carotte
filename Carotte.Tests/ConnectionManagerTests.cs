@@ -7,7 +7,7 @@ public class ConnectionManagerTests
     [Fact]
     public async Task GetConnectionAsync_ShouldThrowIfBrokerNotFound()
     {
-        var options = new Dictionary<string, RabbitMQOptions>();
+        var options = new Dictionary<string, RabbitMqOptions>();
         var manager = new ConnectionManager(options);
 
         await Should.ThrowAsync<ArgumentException>(() => manager.GetConnectionAsync("Unknown").AsTask());

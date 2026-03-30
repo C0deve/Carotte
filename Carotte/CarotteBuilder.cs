@@ -61,14 +61,14 @@ public static class ServiceCollectionExtensions
                 continue;
             var broker = queueAttrs.First().Broker;
             services.AddSingleton(typeof(IHostedService), sp => 
-                ActivatorUtilities.CreateInstance(sp, typeof(RabbitMQConsumerHost<>).MakeGenericType(consumerType), broker, queueAttrs));
+                ActivatorUtilities.CreateInstance(sp, typeof(RabbitMqConsumerHost<>).MakeGenericType(consumerType), broker, queueAttrs));
         }
 
         // Enregistrement des producteurs
         foreach (var prodConfig in builder.ProducerConfigs)
         {
             var interfaceType = typeof(IProducer<>).MakeGenericType(prodConfig.MessageType);
-            var implementationType = typeof(RabbitMQProducer<>).MakeGenericType(prodConfig.MessageType);
+            var implementationType = typeof(RabbitMqProducer<>).MakeGenericType(prodConfig.MessageType);
 
             services.AddSingleton(interfaceType, sp =>
                 ActivatorUtilities.CreateInstance(sp, implementationType, prodConfig.Broker, prodConfig.Exchange));
@@ -81,7 +81,7 @@ public static class ServiceCollectionExtensions
 public class CarotteBuilder
 {
     public IServiceCollection Services { get; }
-    public Dictionary<string, RabbitMQOptions> Brokers { get; } = new();
+    public Dictionary<string, RabbitMqOptions> Brokers { get; } = new();
     public List<Assembly> Assemblies { get; } = [];
     public Dictionary<Type, (string Broker, string Queue)> ConsumerConfigs { get; } = new();
     public List<(Type MessageType, string Broker, string Exchange)> ProducerConfigs { get; } = [];
@@ -105,9 +105,9 @@ public class CarotteBuilder
         return this;
     }
 
-    public CarotteBuilder AddBroker(string name, Action<RabbitMQOptions> configure)
+    public CarotteBuilder AddBroker(string name, Action<RabbitMqOptions> configure)
     {
-        var options = new RabbitMQOptions();
+        var options = new RabbitMqOptions();
         configure(options);
         Brokers[name] = options;
         return this;

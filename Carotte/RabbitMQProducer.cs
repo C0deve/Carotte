@@ -5,7 +5,7 @@ using RabbitMQ.Client;
 
 namespace Carotte;
 
-public class RabbitMQProducer<TMessage> : Producer, IProducer<TMessage>
+public class RabbitMqProducer<TMessage> : Producer, IProducer<TMessage>
 {
     private readonly IConnectionManager _connectionManager;
     private readonly ISerializer _serializer;
@@ -13,7 +13,7 @@ public class RabbitMQProducer<TMessage> : Producer, IProducer<TMessage>
     private readonly SemaphoreSlim _lock = new(1, 1);
     private static readonly TextMapPropagator Propagator = Propagators.DefaultTextMapPropagator;
 
-    public RabbitMQProducer(IConnectionManager connectionManager, ISerializer serializer, string broker, string exchange)
+    public RabbitMqProducer(IConnectionManager connectionManager, ISerializer serializer, string broker, string exchange)
     {
         _connectionManager = connectionManager;
         _serializer = serializer;

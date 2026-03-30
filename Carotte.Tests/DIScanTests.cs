@@ -29,7 +29,7 @@ public class DIScanTests
         // Check if HostedService is registered
         var hostedServices = sp.GetServices<IHostedService>();
         hostedServices.ShouldContain(h => h.GetType().IsGenericType && 
-                                            h.GetType().GetGenericTypeDefinition() == typeof(RabbitMQConsumerHost<>) &&
+                                            h.GetType().GetGenericTypeDefinition() == typeof(RabbitMqConsumerHost<>) &&
                                             h.GetType().GetGenericArguments()[0] == typeof(AttributeConsumer));
     }
 
@@ -51,7 +51,7 @@ public class DIScanTests
         
         var hostedServices = sp.GetServices<IHostedService>();
         hostedServices.ShouldContain(h => h.GetType().IsGenericType && 
-                                            h.GetType().GetGenericTypeDefinition() == typeof(RabbitMQConsumerHost<>) &&
+                                            h.GetType().GetGenericTypeDefinition() == typeof(RabbitMqConsumerHost<>) &&
                                             h.GetType().GetGenericArguments()[0] == typeof(MultiConsumer));
     }
 

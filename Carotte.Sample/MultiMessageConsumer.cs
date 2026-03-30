@@ -18,9 +18,9 @@ public partial class MultiMessageConsumer(ILogger<MultiMessageConsumer> logger) 
         return Task.CompletedTask;
     }
 
-    [LoggerMessage(LogLevel.Information, "[Multi] Commande reçue : ID={OrderId}, Client={Customer}")]
-    static partial void LogOrderReceived(ILogger<MultiMessageConsumer> logger, Guid OrderId, string Customer);
+    [LoggerMessage(LogLevel.Information, "[Multi] Commande reçue : ID={orderId}, Client={customer}")]
+    static partial void LogOrderReceived(ILogger<MultiMessageConsumer> logger, Guid orderId, string customer);
 
-    [LoggerMessage(LogLevel.Information, "[Multi] Notification reçue pour commande : ID={OrderId}, Destinataire={Recipient}")]
-    static partial void LogNotificationReceived(ILogger<MultiMessageConsumer> logger, Guid OrderId, string Recipient);
+    [LoggerMessage(LogLevel.Information, "[Multi] Notification reçue pour commande : ID={orderId}, Destinataire={recipient}")]
+    static partial void LogNotificationReceived(ILogger<MultiMessageConsumer> logger, Guid orderId, string recipient);
 }

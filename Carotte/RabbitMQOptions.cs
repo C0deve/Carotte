@@ -1,6 +1,6 @@
 namespace Carotte;
 
-public record RabbitMQOptions
+public record RabbitMqOptions
 {
     public string Host { get; set; } = "localhost";
     public int Port { get; set; } = 5672;
