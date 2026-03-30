@@ -3,7 +3,7 @@
 public record OrderCreatedMessage(Guid OrderId, string CustomerName, decimal Amount);
 
 [Queue("order-processing-queue", broker: "my-broker", exchange: "orders-exchange", routingKey: "order.created")]
-public partial class OrderConsumer(ILogger<OrderConsumer> logger) : Consumer, IConsumer<OrderCreatedMessage>
+public partial class OrderConsumer(ILogger<OrderConsumer> logger) : IConsumer<OrderCreatedMessage>
 {
     public Task HandleAsync(OrderCreatedMessage message, CancellationToken cancellationToken)
     {

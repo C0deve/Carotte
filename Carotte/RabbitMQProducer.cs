@@ -5,20 +5,22 @@ using RabbitMQ.Client;
 
 namespace Carotte;
 
-public class RabbitMqProducer<TMessage> : Producer, IProducer<TMessage>
+public class RabbitMqProducer<TMessage> : IProducer<TMessage>
 {
     private readonly IConnectionManager _connectionManager;
     private readonly ISerializer _serializer;
     private IChannel? _channel;
     private readonly SemaphoreSlim _lock = new(1, 1);
     private static readonly TextMapPropagator Propagator = Propagators.DefaultTextMapPropagator;
+    private readonly string _broker;
+    private readonly string _exchange;
 
     public RabbitMqProducer(IConnectionManager connectionManager, ISerializer serializer, string broker, string exchange)
     {
         _connectionManager = connectionManager;
         _serializer = serializer;
-        Broker = broker;
-        Exchange = exchange;
+        _broker = broker;
+        _exchange = exchange;
     }
 
     public async Task SendAsync(TMessage message, CancellationToken cancellationToken = default)
@@ -26,7 +28,7 @@ public class RabbitMqProducer<TMessage> : Producer, IProducer<TMessage>
         var routingKey = typeof(TMessage).Name;
         using var activity = CarotteDiagnostics.ActivitySource.StartActivity($"Produce {routingKey}", ActivityKind.Producer);
         activity?.SetTag("messaging.system", "rabbitmq");
-        activity?.SetTag("messaging.destination", Exchange);
+        activity?.SetTag("messaging.destination", _exchange);
         activity?.SetTag("messaging.destination_kind", "exchange");
         activity?.SetTag("messaging.rabbitmq.routing_key", routingKey);
 
@@ -37,7 +39,7 @@ public class RabbitMqProducer<TMessage> : Producer, IProducer<TMessage>
             {
                 if (_channel == null || !_channel.IsOpen)
                 {
-                    var connection = await _connectionManager.GetConnectionAsync(Broker);
+                    var connection = await _connectionManager.GetConnectionAsync(_broker);
                     _channel = await connection.CreateChannelAsync(cancellationToken: cancellationToken);
                 }
 
@@ -59,7 +61,7 @@ public class RabbitMqProducer<TMessage> : Producer, IProducer<TMessage>
                 }
                 
                 await _channel.BasicPublishAsync(
-                    exchange: Exchange,
+                    exchange: _exchange,
                     routingKey: routingKey,
                     body: body,
                     basicProperties: properties,
@@ -71,7 +73,7 @@ public class RabbitMqProducer<TMessage> : Producer, IProducer<TMessage>
                 _lock.Release();
             }
 
-            CarotteDiagnostics.MessagesProducedCounter.Add(1, new KeyValuePair<string, object?>("exchange", Exchange));
+            CarotteDiagnostics.MessagesProducedCounter.Add(1, new KeyValuePair<string, object?>("exchange", _exchange));
         }
         catch (Exception ex)
         {

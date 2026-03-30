@@ -60,14 +60,14 @@ public class DIScanTests
 
     [Queue("test-queue-1", broker: "test-broker")]
     [Queue("test-queue-2", broker: "test-broker")]
-    public class MultiConsumer : Consumer, IConsumer<Message>, IConsumer<Message2>
+    public class MultiConsumer : IConsumer<Message>, IConsumer<Message2>
     {
         public Task HandleAsync(Message message, CancellationToken cancellationToken) => Task.CompletedTask;
         public Task HandleAsync(Message2 message, CancellationToken cancellationToken) => Task.CompletedTask;
     }
 
     [Queue("test-queue", broker: "test-broker")]
-    public class AttributeConsumer : Consumer, IConsumer<Message>
+    public class AttributeConsumer : IConsumer<Message>
     {
         public Task HandleAsync(Message message, CancellationToken cancellationToken) => Task.CompletedTask;
     }
