@@ -11,7 +11,7 @@ public static class RabbitMqConsumerHost
     public static readonly TextMapPropagator Propagator = Propagators.DefaultTextMapPropagator;
 }
 
-public class RabbitMqConsumerHost<TConsumer>(
+public sealed class RabbitMqConsumerHost<TConsumer>(
     IServiceProvider serviceProvider,
     IConnectionManager connectionManager,
     ISerializer serializer,
@@ -25,21 +25,61 @@ public class RabbitMqConsumerHost<TConsumer>(
     private readonly SemaphoreSlim _channelLock = new(1, 1);
     private bool _isConnected;
     private ConsumerDelegate? _pipeline;
+    private IConnection? _connection;
+    private IChannel? _channel;
 
-    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    public override async Task StartAsync(CancellationToken cancellationToken)
     {
         InitializeHandlers();
         BuildPipeline();
 
+        _connection = await connectionManager.GetConnectionAsync(broker);
+        _channel = await _connection.CreateChannelAsync(cancellationToken: cancellationToken);
+        _isConnected = true;
+
+        await SetupTopologyAsync(_channel, cancellationToken);
+
+        await base.StartAsync(cancellationToken);
+    }
+
+    public override async Task StopAsync(CancellationToken cancellationToken)
+    {
+        if (_channel != null)
+        {
+            await CloseChannelAsync(_channel);
+        }
+
+        await base.StopAsync(cancellationToken);
+    }
+
+    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    {
         while (!stoppingToken.IsCancellationRequested)
         {
             try
             {
-                await ConnectAndConsumeAsync(stoppingToken);
+                if (!_isConnected || _channel == null || !_channel.IsOpen)
+                {
+                    _connection = await connectionManager.GetConnectionAsync(broker);
+                    _channel = await _connection.CreateChannelAsync(cancellationToken: stoppingToken);
+                    _isConnected = true;
+                    await SetupTopologyAsync(_channel, stoppingToken);
+                }
+
+                await ConsumeAsync(_channel, stoppingToken);
             }
-            catch (Exception ex)
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+            {
+                // Normal exit
+            }
+            catch (Exception)
             {
                 _isConnected = false;
+                if (_channel != null)
+                {
+                    await CloseChannelAsync(_channel);
+                    _channel = null;
+                }
                 // Log exception if possible, or just wait before retry
                 await Task.Delay(5000, stoppingToken);
             }
@@ -85,32 +125,26 @@ public class RabbitMqConsumerHost<TConsumer>(
         _pipeline = next;
     }
 
-    private async Task ConnectAndConsumeAsync(CancellationToken stoppingToken)
+    private async Task ConsumeAsync(IChannel channel, CancellationToken stoppingToken)
     {
-        var connection = await connectionManager.GetConnectionAsync(broker);
-        var channel = await connection.CreateChannelAsync(cancellationToken: stoppingToken);
-        _isConnected = true;
+        var consumer = new AsyncEventingBasicConsumer(channel);
+        consumer.ReceivedAsync += (_, ea) => 
+            HandleMessageAsync(channel, ea, stoppingToken);
 
-        try
+        foreach (var attr in queueAttributes)
         {
-            await SetupTopologyAsync(channel, stoppingToken);
-
-            var consumer = new AsyncEventingBasicConsumer(channel);
-            consumer.ReceivedAsync += (_, ea) => 
-                HandleMessageAsync(channel, ea, stoppingToken);
-
-            foreach (var attr in queueAttributes)
-            {
-                await channel.BasicConsumeAsync(queue: attr.Name, autoAck: false, consumer: consumer, cancellationToken: stoppingToken);
-            }
-
-            await Task.Delay(Timeout.Infinite, stoppingToken);
+            await channel.BasicConsumeAsync(
+                queue: attr.Name,
+                autoAck: false,
+                consumerTag: string.Empty,
+                noLocal: false,
+                exclusive: false,
+                arguments: null,
+                consumer: consumer,
+                cancellationToken: stoppingToken);
         }
-        finally
-        {
-            _isConnected = false;
-            await CloseChannelAsync(channel);
-        }
+
+        await Task.Delay(Timeout.Infinite, stoppingToken);
     }
 
     private async Task SetupTopologyAsync(IChannel channel, CancellationToken stoppingToken)
@@ -122,6 +156,9 @@ public class RabbitMqConsumerHost<TConsumer>(
                 durable: true,
                 exclusive: false,
                 autoDelete: false,
+                arguments: null,
+                passive: false,
+                noWait: false,
                 cancellationToken: stoppingToken);
 
             if (string.IsNullOrEmpty(attr.Exchange)) continue;
@@ -131,12 +168,17 @@ public class RabbitMqConsumerHost<TConsumer>(
                 type: "topic",
                 durable: true,
                 autoDelete: false,
+                arguments: null,
+                passive: false,
+                noWait: false,
                 cancellationToken: stoppingToken);
 
             await channel.QueueBindAsync(
                 queue: attr.Name,
                 exchange: attr.Exchange,
                 routingKey: attr.RoutingKey,
+                arguments: null,
+                noWait: false,
                 cancellationToken: stoppingToken);
         }
     }
@@ -161,7 +203,7 @@ public class RabbitMqConsumerHost<TConsumer>(
             await _channelLock.WaitAsync(stoppingToken);
             try
             {
-                await channel.BasicAckAsync(ea.DeliveryTag, false, stoppingToken);
+                await channel.BasicAckAsync(ea.DeliveryTag, false, cancellationToken: stoppingToken);
             }
             finally
             {
@@ -173,7 +215,7 @@ public class RabbitMqConsumerHost<TConsumer>(
             await _channelLock.WaitAsync(stoppingToken);
             try
             {
-                await channel.BasicNackAsync(ea.DeliveryTag, false, true, stoppingToken);
+                await channel.BasicNackAsync(ea.DeliveryTag, false, true, cancellationToken: stoppingToken);
             }
             finally
             {
@@ -189,12 +231,9 @@ public class RabbitMqConsumerHost<TConsumer>(
             return _handlerMethods.Keys.FirstOrDefault(k => k.Name == ea.BasicProperties.Type);
         }
 
-        if (_handlerMethods.Count == 1)
-        {
-            return _handlerMethods.Keys.First();
-        }
-
-        return _handlerMethods.Keys.FirstOrDefault();
+        return _handlerMethods.Count == 1 
+            ? _handlerMethods.Keys.First() 
+            : _handlerMethods.Keys.FirstOrDefault();
     }
 
     private async Task CloseChannelAsync(IChannel channel)
@@ -204,7 +243,7 @@ public class RabbitMqConsumerHost<TConsumer>(
         {
             if (channel.IsOpen)
             {
-                await channel.CloseAsync();
+                await channel.CloseAsync(cancellationToken: CancellationToken.None);
             }
         }
         catch
@@ -220,6 +259,7 @@ public class RabbitMqConsumerHost<TConsumer>(
 
     public override void Dispose()
     {
+        _channel?.Dispose();
         _channelLock.Dispose();
         base.Dispose();
     }
