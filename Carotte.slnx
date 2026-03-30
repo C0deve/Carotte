@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="Carotte/Carotte.csproj" />
+  <Project Path="Carotte.Benchmarks/Carotte.Benchmarks.csproj" />
+  <Project Path="Carotte.Sample/Carotte.Sample.csproj" />
+  <Project Path="Carotte.Tests/Carotte.Tests.csproj" />
+</Solution>
