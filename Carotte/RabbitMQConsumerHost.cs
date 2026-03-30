@@ -1,13 +1,15 @@
-using System.Diagnostics;
 using System.Reflection;
-using System.Text;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using OpenTelemetry.Context.Propagation;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
 
 namespace Carotte;
+
+public static class RabbitMqConsumerHost
+{
+    public static readonly TextMapPropagator Propagator = Propagators.DefaultTextMapPropagator;
+}
 
 public class RabbitMqConsumerHost<TConsumer>(
     IServiceProvider serviceProvider,
@@ -19,13 +21,33 @@ public class RabbitMqConsumerHost<TConsumer>(
     : BackgroundService
     where TConsumer : class
 {
-    private static readonly TextMapPropagator Propagator = Propagators.DefaultTextMapPropagator;
-    private readonly SemaphoreSlim _channelLock = new(1, 1);
     private readonly Dictionary<Type, MethodInfo> _handlerMethods = new();
+    private readonly SemaphoreSlim _channelLock = new(1, 1);
+    private bool _isConnected;
+    private ConsumerDelegate? _pipeline;
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        // On récupère toutes les interfaces IConsumer<T> implémentées par TConsumer
+        InitializeHandlers();
+        BuildPipeline();
+
+        while (!stoppingToken.IsCancellationRequested)
+        {
+            try
+            {
+                await ConnectAndConsumeAsync(stoppingToken);
+            }
+            catch (Exception ex)
+            {
+                _isConnected = false;
+                // Log exception if possible, or just wait before retry
+                await Task.Delay(5000, stoppingToken);
+            }
+        }
+    }
+
+    private void InitializeHandlers()
+    {
         var consumerInterfaces = typeof(TConsumer).GetInterfaces()
             .Where(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(IConsumer<>))
             .ToList();
@@ -39,11 +61,60 @@ public class RabbitMqConsumerHost<TConsumer>(
                 _handlerMethods[messageType] = method;
             }
         }
+    }
 
+    private void BuildPipeline()
+    {
+        var middlewares = new List<IConsumerMiddleware>
+        {
+            new MetricsMiddleware(),
+            new TracingMiddleware(),
+            new DeserializationMiddleware(serializer),
+            new ConsumerInvocationMiddleware<TConsumer>(serviceProvider, _handlerMethods)
+        };
+
+        ConsumerDelegate next = _ => Task.CompletedTask;
+
+        for (var i = middlewares.Count - 1; i >= 0; i--)
+        {
+            var middleware = middlewares[i];
+            var currentNext = next;
+            next = context => middleware.InvokeAsync(context, currentNext);
+        }
+
+        _pipeline = next;
+    }
+
+    private async Task ConnectAndConsumeAsync(CancellationToken stoppingToken)
+    {
         var connection = await connectionManager.GetConnectionAsync(broker);
         var channel = await connection.CreateChannelAsync(cancellationToken: stoppingToken);
+        _isConnected = true;
 
-        // Déclaration de la topologie (si exchange spécifié dans l'attribut)
+        try
+        {
+            await SetupTopologyAsync(channel, stoppingToken);
+
+            var consumer = new AsyncEventingBasicConsumer(channel);
+            consumer.ReceivedAsync += (_, ea) => 
+                HandleMessageAsync(channel, ea, stoppingToken);
+
+            foreach (var attr in queueAttributes)
+            {
+                await channel.BasicConsumeAsync(queue: attr.Name, autoAck: false, consumer: consumer, cancellationToken: stoppingToken);
+            }
+
+            await Task.Delay(Timeout.Infinite, stoppingToken);
+        }
+        finally
+        {
+            _isConnected = false;
+            await CloseChannelAsync(channel);
+        }
+    }
+
+    private async Task SetupTopologyAsync(IChannel channel, CancellationToken stoppingToken)
+    {
         foreach (var attr in queueAttributes)
         {
             await channel.QueueDeclareAsync(
@@ -53,147 +124,103 @@ public class RabbitMqConsumerHost<TConsumer>(
                 autoDelete: false,
                 cancellationToken: stoppingToken);
 
-            if (!string.IsNullOrEmpty(attr.Exchange))
-            {
-                await channel.ExchangeDeclareAsync(
-                    exchange: attr.Exchange,
-                    type: "topic", // Par défaut topic pour la flexibilité
-                    durable: true,
-                    autoDelete: false,
-                    cancellationToken: stoppingToken);
+            if (string.IsNullOrEmpty(attr.Exchange)) continue;
+            
+            await channel.ExchangeDeclareAsync(
+                exchange: attr.Exchange,
+                type: "topic",
+                durable: true,
+                autoDelete: false,
+                cancellationToken: stoppingToken);
 
-                await channel.QueueBindAsync(
-                    queue: attr.Name,
-                    exchange: attr.Exchange,
-                    routingKey: attr.RoutingKey,
-                    cancellationToken: stoppingToken);
-            }
+            await channel.QueueBindAsync(
+                queue: attr.Name,
+                exchange: attr.Exchange,
+                routingKey: attr.RoutingKey,
+                cancellationToken: stoppingToken);
         }
+    }
 
-        var consumer = new AsyncEventingBasicConsumer(channel);
-        consumer.ReceivedAsync += async (model, ea) =>
+    private async Task HandleMessageAsync(IChannel channel, BasicDeliverEventArgs ea, CancellationToken stoppingToken)
+    {
+        var targetMessageType = ResolveMessageType(ea);
+        if (targetMessageType == null) return;
+
+        var context = new ConsumerContext(channel, ea, stoppingToken)
         {
-            var parentContext = Propagator.Extract(default, ea.BasicProperties, (props, key) =>
-            {
-                if (props.Headers != null && props.Headers.TryGetValue(key, out var value))
-                {
-                    if (value is byte[] bytes) return [Encoding.UTF8.GetString(bytes)];
-                    return [value?.ToString() ?? string.Empty];
-                }
-                return [];
-            });
-
-            // On essaie de déterminer le type de message. 
-            // Pour l'instant, on suppose que le type est stocké dans les headers ou on essaie de matcher avec les interfaces.
-            // Une approche simple est d'essayer de désérialiser dans chaque type géré, mais c'est inefficace.
-            // On va utiliser le nom du type complet comme discriminant par défaut dans les headers si présent, 
-            // sinon on prend le premier type géré (comportement par défaut si un seul type).
-            
-            Type? targetMessageType = null;
-            if (ea.BasicProperties.Type != null && _handlerMethods.Keys.Any(k => k.Name == ea.BasicProperties.Type))
-            {
-                 targetMessageType = _handlerMethods.Keys.FirstOrDefault(k => k.Name == ea.BasicProperties.Type);
-            }
-            
-            if (targetMessageType == null && _handlerMethods.Count == 1)
-            {
-                targetMessageType = _handlerMethods.Keys.First();
-            }
-
-            if (targetMessageType == null)
-            {
-                // On peut aussi essayer de regarder le routing key ou d'autres headers
-                // Pour cet exercice, on va prendre le premier si non spécifié
-                targetMessageType = _handlerMethods.Keys.FirstOrDefault();
-            }
-
-            if (targetMessageType == null) return;
-
-            using var activity = CarotteDiagnostics.ActivitySource.StartActivity(
-                $"Consume {targetMessageType.Name}", 
-                ActivityKind.Consumer,
-                parentContext.ActivityContext);
-
-            activity?.SetTag("messaging.system", "rabbitmq");
-            activity?.SetTag("messaging.destination", ea.RoutingKey);
-            activity?.SetTag("messaging.destination_kind", "queue");
-            activity?.SetTag("messaging.rabbitmq.routing_key", ea.RoutingKey);
-
-            var stopwatch = Stopwatch.StartNew();
-            try
-            {
-                var body = ea.Body.ToArray();
-                var deserializeMethod = serializer.GetType().GetMethod(nameof(ISerializer.Deserialize))?.MakeGenericMethod(targetMessageType);
-                var message = deserializeMethod?.Invoke(serializer, [body]);
-
-                if (message != null)
-                {
-                    var handler = serviceProvider.GetRequiredService<TConsumer>();
-                    var task = (Task?)_handlerMethods[targetMessageType].Invoke(handler, [message, stoppingToken]);
-                    if (task != null) await task;
-                }
-
-                await _channelLock.WaitAsync(stoppingToken);
-                try
-                {
-                    await channel.BasicAckAsync(ea.DeliveryTag, false, stoppingToken);
-                }
-                finally
-                {
-                    _channelLock.Release();
-                }
-                CarotteDiagnostics.MessagesConsumedCounter.Add(1, new KeyValuePair<string, object?>("queue", ea.RoutingKey));
-            }
-            catch (Exception ex)
-            {
-                activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
-                CarotteDiagnostics.MessageErrorsCounter.Add(1, new KeyValuePair<string, object?>("queue", ea.RoutingKey));
-                
-                await _channelLock.WaitAsync(stoppingToken);
-                try
-                {
-                    await channel.BasicNackAsync(ea.DeliveryTag, false, true, stoppingToken);
-                }
-                finally
-                {
-                    _channelLock.Release();
-                }
-            }
-            finally
-            {
-                stopwatch.Stop();
-                CarotteDiagnostics.MessageProcessingDuration.Record(stopwatch.Elapsed.TotalMilliseconds, new KeyValuePair<string, object?>("queue", ea.RoutingKey));
-            }
+            MessageType = targetMessageType
         };
-
-        foreach (var attr in queueAttributes)
-        {
-            await channel.BasicConsumeAsync(queue: attr.Name, autoAck: false, consumer: consumer, cancellationToken: stoppingToken);
-        }
 
         try
         {
-            await Task.Delay(Timeout.Infinite, stoppingToken);
-        }
-        catch (OperationCanceledException)
-        {
-        }
-        finally
-        {
-            await _channelLock.WaitAsync(CancellationToken.None);
+            if (_pipeline != null)
+            {
+                await _pipeline(context);
+            }
+
+            await _channelLock.WaitAsync(stoppingToken);
             try
             {
-                if (channel.IsOpen)
-                {
-                    await channel.CloseAsync();
-                }
+                await channel.BasicAckAsync(ea.DeliveryTag, false, stoppingToken);
             }
             finally
             {
                 _channelLock.Release();
             }
-            channel.Dispose();
-            _channelLock.Dispose();
         }
+        catch (Exception)
+        {
+            await _channelLock.WaitAsync(stoppingToken);
+            try
+            {
+                await channel.BasicNackAsync(ea.DeliveryTag, false, true, stoppingToken);
+            }
+            finally
+            {
+                _channelLock.Release();
+            }
+        }
+    }
+
+    private Type? ResolveMessageType(BasicDeliverEventArgs ea)
+    {
+        if (ea.BasicProperties.Type != null && _handlerMethods.Keys.Any(k => k.Name == ea.BasicProperties.Type))
+        {
+            return _handlerMethods.Keys.FirstOrDefault(k => k.Name == ea.BasicProperties.Type);
+        }
+
+        if (_handlerMethods.Count == 1)
+        {
+            return _handlerMethods.Keys.First();
+        }
+
+        return _handlerMethods.Keys.FirstOrDefault();
+    }
+
+    private async Task CloseChannelAsync(IChannel channel)
+    {
+        await _channelLock.WaitAsync(CancellationToken.None);
+        try
+        {
+            if (channel.IsOpen)
+            {
+                await channel.CloseAsync();
+            }
+        }
+        catch
+        {
+            // Ignore errors during close
+        }
+        finally
+        {
+            _channelLock.Release();
+        }
+        channel.Dispose();
+    }
+
+    public override void Dispose()
+    {
+        _channelLock.Dispose();
+        base.Dispose();
     }
 }
