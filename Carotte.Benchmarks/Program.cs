@@ -1,6 +1,5 @@
 ﻿using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Running;
-using Carotte;
 
 namespace Carotte.Benchmarks;
 

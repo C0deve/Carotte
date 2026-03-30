@@ -1,6 +1,5 @@
 ﻿using Moq;
 using RabbitMQ.Client;
-using Shouldly;
 
 namespace Carotte.Tests;
 
