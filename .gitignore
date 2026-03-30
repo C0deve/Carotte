@@ -1,5 +1,12 @@
+# [BUILD]
 bin/
 obj/
+
+# [IDE]
+.idea/
+*.sln.DotSettings.user
+
+# [CACHE]
 /packages/
 riderModule.iml
 /_ReSharper.Caches/
