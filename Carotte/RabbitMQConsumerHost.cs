@@ -6,11 +6,6 @@ using RabbitMQ.Client.Events;
 
 namespace Carotte;
 
-public static class RabbitMqConsumerHost
-{
-    public static readonly TextMapPropagator Propagator = Propagators.DefaultTextMapPropagator;
-}
-
 public sealed class RabbitMqConsumerHost<TConsumer>(
     IServiceProvider serviceProvider,
     IConnectionManager connectionManager,

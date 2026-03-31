@@ -94,7 +94,6 @@ public class RabbitMqConsumerHostTests
         channel.Verify(c => c.Dispose(), Times.Once);
     }
 
-    public class TestMessage { }
     public class TestConsumer : IConsumer<TestMessage>
     {
         public Task HandleAsync(TestMessage message, CancellationToken cancellationToken) => Task.CompletedTask;

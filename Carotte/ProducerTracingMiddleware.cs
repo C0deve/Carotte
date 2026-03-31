@@ -1,0 +1,41 @@
+﻿using System.Diagnostics;
+using OpenTelemetry;
+using OpenTelemetry.Context.Propagation;
+using RabbitMQ.Client;
+
+namespace Carotte;
+
+public class ProducerTracingMiddleware<TMessage> : IProducerMiddleware<TMessage> where TMessage : class
+{
+    public async Task InvokeAsync(ProducerContext<TMessage> context, ProducerDelegate<TMessage> next)
+    {
+        using var activity = CarotteDiagnostics.ActivitySource.StartActivity($"Produce {context.RoutingKey}", ActivityKind.Producer);
+        activity?.SetTag("messaging.system", "rabbitmq");
+        activity?.SetTag("messaging.destination", context.Exchange);
+        activity?.SetTag("messaging.destination_kind", "exchange");
+        activity?.SetTag("messaging.rabbitmq.routing_key", context.RoutingKey);
+
+        try
+        {
+            context.Properties ??= new BasicProperties();
+            context.Properties.Type = context.RoutingKey;
+
+            if (activity != null)
+            {
+                var propagationContext = new PropagationContext(activity.Context, Baggage.Current);
+                CarotteDiagnostics.Propagator.Inject(propagationContext, context.Properties, (props, key, value) =>
+                {
+                    props.Headers ??= new Dictionary<string, object?>();
+                    props.Headers[key] = value;
+                });
+            }
+
+            await next(context);
+        }
+        catch (Exception ex)
+        {
+            activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
+            throw;
+        }
+    }
+}

@@ -99,7 +99,7 @@ public class CarotteBuilder
         return this;
     }
 
-    public CarotteBuilder AddProducer<TMessage>(string broker, string exchange)
+    public CarotteBuilder AddProducer<TMessage>(string broker, string exchange) where TMessage : class
     {
         ProducerConfigs.Add((typeof(TMessage), broker, exchange));
         return this;

@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Diagnostics.Metrics;
+using OpenTelemetry.Context.Propagation;
 
 namespace Carotte;
 
@@ -8,6 +9,7 @@ public static class CarotteDiagnostics
     public const string ServiceName = "Carotte";
     public static readonly ActivitySource ActivitySource = new(ServiceName);
     public static readonly Meter Meter = new(ServiceName);
+    public static readonly TextMapPropagator Propagator = Propagators.DefaultTextMapPropagator;
 
     public static readonly Counter<long> MessagesConsumedCounter = Meter.CreateCounter<long>("carotte_messages_consumed", description: "Number of messages consumed");
     public static readonly Counter<long> MessagesProducedCounter = Meter.CreateCounter<long>("carotte_messages_produced", description: "Number of messages produced");
