@@ -1,7 +1,7 @@
 ﻿using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
 
-namespace Carotte;
+namespace Carotte.pipeline;
 
 public record ConsumerContext(
     IChannel Channel,

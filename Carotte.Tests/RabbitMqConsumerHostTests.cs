@@ -14,10 +14,10 @@ public class RabbitMqConsumerHostTests
         var serializer = new Mock<ISerializer>();
         var topologyManager = new Mock<ITopologyManager>();
         var broker = "test-broker";
-        var queueAttributes = new List<QueueAttribute>
-        {
+        List<QueueAttribute> queueAttributes =
+        [
             new("test-queue", "test-broker", "test-exchange", "test-key")
-        };
+        ];
 
         var connection = new Mock<IConnection>();
         var channel = new Mock<IChannel>();
@@ -66,7 +66,7 @@ public class RabbitMqConsumerHostTests
         var serializer = new Mock<ISerializer>();
         var topologyManager = new Mock<ITopologyManager>();
         var broker = "test-broker";
-        var queueAttributes = new List<QueueAttribute>();
+        List<QueueAttribute> queueAttributes = [];
         
         var connection = new Mock<IConnection>();
         var channel = new Mock<IChannel>();

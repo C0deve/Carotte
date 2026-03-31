@@ -1,4 +1,4 @@
-﻿namespace Carotte;
+﻿namespace Carotte.pipeline;
 
 public class DeserializationMiddleware(ISerializer serializer) : IConsumerMiddleware
 {

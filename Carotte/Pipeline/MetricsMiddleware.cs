@@ -1,6 +1,6 @@
 ﻿using System.Diagnostics;
 
-namespace Carotte;
+namespace Carotte.pipeline;
 
 public class MetricsMiddleware : IConsumerMiddleware
 {

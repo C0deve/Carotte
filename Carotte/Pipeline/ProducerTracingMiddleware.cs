@@ -3,7 +3,7 @@ using OpenTelemetry;
 using OpenTelemetry.Context.Propagation;
 using RabbitMQ.Client;
 
-namespace Carotte;
+namespace Carotte.pipeline;
 
 public class ProducerTracingMiddleware<TMessage> : IProducerMiddleware<TMessage> where TMessage : class
 {

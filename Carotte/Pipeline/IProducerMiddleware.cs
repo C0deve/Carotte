@@ -1,6 +1,6 @@
 ﻿using RabbitMQ.Client;
 
-namespace Carotte;
+namespace Carotte.pipeline;
 
 public record ProducerContext<TMessage>(
     TMessage Message,

@@ -1,8 +1,8 @@
 using System.Reflection;
 using Microsoft.Extensions.Hosting;
-using OpenTelemetry.Context.Propagation;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
+using Carotte.pipeline;
 
 namespace Carotte;
 
@@ -16,10 +16,10 @@ public sealed class RabbitMqConsumerHost<TConsumer>(
     : BackgroundService
     where TConsumer : class
 {
-    private readonly Dictionary<Type, MethodInfo> _handlerMethods = new();
+    private readonly Dictionary<Type, MethodInfo> _handlerMethods = [];
     private readonly SemaphoreSlim _channelLock = new(1, 1);
     private bool _isConnected;
-    private ConsumerDelegate? _pipeline;
+    private ConsumerPipeline? _pipeline;
     private IConnection? _connection;
     private IChannel? _channel;
 
@@ -90,7 +90,7 @@ public sealed class RabbitMqConsumerHost<TConsumer>(
         foreach (var i in consumerInterfaces)
         {
             var messageType = i.GetGenericArguments()[0];
-            var method = i.GetMethod(nameof(IConsumer<object>.HandleAsync));
+            var method = i.GetMethod(nameof(IConsumer<>.HandleAsync));
             if (method != null)
             {
                 _handlerMethods[messageType] = method;
@@ -100,24 +100,12 @@ public sealed class RabbitMqConsumerHost<TConsumer>(
 
     private void BuildPipeline()
     {
-        var middlewares = new List<IConsumerMiddleware>
-        {
-            new MetricsMiddleware(),
-            new TracingMiddleware(),
-            new DeserializationMiddleware(serializer),
-            new ConsumerInvocationMiddleware<TConsumer>(serviceProvider, _handlerMethods)
-        };
-
-        ConsumerDelegate next = _ => Task.CompletedTask;
-
-        for (var i = middlewares.Count - 1; i >= 0; i--)
-        {
-            var middleware = middlewares[i];
-            var currentNext = next;
-            next = context => middleware.InvokeAsync(context, currentNext);
-        }
-
-        _pipeline = next;
+        _pipeline = new ConsumerPipelineBuilder()
+            .Use(new MetricsMiddleware())
+            .Use(new TracingMiddleware())
+            .Use(new DeserializationMiddleware(serializer))
+            .Use(new ConsumerInvocationMiddleware<TConsumer>(serviceProvider, _handlerMethods))
+            .Build();
     }
 
     private async Task ConsumeAsync(IChannel channel, CancellationToken stoppingToken)
@@ -192,7 +180,7 @@ public sealed class RabbitMqConsumerHost<TConsumer>(
         {
             if (_pipeline != null)
             {
-                await _pipeline(context);
+                await _pipeline.ExecuteAsync(context);
             }
 
             await _channelLock.WaitAsync(stoppingToken);

@@ -1,7 +1,7 @@
 ﻿using System.Reflection;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Carotte;
+namespace Carotte.pipeline;
 
 public class ConsumerInvocationMiddleware<TConsumer>(IServiceProvider serviceProvider, Dictionary<Type, MethodInfo> handlerMethods) : IConsumerMiddleware
     where TConsumer : class

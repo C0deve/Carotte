@@ -1,6 +1,6 @@
 ﻿using RabbitMQ.Client;
 
-namespace Carotte;
+namespace Carotte.pipeline;
 
 public class RabbitMqPublishMiddleware<TMessage>(IConnectionManager connectionManager, string broker) : IProducerMiddleware<TMessage> where TMessage : class
 {

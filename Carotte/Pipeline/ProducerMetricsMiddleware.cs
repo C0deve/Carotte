@@ -1,4 +1,4 @@
-﻿namespace Carotte;
+﻿namespace Carotte.pipeline;
 
 public class ProducerMetricsMiddleware<TMessage> : IProducerMiddleware<TMessage> where TMessage : class
 {

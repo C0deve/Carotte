@@ -81,9 +81,9 @@ public static class ServiceCollectionExtensions
 public class CarotteBuilder
 {
     public IServiceCollection Services { get; }
-    public Dictionary<string, RabbitMqOptions> Brokers { get; } = new();
+    public Dictionary<string, RabbitMqOptions> Brokers { get; } = [];
     public List<Assembly> Assemblies { get; } = [];
-    public Dictionary<Type, (string Broker, string Queue)> ConsumerConfigs { get; } = new();
+    public Dictionary<Type, (string Broker, string Queue)> ConsumerConfigs { get; } = [];
     public List<(Type MessageType, string Broker, string Exchange)> ProducerConfigs { get; } = [];
     public Uri? OtlpEndpoint { get; private set; }
 
