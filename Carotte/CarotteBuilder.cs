@@ -38,31 +38,34 @@ public static class ServiceCollectionExtensions
                 }
             });
 
-        // Enregistrement automatique des consommateurs
-        var consumerTypes = builder.Assemblies
-            .SelectMany(a => a.GetTypes())
-            .Where(t => !t.IsAbstract && t.GetInterfaces().Any(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(IConsumer<>)));
+                // Enregistrement automatique des consommateurs
+                var consumerTypes = builder.Assemblies
+                    .SelectMany(a => a.GetTypes())
+                    .Where(t => !t.IsAbstract && t.GetInterfaces().Any(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(IConsumer<>)));
 
-        foreach (var consumerType in consumerTypes)
-        {
-            // On enregistre le consommateur lui-même en tant que Singleton selon les instructions
-            services.AddSingleton(consumerType);
+                foreach (var consumerType in consumerTypes)
+                {
+                    // On enregistre le consommateur lui-même en tant que Singleton selon les instructions
+                    services.AddSingleton(consumerType);
 
-            // Récupération de la configuration via attribut ou configuration explicite
-            var queueAttrs = consumerType.GetCustomAttributes<QueueAttribute>().ToList();
-            
-            if (builder.ConsumerConfigs.TryGetValue(consumerType, out var config))
-            {
-                // Priorité à la configuration explicite si présente
-                queueAttrs = [new QueueAttribute(config.Queue, config.Broker)];
+                    // Enregistrement du médiateur pour le consommateur
+                    services.AddTransient<ConsumerMediator>();
+
+                    // Récupération de la configuration via attribut ou configuration explicite
+                var queueAttrs = consumerType.GetCustomAttributes<QueueAttribute>().ToList();
+                
+                if (builder.ConsumerConfigs.TryGetValue(consumerType, out var config))
+                {
+                    // Priorité à la configuration explicite si présente
+                    queueAttrs = [new QueueAttribute(config.Queue, config.Broker)];
+                }
+
+                if (!queueAttrs.Any()) 
+                    continue;
+                var broker = queueAttrs.First().Broker;
+                services.AddSingleton(typeof(IHostedService), sp => 
+                    ActivatorUtilities.CreateInstance(sp, typeof(RabbitMqConsumerHost<>).MakeGenericType(consumerType), broker, queueAttrs));
             }
-
-            if (!queueAttrs.Any()) 
-                continue;
-            var broker = queueAttrs.First().Broker;
-            services.AddSingleton(typeof(IHostedService), sp => 
-                ActivatorUtilities.CreateInstance(sp, typeof(RabbitMqConsumerHost<>).MakeGenericType(consumerType), broker, queueAttrs));
-        }
 
         // Enregistrement des producteurs
         foreach (var prodConfig in builder.ProducerConfigs)

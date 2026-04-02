@@ -1,10 +1,8 @@
-﻿using RabbitMQ.Client;
-using RabbitMQ.Client.Events;
+﻿using RabbitMQ.Client.Events;
 
 namespace Carotte.pipeline;
 
 public record ConsumerContext(
-    IChannel Channel,
     BasicDeliverEventArgs DeliveryArgs,
     CancellationToken CancellationToken = default,
     object? Message = null,

@@ -12,7 +12,6 @@ public class RabbitMqConsumerHostTests
         var serviceProvider = new Mock<IServiceProvider>();
         var connectionManager = new Mock<IConnectionManager>();
         var serializer = new Mock<ISerializer>();
-        var topologyManager = new Mock<ITopologyManager>();
         var broker = "test-broker";
         List<QueueAttribute> queueAttributes =
         [
@@ -28,11 +27,11 @@ public class RabbitMqConsumerHostTests
             .ReturnsAsync(channel.Object);
         channel.Setup(c => c.IsOpen).Returns(true);
 
+        var mediator = new ConsumerMediator(serviceProvider.Object);
         var host = new RabbitMqConsumerHost<TestConsumer>(
-            serviceProvider.Object,
+            mediator,
             connectionManager.Object,
             serializer.Object,
-            topologyManager.Object,
             broker,
             queueAttributes);
 
@@ -64,7 +63,6 @@ public class RabbitMqConsumerHostTests
         var serviceProvider = new Mock<IServiceProvider>();
         var connectionManager = new Mock<IConnectionManager>();
         var serializer = new Mock<ISerializer>();
-        var topologyManager = new Mock<ITopologyManager>();
         var broker = "test-broker";
         List<QueueAttribute> queueAttributes = [];
         
@@ -76,11 +74,11 @@ public class RabbitMqConsumerHostTests
         connection.Setup(c => c.CreateChannelAsync(It.IsAny<CreateChannelOptions>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(channel.Object);
 
+        var mediator = new ConsumerMediator(serviceProvider.Object);
         var host = new RabbitMqConsumerHost<TestConsumer>(
-            serviceProvider.Object,
+            mediator,
             connectionManager.Object,
             serializer.Object,
-            topologyManager.Object,
             broker,
             queueAttributes);
 

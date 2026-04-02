@@ -1,4 +1,3 @@
-using System.Reflection;
 using Microsoft.Extensions.Hosting;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
@@ -7,16 +6,14 @@ using Carotte.pipeline;
 namespace Carotte;
 
 public sealed class RabbitMqConsumerHost<TConsumer>(
-    IServiceProvider serviceProvider,
+    ConsumerMediator mediator,
     IConnectionManager connectionManager,
     ISerializer serializer,
-    ITopologyManager topologyManager,
     string broker,
     IEnumerable<QueueAttribute> queueAttributes)
     : BackgroundService
     where TConsumer : class
 {
-    private readonly Dictionary<Type, MethodInfo> _handlerMethods = [];
     private readonly SemaphoreSlim _channelLock = new(1, 1);
     private bool _isConnected;
     private ConsumerPipeline? _pipeline;
@@ -25,7 +22,7 @@ public sealed class RabbitMqConsumerHost<TConsumer>(
 
     public override async Task StartAsync(CancellationToken cancellationToken)
     {
-        InitializeHandlers();
+        mediator.Initialize<TConsumer>();
         BuildPipeline();
 
         _connection = await connectionManager.GetConnectionAsync(broker);
@@ -81,21 +78,11 @@ public sealed class RabbitMqConsumerHost<TConsumer>(
         }
     }
 
-    private void InitializeHandlers()
+    public override void Dispose()
     {
-        var consumerInterfaces = typeof(TConsumer).GetInterfaces()
-            .Where(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(IConsumer<>))
-            .ToList();
-
-        foreach (var i in consumerInterfaces)
-        {
-            var messageType = i.GetGenericArguments()[0];
-            var method = i.GetMethod(nameof(IConsumer<>.HandleAsync));
-            if (method != null)
-            {
-                _handlerMethods[messageType] = method;
-            }
-        }
+        _channel?.Dispose();
+        _channelLock.Dispose();
+        base.Dispose();
     }
 
     private void BuildPipeline()
@@ -104,7 +91,7 @@ public sealed class RabbitMqConsumerHost<TConsumer>(
             .Use(new MetricsMiddleware())
             .Use(new TracingMiddleware())
             .Use(new DeserializationMiddleware(serializer))
-            .Use(new ConsumerInvocationMiddleware<TConsumer>(serviceProvider, _handlerMethods))
+            .Use(new ConsumerInvocationMiddleware(mediator))
             .Build();
     }
 
@@ -168,10 +155,10 @@ public sealed class RabbitMqConsumerHost<TConsumer>(
 
     private async Task HandleMessageAsync(IChannel channel, BasicDeliverEventArgs ea, CancellationToken stoppingToken)
     {
-        var targetMessageType = ResolveMessageType(ea);
+        var targetMessageType = mediator.ResolveMessageType(ea);
         if (targetMessageType == null) return;
 
-        var context = new ConsumerContext(channel, ea, stoppingToken)
+        var context = new ConsumerContext(ea, stoppingToken)
         {
             MessageType = targetMessageType
         };
@@ -207,18 +194,6 @@ public sealed class RabbitMqConsumerHost<TConsumer>(
         }
     }
 
-    private Type? ResolveMessageType(BasicDeliverEventArgs ea)
-    {
-        if (ea.BasicProperties.Type != null && _handlerMethods.Keys.Any(k => k.Name == ea.BasicProperties.Type))
-        {
-            return _handlerMethods.Keys.FirstOrDefault(k => k.Name == ea.BasicProperties.Type);
-        }
-
-        return _handlerMethods.Count == 1 
-            ? _handlerMethods.Keys.First() 
-            : _handlerMethods.Keys.FirstOrDefault();
-    }
-
     private async Task CloseChannelAsync(IChannel channel)
     {
         await _channelLock.WaitAsync(CancellationToken.None);
@@ -238,12 +213,5 @@ public sealed class RabbitMqConsumerHost<TConsumer>(
             _channelLock.Release();
         }
         channel.Dispose();
-    }
-
-    public override void Dispose()
-    {
-        _channel?.Dispose();
-        _channelLock.Dispose();
-        base.Dispose();
     }
 }
