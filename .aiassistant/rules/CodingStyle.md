@@ -2,7 +2,9 @@
 apply: always
 ---
 
-📝 1. C# Coding Style (dotnet/runtime)
+use english
+
+📝1. C# Coding Style (dotnet/runtime)
 The dotnet/runtime repository defines the standard coding style used by the .NET team, which is the "de facto" standard for modern .NET projects:
 •
 Braces: Allman style (braces on a new line).
@@ -23,7 +25,15 @@ var usage: Generally discouraged unless the type is explicitly named on the righ
 •
 File Structure: Imports at the top, outside the namespace, sorted alphabetically (with System.* first).
 .
-use primary constructor if possible
+use primary constructor
+
+use collectin initializer
+
+use record, readonly preferably
+
+use expression body
+
+use immutability 
 
 🏗️ 2. Framework Design Guidelines
 These guidelines focus on API consistency and usability for libraries:
