@@ -3,10 +3,10 @@ using Carotte.Sample;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Configuration de Carotte
+// Carotte configuration
 builder.Services.AddCarotte(carotte =>
 {
-    // Configuration du broker RabbitMQ (utilise les valeurs par défaut si localhost)
+    // Configure RabbitMQ broker (uses default values if localhost)
     carotte.AddBroker("my-broker", options =>
     {
         options.Host = "localhost";
@@ -14,14 +14,14 @@ builder.Services.AddCarotte(carotte =>
         options.Password = "guest";
     });
 
-    // Enregistrement d'un producteur pour pouvoir envoyer des commandes de test
+    // Register a producer to be able to send test commands
     carotte.AddProducer<OrderCreatedMessage>("my-broker", "orders-exchange");
     carotte.AddProducer<NotificationMessage>("my-broker", "notifications-exchange");
 
-    // Scan automatique des consommateurs dans cet assembly
+    // Automatic consumer scan in this assembly
     carotte.AddAssemblies(typeof(Program).Assembly);
 
-    // Ajout d'un exportateur OTLP pour l'observabilité
+    // Add an OTLP exporter for observability
     carotte.AddOtlpExporter("http://localhost:4317");
 });
 
@@ -29,7 +29,7 @@ var app = builder.Build();
 
 app.MapGet("/", () => "Carotte Sample API is running. Use POST /order to simulate a message.");
 
-// Endpoint pour simuler l'envoi d'un message
+// Endpoint to simulate sending a message
 app.MapPost("/order", async (IProducer<OrderCreatedMessage> producer) =>
 {
     var order = new OrderCreatedMessage(Guid.NewGuid(), "Jean Dupont", 42.50m);
@@ -37,7 +37,7 @@ app.MapPost("/order", async (IProducer<OrderCreatedMessage> producer) =>
     return Results.Accepted(value: order);
 });
 
-// Endpoint pour simuler l'envoi d'une notification
+// Endpoint to simulate sending a notification
 app.MapPost("/notify", async (IProducer<NotificationMessage> producer) =>
 {
     var notification = new NotificationMessage(Guid.NewGuid(), "Votre commande est expédiée !", "client@example.com");

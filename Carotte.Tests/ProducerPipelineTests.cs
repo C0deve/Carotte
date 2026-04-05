@@ -27,9 +27,9 @@ public class ProducerPipelineTests
         customMiddleware.Setup(m => m.InvokeAsync(It.IsAny<ProducerContext<TestMessage>>(), It.IsAny<ProducerDelegate<TestMessage>>()))
             .Returns<ProducerContext<TestMessage>, ProducerDelegate<TestMessage>>((ctx, next) => next(ctx));
 
-        // Pour injecter un middleware personnalisé, on peut modifier RabbitMqProducer ou en créer un qui l'accepte.
-        // Actuellement, RabbitMqProducer construit ses propres middlewares en dur.
-        // Ajoutons un test qui vérifie que les middlewares par défaut sont bien exécutés.
+        // To inject a custom middleware, we can modify RabbitMqProducer or create one that accepts it.
+        // Currently, RabbitMqProducer constructs its own middlewares in a hardcoded way.
+        // Let's add a test that verifies that the default middlewares are correctly executed.
         
         var producer = new RabbitMqProducer<TestMessage>(
             connectionManagerMock.Object, 
@@ -41,7 +41,7 @@ public class ProducerPipelineTests
         await producer.SendAsync(message);
 
         // Assert
-        // Vérifie que le middleware de publication a été appelé (via le mock du canal)
+        // Verify that the publication middleware was called (via the channel mock)
         channelMock.Verify(c => c.BasicPublishAsync(
             "test-exchange",
             nameof(TestMessage),
@@ -50,7 +50,7 @@ public class ProducerPipelineTests
             It.IsAny<ReadOnlyMemory<byte>>(),
             It.IsAny<CancellationToken>()), Times.Once);
         
-        // Vérifie que la sérialisation a eu lieu
+        // Verify that serialization took place
         serializerMock.Verify(s => s.Serialize(message), Times.Once);
     }
 }

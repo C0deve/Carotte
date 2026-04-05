@@ -72,7 +72,7 @@ public sealed class RabbitMqConsumerHost<TConsumer>(
                     await CloseChannelAsync(_channel);
                     _channel = null;
                 }
-                // Log exception if possible, or just wait before retry
+                // Log exception if possible, or just wait before retrying
                 await Task.Delay(5000, stoppingToken);
             }
         }

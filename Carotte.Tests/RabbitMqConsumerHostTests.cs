@@ -51,8 +51,8 @@ public class RabbitMqConsumerHostTests
         channel.Verify(c => c.BasicConsumeAsync("test-queue", false, string.Empty, false, false, It.IsAny<IDictionary<string, object>?>(), It.IsAny<IAsyncBasicConsumer>(), It.IsAny<CancellationToken>()), Times.Once);
 
         await host.StopAsync(CancellationToken.None);
-        // On ne peut pas facilement vérifier CloseAsync via Moq car c'est une extension, 
-        // mais CloseChannelAsync appelle Dispose() à la fin.
+        // We cannot easily verify CloseAsync via Moq because it is an extension, 
+        // but CloseChannelAsync calls Dispose() at the end.
         channel.Verify(c => c.Dispose(), Times.Once);
     }
 
@@ -82,7 +82,7 @@ public class RabbitMqConsumerHostTests
             broker,
             queueAttributes);
 
-        // Initialiser le canal
+        // Initialize the channel
         await host.StartAsync(CancellationToken.None);
 
         // Act
