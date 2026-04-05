@@ -23,6 +23,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Carotte\Carotte.csproj" />
+    <ProjectReference Include="..\Carotte.TestKit\Carotte.TestKit.csproj" />
   </ItemGroup>
 
 </Project>

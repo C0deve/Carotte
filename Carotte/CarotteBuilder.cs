@@ -1,5 +1,6 @@
 using System.Reflection;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
@@ -14,9 +15,9 @@ public static class ServiceCollectionExtensions
         var builder = new CarotteBuilder(services);
         configure(builder);
 
-        services.AddSingleton<IConnectionManager>(sp => new ConnectionManager(builder.Brokers));
-        services.AddSingleton<ITopologyManager, TopologyManager>();
-        services.AddSingleton<ISerializer, JsonSerializerImpl>();
+        services.TryAddSingleton<IConnectionManager>(sp => new ConnectionManager(builder.Brokers));
+        services.TryAddSingleton<ITopologyManager, TopologyManager>();
+        services.TryAddSingleton<ISerializer, JsonSerializerImpl>();
 
         // Configuration OpenTelemetry
         services.AddOpenTelemetry()
@@ -73,8 +74,13 @@ public static class ServiceCollectionExtensions
             var interfaceType = typeof(IProducer<>).MakeGenericType(prodConfig.MessageType);
             var implementationType = typeof(RabbitMqProducer<>).MakeGenericType(prodConfig.MessageType);
 
-            services.AddSingleton(interfaceType, sp =>
+            services.TryAddSingleton(interfaceType, sp =>
                 ActivatorUtilities.CreateInstance(sp, implementationType, prodConfig.Broker, prodConfig.Exchange));
+        }
+
+        foreach (var action in builder.PostConfigureActions)
+        {
+            action(services);
         }
 
         return services;
@@ -89,6 +95,9 @@ public class CarotteBuilder
     public Dictionary<Type, (string Broker, string Queue)> ConsumerConfigs { get; } = [];
     public List<(Type MessageType, string Broker, string Exchange)> ProducerConfigs { get; } = [];
     public Uri? OtlpEndpoint { get; private set; }
+
+    // Extension points for test mode without modifying AddCarotte logic
+    public List<Action<IServiceCollection>> PostConfigureActions { get; } = [];
 
     public CarotteBuilder(IServiceCollection services)
     {

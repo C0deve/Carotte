@@ -16,8 +16,8 @@ public class ConnectionManagerTests
     [Fact]
     public async Task GetConnectionAsync_ShouldReturnSameConnectionForSameBroker()
     {
-        // On ne peut pas facilement mocker ConnectionFactory car c'est une classe concrète avec CreateConnectionAsync.
-        // Mais on peut vérifier le comportement du cache dans ConnectionManager si on avait une abstraction ou en testant l'exception de connexion réelle si pas de broker.
-        // Étant donné que RabbitMQ.Client 7+ utilise beaucoup d'interfaces, on pourrait mocker IConnection si on passait par une factory mockée.
+        // We cannot easily mock ConnectionFactory because it is a concrete class with CreateConnectionAsync.
+        // But we could verify the cache behavior in ConnectionManager if we had an abstraction or by testing the real connection exception if no broker.
+        // Given that RabbitMQ.Client 7+ uses many interfaces, we could mock IConnection if we went through a mocked factory.
     }
 }
