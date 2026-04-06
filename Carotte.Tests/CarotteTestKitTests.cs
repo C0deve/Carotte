@@ -24,10 +24,10 @@ public class CarotteTestKitTests
         var services = new ServiceCollection();
         services.AddCarotte(c =>
         {
-            c.UseTestMode()
-             .AddProducer<ResponseMessage>("broker1", "exchange1")
+            c.AddProducer<ResponseMessage>("broker1", "exchange1")
              .AddAssemblies(typeof(TestConsumer).Assembly);
         });
+        services.AddCarotteTestKit();
 
         var sp = services.BuildServiceProvider();
         var testKit = sp.GetRequiredService<CarotteTestKit>();
@@ -50,10 +50,10 @@ public class CarotteTestKitTests
         var services = new ServiceCollection();
         services.AddCarotte(c =>
         {
-            c.UseTestMode()
-             .AddProducer<ResponseMessage>("broker1", "exchange1")
+            c.AddProducer<ResponseMessage>("broker1", "exchange1")
              .AddAssemblies(typeof(TestConsumer).Assembly);
         });
+        services.AddCarotteTestKit();
 
         // Enregistrement explicite du mock
         services.AddMockProducer<ResponseMessage>();
@@ -69,5 +69,33 @@ public class CarotteTestKitTests
 
         // Assert
         mockProducer.Verify(p => p.SendAsync(It.Is<ResponseMessage>(r => r.Content == "Received: Mock Me"), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task UseTestMode_OnServiceCollection_ShouldWork()
+    {
+        // Arrange
+        var services = new ServiceCollection();
+        services.AddCarotte(c =>
+        {
+            c.AddProducer<ResponseMessage>("broker1", "exchange1")
+             .AddAssemblies(typeof(TestConsumer).Assembly);
+        });
+
+        // Act - Appel indépendant après AddCarotte
+        services.AddCarotteTestKit();
+
+        var sp = services.BuildServiceProvider();
+        var testKit = sp.GetRequiredService<CarotteTestKit>();
+
+        var testMessage = new TestMessage("Hello from ServiceCollection");
+
+        // Act
+        await testKit.SimulateReceiveAsync<TestConsumer, TestMessage>(testMessage);
+
+        // Assert
+        var sentMessages = testKit.GetSentMessages<ResponseMessage>();
+        sentMessages.Count.ShouldBe(1);
+        sentMessages[0].Content.ShouldBe("Received: Hello from ServiceCollection");
     }
 }

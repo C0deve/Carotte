@@ -85,6 +85,8 @@ public static class ServiceCollectionExtensions
             action(services);
         }
 
+        services.TryAddSingleton(builder);
+
         return services;
     }
 }
