@@ -35,6 +35,8 @@ use expression body
 
 use immutability 
 
+use extension block
+
 🏗️ 2. Framework Design Guidelines
 These guidelines focus on API consistency and usability for libraries:
 •
