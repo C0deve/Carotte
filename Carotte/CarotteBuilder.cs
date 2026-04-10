@@ -10,91 +10,97 @@ namespace Carotte;
 
 public static class ServiceCollectionExtensions
 {
-    public static IServiceCollection AddCarotte(this IServiceCollection services, Action<CarotteBuilder> configure)
+    extension(IServiceCollection services)
     {
-        var builder = new CarotteBuilder(services);
-        configure(builder);
-
-        services.TryAddSingleton<IConnectionManager>(sp => new ConnectionManager(builder.Brokers));
-        services.TryAddSingleton<IRabbitMqClient, RabbitMqClient>();
-        services.TryAddSingleton<ITopologyManager, TopologyManager>();
-        services.TryAddSingleton<ISerializer, JsonSerializerImpl>();
-
-        // OpenTelemetry configuration
-        services.AddOpenTelemetry()
-            .ConfigureResource(r => r.AddService(CarotteDiagnostics.ServiceName))
-            .WithTracing(t =>
-            {
-                t.AddSource(CarotteDiagnostics.ServiceName);
-                if (builder.OtlpEndpoint != null)
-                {
-                    t.AddOtlpExporter(opt => opt.Endpoint = builder.OtlpEndpoint);
-                }
-            })
-            .WithMetrics(m =>
-            {
-                m.AddMeter(CarotteDiagnostics.ServiceName);
-                if (builder.OtlpEndpoint != null)
-                {
-                    m.AddOtlpExporter(opt => opt.Endpoint = builder.OtlpEndpoint);
-                }
-            });
-
-        // Automatic consumer registration
-        var consumerTypes = builder.Assemblies
-            .SelectMany(a => a.GetTypes())
-            .Where(t => !t.IsAbstract && t.GetInterfaces().Any(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(IConsumer<>)));
-
-        foreach (var consumerType in consumerTypes)
+        public IServiceCollection AddCarotte(Action<CarotteBuilder> configure)
         {
-            // Register the consumer itself as a Singleton per instructions
-            services.AddSingleton(consumerType);
+            var builder = new CarotteBuilder();
+            configure(builder);
 
-            // Register the mediator for the consumer
-            services.AddTransient<ConsumerMediator>();
+            services.TryAddSingleton<IConnectionManager>(_ => new ConnectionManager(builder.Brokers));
+            services.TryAddSingleton<IRabbitMqClient, RabbitMqClient>();
+            services.TryAddSingleton<ITopologyManager, TopologyManager>();
+            services.TryAddSingleton<ISerializer, JsonSerializerImpl>();
 
-            // Get configuration via attribute or explicit configuration
-            var queueAttrs = consumerType.GetCustomAttributes<QueueAttribute>().ToList();
+            services.AddOpenTelemetrySupport(builder);
+            services.AddConsumers(builder);
+            services.AddProducers(builder);
 
-            if (builder.ConsumerConfigs.TryGetValue(consumerType, out var config))
+            foreach (var action in builder.PostConfigureActions)
             {
-                // Priority to explicit configuration if present
-                queueAttrs = [new QueueAttribute(config.Queue, config.Broker)];
+                action(services);
             }
 
-            if (queueAttrs.Count == 0)
-                continue;
+            services.TryAddSingleton(builder);
 
-            var broker = queueAttrs.First().Broker;
-            services.AddSingleton(typeof(IHostedService), sp =>
-                ActivatorUtilities.CreateInstance(sp, typeof(RabbitMqConsumerHost<>).MakeGenericType(consumerType), broker, queueAttrs));
+            return services;
         }
 
-        // Producer registration
-        foreach (var prodConfig in builder.ProducerConfigs)
+        private void AddOpenTelemetrySupport(CarotteBuilder builder)
         {
-            var interfaceType = typeof(IProducer<>).MakeGenericType(prodConfig.MessageType);
-
-            var implementationType = typeof(RabbitMqProducer<>).MakeGenericType(prodConfig.MessageType);
-
-            services.TryAddSingleton(interfaceType, sp =>
-                ActivatorUtilities.CreateInstance(sp, implementationType, prodConfig.Broker, prodConfig.Exchange));
+            services.AddOpenTelemetry()
+                .ConfigureResource(r => r.AddService(CarotteDiagnostics.ServiceName))
+                .WithTracing(t =>
+                {
+                    t.AddSource(CarotteDiagnostics.ServiceName);
+                    if (builder.OtlpEndpoint != null)
+                    {
+                        t.AddOtlpExporter(opt => opt.Endpoint = builder.OtlpEndpoint);
+                    }
+                })
+                .WithMetrics(m =>
+                {
+                    m.AddMeter(CarotteDiagnostics.ServiceName);
+                    if (builder.OtlpEndpoint != null)
+                    {
+                        m.AddOtlpExporter(opt => opt.Endpoint = builder.OtlpEndpoint);
+                    }
+                });
         }
 
-        foreach (var action in builder.PostConfigureActions)
+        private void AddConsumers(CarotteBuilder builder)
         {
-            action(services);
+            var consumerTypes = builder.Assemblies
+                .SelectMany(a => a.GetTypes())
+                .Where(t => !t.IsAbstract && t.GetInterfaces().Any(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(IConsumer<>)));
+
+            foreach (var consumerType in consumerTypes)
+            {
+                services.AddSingleton(consumerType);
+                services.AddTransient<ConsumerMediator>();
+
+                var queueAttrs = consumerType.GetCustomAttributes<QueueAttribute>().ToList();
+
+                if (builder.ConsumerConfigs.TryGetValue(consumerType, out var config))
+                {
+                    queueAttrs = [new QueueAttribute(config.Queue, config.Broker)];
+                }
+
+                if (queueAttrs.Count == 0)
+                    continue;
+
+                var broker = queueAttrs.First().Broker;
+                services.AddSingleton(typeof(IHostedService), sp =>
+                    ActivatorUtilities.CreateInstance(sp, typeof(RabbitMqConsumerHost<>).MakeGenericType(consumerType), broker, queueAttrs));
+            }
         }
 
-        services.TryAddSingleton(builder);
+        private void AddProducers(CarotteBuilder builder)
+        {
+            foreach (var prodConfig in builder.ProducerConfigs)
+            {
+                var interfaceType = typeof(IProducer<>).MakeGenericType(prodConfig.MessageType);
+                var implementationType = typeof(RabbitMqProducer<>).MakeGenericType(prodConfig.MessageType);
 
-        return services;
+                services.TryAddSingleton(interfaceType, sp =>
+                    ActivatorUtilities.CreateInstance(sp, implementationType, prodConfig.Broker, prodConfig.Exchange));
+            }
+        }
     }
 }
 
 public class CarotteBuilder
 {
-    public IServiceCollection Services { get; }
     public Dictionary<string, RabbitMqOptions> Brokers { get; } = [];
     public List<Assembly> Assemblies { get; } = [];
     public Dictionary<Type, (string Broker, string Queue)> ConsumerConfigs { get; } = [];
@@ -104,9 +110,8 @@ public class CarotteBuilder
     // Extension points for test mode without modifying AddCarotte logic
     public List<Action<IServiceCollection>> PostConfigureActions { get; } = [];
 
-    public CarotteBuilder(IServiceCollection services)
+    public CarotteBuilder()
     {
-        Services = services;
         Assemblies.Add(Assembly.GetCallingAssembly());
     }
 
