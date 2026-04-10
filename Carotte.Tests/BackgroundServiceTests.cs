@@ -35,14 +35,9 @@ public class BackgroundServiceTests
         backgroundService.Producer.ShouldBeAssignableTo<IProducer<TestMessage>>();
     }
 
-    public class ProducerUsingBackgroundService : BackgroundService
+    public class ProducerUsingBackgroundService(IProducer<TestMessage> producer) : BackgroundService
     {
-        public IProducer<TestMessage> Producer { get; }
-
-        public ProducerUsingBackgroundService(IProducer<TestMessage> producer)
-        {
-            Producer = producer;
-        }
+        public IProducer<TestMessage> Producer { get; } = producer;
 
         protected override Task ExecuteAsync(CancellationToken stoppingToken)
         {

@@ -10,16 +10,9 @@ public class ProducerPipelineTests
     public async Task SendAsync_ShouldExecuteCustomMiddleware()
     {
         // Arrange
-        var connectionManagerMock = new Mock<IConnectionManager>();
+        var rabbitMqClientMock = new Mock<IRabbitMqClient>();
         var serializerMock = new Mock<ISerializer>();
-        var connectionMock = new Mock<IConnection>();
-        var channelMock = new Mock<IChannel>();
 
-        connectionManagerMock.Setup(m => m.GetConnectionAsync(It.IsAny<string>()))
-            .ReturnsAsync(connectionMock.Object);
-        connectionMock.Setup(m => m.CreateChannelAsync(It.IsAny<CreateChannelOptions?>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(channelMock.Object);
-        
         var message = new TestMessage("Hello");
         serializerMock.Setup(s => s.Serialize(message)).Returns([1, 2, 3]);
 
@@ -32,7 +25,7 @@ public class ProducerPipelineTests
         // Let's add a test that verifies that the default middlewares are correctly executed.
         
         var producer = new RabbitMqProducer<TestMessage>(
-            connectionManagerMock.Object, 
+            rabbitMqClientMock.Object, 
             serializerMock.Object, 
             "test-broker", 
             "test-exchange");
@@ -41,13 +34,14 @@ public class ProducerPipelineTests
         await producer.SendAsync(message);
 
         // Assert
-        // Verify that the publication middleware was called (via the channel mock)
-        channelMock.Verify(c => c.BasicPublishAsync(
+        // Verify that the publication middleware was called (via the client mock)
+        rabbitMqClientMock.Verify(c => c.BasicPublishAsync<TestMessage>(
+            "test-broker",
             "test-exchange",
             nameof(TestMessage),
-            true,
+            It.IsAny<byte[]>(),
             It.IsAny<BasicProperties>(),
-            It.IsAny<ReadOnlyMemory<byte>>(),
+            true,
             It.IsAny<CancellationToken>()), Times.Once);
         
         // Verify that serialization took place

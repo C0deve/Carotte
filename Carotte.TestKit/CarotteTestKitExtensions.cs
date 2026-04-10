@@ -28,6 +28,10 @@ public static class CarotteTestKitExtensions
 
             services.Replace(ServiceDescriptor.Singleton(mockConnectionManager.Object));
 
+            // Replace IRabbitMqClient to avoid any RabbitMQ calls
+            var mockRabbitMqClient = new Mock<IRabbitMqClient>();
+            services.Replace(ServiceDescriptor.Singleton(mockRabbitMqClient.Object));
+
             // Replace ITopologyManager to avoid topology declarations
             var mockTopologyManager = new Mock<ITopologyManager>();
             services.Replace(ServiceDescriptor.Singleton(mockTopologyManager.Object));

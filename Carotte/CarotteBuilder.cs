@@ -16,6 +16,7 @@ public static class ServiceCollectionExtensions
         configure(builder);
 
         services.TryAddSingleton<IConnectionManager>(sp => new ConnectionManager(builder.Brokers));
+        services.TryAddSingleton<IRabbitMqClient, RabbitMqClient>();
         services.TryAddSingleton<ITopologyManager, TopologyManager>();
         services.TryAddSingleton<ISerializer, JsonSerializerImpl>();
 
