@@ -108,6 +108,61 @@ app.MapPost("/order", async (IProducer<OrderCreatedMessage> producer) =>
 });
 ```
 
+## 🏗️ Architecture (Consumers & BackgroundServices)
+
+In the **Carotte** project, the relationship between `consumers` and `BackgroundServices` is a **host-to-guest** relationship.
+
+### 1. The Consumer (`IConsumer<TMessage>`): Business Logic
+The `Consumer` is a simple class that implements the `IConsumer<TMessage>` interface. Its sole role is to process a message once it has been received and deserialized.
+- It is **passive**: it doesn't know where the message comes from or how it was retrieved.
+- It is registered as a standard service in the dependency injection (DI) container.
+
+### 2. The BackgroundService (`RabbitMqConsumerHost<TConsumer>`): The Engine
+For each registered `Consumer`, Carotte automatically creates a **`RabbitMqConsumerHost<TConsumer>`**. This class inherits from `BackgroundService` (a .NET base class for background tasks).
+- It is the **"tireless worker"** running in a loop.
+- It manages the lifecycle of the RabbitMQ connection (`StartAsync`, `StopAsync`).
+- It declares the queues (`Queues`) and exchanges (`Exchanges`) on the broker.
+- It actively listens for incoming messages on RabbitMQ.
+
+### 3. The link between the two
+The `BackgroundService` acts as a **bridge** between RabbitMQ and your `Consumer`:
+
+1. **Reception**: The `RabbitMqConsumerHost` receives a raw message (bytes) from RabbitMQ.
+2. **Pipeline**: It passes this message through a pipeline (Middleware) for telemetry, metrics, and **deserialization**.
+3. **Invocation**: Once the message is transformed into a C# object, the `RabbitMqConsumerHost` uses a `ConsumerMediator` to instantiate your `Consumer` and call its `HandleAsync` method.
+4. **Acknowledgment**: If the `Consumer` finishes its work without error, the `BackgroundService` sends an `Ack` (acknowledgment) to RabbitMQ to remove the message from the queue.
+
+### Summary
+| Component | Type | Role |
+| :--- | :--- | :--- |
+| **Your Consumer** | `IConsumer<T>` | **WHAT to do**: Contains business logic to process ONE message. |
+| **RabbitMqConsumerHost** | `BackgroundService` | **HOW to do it**: Manages the connection, continuous listening, and calling your consumer. |
+
+This separation allows your business code (the Consumer) to remain pure and simple, while all the complexity of network communication and RabbitMQ error handling is isolated in the `BackgroundService`.
+
+## 🔌 Connection and Channel Management
+
+Carotte optimizes the use of RabbitMQ resources by intelligently managing connections and channels transparently.
+
+### 1. Connections (One per Broker)
+The `ConnectionManager` acts as a registry of persistent connections.
+- **Reuse**: For each configured broker (e.g., `"my-broker"`), a single TCP connection is established and shared between all producers and consumers using that broker.
+- **Thread-Safety**: Connection creation is protected by asynchronous locks (`SemaphoreSlim`) to avoid redundant connections during a massive startup.
+- **Lifecycle**: Connections are managed as singletons and are properly closed when the application stops.
+
+### 2. Channels (Performance Optimization)
+Channels (`IChannel`) are created on top of connections by the `RabbitMqClient`.
+- **Caching**: Carotte maintains one open channel per broker for common operations (publication, acknowledgment). This avoids the high cost of creating/closing channels for each message.
+- **Auto-repair**: If a channel is detected as closed (`IsOpen == false`), Carotte automatically recreates one during the next operation.
+
+### 3. Topology Declaration
+When a consumer starts, the `RabbitMqConsumerHost` ensures that:
+1. The exchange (`Exchange`) exists.
+2. The queue (`Queue`) exists.
+3. The binding (`Binding`) between the two is correctly configured.
+
+This ensures that no messages are lost due to a missing configuration on the RabbitMQ server.
+
 ## 🧪 Testing
 
 Carotte provides a `TestKit` to simplify testing your consumers and producers without a live RabbitMQ broker.
