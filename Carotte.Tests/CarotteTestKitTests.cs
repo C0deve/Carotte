@@ -9,12 +9,18 @@ public class CarotteTestKitTests
     public record TestMessage(string Content);
     public record ResponseMessage(string Content);
 
+    [Queue("test-queue", broker: "test-broker")]
     public class TestConsumer(IProducer<ResponseMessage> producer) : IConsumer<TestMessage>
     {
         public async Task HandleAsync(TestMessage message, CancellationToken cancellationToken = default)
         {
             await producer.SendAsync(new ResponseMessage($"Received: {message.Content}"), cancellationToken);
         }
+    }
+
+    public class NoAttributeConsumer : IConsumer<TestMessage>
+    {
+        public Task HandleAsync(TestMessage message, CancellationToken cancellationToken) => Task.CompletedTask;
     }
 
     [Fact]
@@ -26,6 +32,8 @@ public class CarotteTestKitTests
         {
             c.AddProducer<ResponseMessage>("broker1", "exchange1")
              .AddAssemblies(typeof(TestConsumer).Assembly);
+            c.ConsumerConfigs[typeof(NoAttributeConsumer)] = ("broker1", "queue1");
+            c.ConsumerConfigs[typeof(Validation.ValidationTests.NoAttributeConsumer)] = ("broker1", "queue1");
         });
         services.AddCarotteTestKit();
 
@@ -52,6 +60,8 @@ public class CarotteTestKitTests
         {
             c.AddProducer<ResponseMessage>("broker1", "exchange1")
              .AddAssemblies(typeof(TestConsumer).Assembly);
+            c.ConsumerConfigs[typeof(NoAttributeConsumer)] = ("broker1", "queue1");
+            c.ConsumerConfigs[typeof(Validation.ValidationTests.NoAttributeConsumer)] = ("broker1", "queue1");
         });
         services.AddCarotteTestKit();
 
@@ -80,6 +90,8 @@ public class CarotteTestKitTests
         {
             c.AddProducer<ResponseMessage>("broker1", "exchange1")
              .AddAssemblies(typeof(TestConsumer).Assembly);
+            c.ConsumerConfigs[typeof(NoAttributeConsumer)] = ("broker1", "queue1");
+            c.ConsumerConfigs[typeof(Validation.ValidationTests.NoAttributeConsumer)] = ("broker1", "queue1");
         });
 
         // Act - Appel indépendant après AddCarotte

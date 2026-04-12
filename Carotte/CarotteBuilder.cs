@@ -1,3 +1,4 @@
+using Carotte.Exceptions;
 using System.Reflection;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -66,18 +67,23 @@ public static class ServiceCollectionExtensions
 
             foreach (var consumerType in consumerTypes)
             {
+                var queueAttrs = consumerType.GetCustomAttributes<QueueAttribute>().ToList();
+
+                if (builder.ConsumerConfigs.TryGetValue(consumerType, out var config)) queueAttrs = 
+                    [new QueueAttribute(config.Queue, config.Broker)];
+
+                if (queueAttrs.Count == 0)
+                    throw new CarotteConfigurationException($"Consumer '{consumerType.Name}' must have at least one [QueueAttribute] or be configured via CarotteBuilder.");
+
                 services.AddSingleton(consumerType);
                 services.AddTransient<ConsumerMediator>();
 
-                var queueAttrs = consumerType.GetCustomAttributes<QueueAttribute>().ToList();
+                var duplicates = queueAttrs
+                    .GroupBy(a => new { a.Name, a.Broker })
+                    .Where(g => g.Count() > 1);
 
-                if (builder.ConsumerConfigs.TryGetValue(consumerType, out var config))
-                {
-                    queueAttrs = [new QueueAttribute(config.Queue, config.Broker)];
-                }
-
-                if (queueAttrs.Count == 0)
-                    continue;
+                foreach (var duplicate in duplicates) 
+                    Console.WriteLine($"[Warning] Consumer '{consumerType.Name}' has multiple QueueAttributes for the same queue '{duplicate.Key.Name}' on broker '{duplicate.Key.Broker}'.");
 
                 var broker = queueAttrs.First().Broker;
                 services.AddSingleton(typeof(IHostedService), sp =>
@@ -139,10 +145,8 @@ public class CarotteBuilder
     {
         foreach (var assembly in assemblies)
         {
-            if (!Assemblies.Contains(assembly))
-            {
+            if (!Assemblies.Contains(assembly)) 
                 Assemblies.Add(assembly);
-            }
         }
 
         return this;

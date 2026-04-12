@@ -75,6 +75,7 @@ public class RabbitMqConsumerHostTests
         // Success if no exception
     }
 
+    [Queue("test-queue")]
     public class TestConsumer : IConsumer<TestMessage>
     {
         public Task HandleAsync(TestMessage message, CancellationToken cancellationToken) => Task.CompletedTask;

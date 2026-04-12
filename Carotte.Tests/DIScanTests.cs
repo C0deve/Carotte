@@ -15,6 +15,8 @@ public class DIScanTests
         // Act
         services.AddCarotte(builder => {
             builder.AddAssemblies(typeof(DIScanTests).Assembly);
+            builder.ConsumerConfigs[typeof(CarotteTestKitTests.NoAttributeConsumer)] = ("test-broker", "test-queue");
+            builder.ConsumerConfigs[typeof(Validation.ValidationTests.NoAttributeConsumer)] = ("test-broker", "test-queue");
         });
 
         // Assert
@@ -42,6 +44,8 @@ public class DIScanTests
         // Act
         services.AddCarotte(builder => {
             builder.AddAssemblies(typeof(DIScanTests).Assembly);
+            builder.ConsumerConfigs[typeof(CarotteTestKitTests.NoAttributeConsumer)] = ("test-broker", "test-queue");
+            builder.ConsumerConfigs[typeof(Validation.ValidationTests.NoAttributeConsumer)] = ("test-broker", "test-queue");
         });
 
         // Assert

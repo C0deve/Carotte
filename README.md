@@ -67,6 +67,7 @@ app.Run();
 ```csharp
 public record OrderCreatedMessage(Guid OrderId, string CustomerName, decimal Amount);
 
+// The [Queue] attribute is mandatory for all consumers
 [Queue("order-processing-queue", broker: "my-broker", exchange: "orders-exchange", routingKey: "order.created")]
 public class OrderConsumer(ILogger<OrderConsumer> logger) : IConsumer<OrderCreatedMessage>
 {
@@ -78,7 +79,23 @@ public class OrderConsumer(ILogger<OrderConsumer> logger) : IConsumer<OrderCreat
 }
 ```
 
-### 3. Send a Message
+### 3. Consumer Configuration & Validation
+
+Carotte enforces strict configuration for its consumers to avoid runtime issues:
+
+- **Mandatory Configuration**: Every class implementing `IConsumer<T>` must have at least one `[Queue]` attribute or be explicitly configured during setup. Failure to do so will result in a `CarotteConfigurationException` at startup.
+- **Duplicate Warnings**: If a consumer defines multiple `[Queue]` attributes with the same name and broker, a warning will be logged to the console during registration.
+- **Programmatic Configuration**: For consumers without attributes (e.g., from external libraries), you can use the `ConsumerConfigs` dictionary in the builder:
+
+```csharp
+builder.Services.AddCarotte(carotte =>
+{
+    // ...
+    carotte.ConsumerConfigs[typeof(ExternalConsumer)] = ("my-broker", "external-queue");
+});
+```
+
+### 4. Send a Message
 
 Inject `IProducer<TMessage>` and call `SendAsync`:
 
