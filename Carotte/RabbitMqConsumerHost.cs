@@ -81,11 +81,11 @@ public sealed class RabbitMqConsumerHost<TConsumer>(
         consumer.ReceivedAsync += (_, ea) => 
             HandleMessageAsync(ea, stoppingToken);
 
-        foreach (var attr in queueAttributes)
+        foreach (var attr in queueAttributes.Select(a => a.Name).Distinct())
         {
             await rabbitMqClient.BasicConsumeAsync(
                 broker: broker,
-                queue: attr.Name,
+                queue: attr,
                 autoAck: false,
                 consumerTag: string.Empty,
                 noLocal: false,
@@ -100,31 +100,40 @@ public sealed class RabbitMqConsumerHost<TConsumer>(
 
     private async Task SetupTopologyAsync(CancellationToken stoppingToken)
     {
+        var declaredQueues = new HashSet<string>();
+        var declaredExchanges = new HashSet<string>();
+
         foreach (var attr in queueAttributes)
         {
-            await rabbitMqClient.QueueDeclareAsync(
-                broker: broker,
-                queue: attr.Name,
-                durable: true,
-                exclusive: false,
-                autoDelete: false,
-                arguments: null,
-                passive: false,
-                noWait: false,
-                cancellationToken: stoppingToken);
+            if (declaredQueues.Add(attr.Name))
+            {
+                await rabbitMqClient.QueueDeclareAsync(
+                    broker: broker,
+                    queue: attr.Name,
+                    durable: true,
+                    exclusive: false,
+                    autoDelete: false,
+                    arguments: null,
+                    passive: false,
+                    noWait: false,
+                    cancellationToken: stoppingToken);
+            }
 
             if (string.IsNullOrEmpty(attr.Exchange)) continue;
-            
-            await rabbitMqClient.ExchangeDeclareAsync(
-                broker: broker,
-                exchange: attr.Exchange,
-                type: "topic",
-                durable: true,
-                autoDelete: false,
-                arguments: null,
-                passive: false,
-                noWait: false,
-                cancellationToken: stoppingToken);
+
+            if (declaredExchanges.Add(attr.Exchange))
+            {
+                await rabbitMqClient.ExchangeDeclareAsync(
+                    broker: broker,
+                    exchange: attr.Exchange,
+                    type: "topic",
+                    durable: true,
+                    autoDelete: false,
+                    arguments: null,
+                    passive: false,
+                    noWait: false,
+                    cancellationToken: stoppingToken);
+            }
 
             await rabbitMqClient.QueueBindAsync(
                 broker: broker,
