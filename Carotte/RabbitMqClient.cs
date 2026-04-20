@@ -1,8 +1,9 @@
-﻿using RabbitMQ.Client;
+﻿using Microsoft.Extensions.Logging;
+using RabbitMQ.Client;
 
 namespace Carotte;
 
-public sealed class RabbitMqClient(IConnectionManager connectionManager) : IRabbitMqClient
+public sealed class RabbitMqClient(IConnectionManager connectionManager, ILogger<RabbitMqClient> logger) : IRabbitMqClient
 {
     private readonly Dictionary<string, IChannel> _channels = new();
     private readonly SemaphoreSlim _semaphore = new(1, 1);
@@ -17,6 +18,7 @@ public sealed class RabbitMqClient(IConnectionManager connectionManager) : IRabb
                 return channel;
             }
 
+            logger.LogCreatingNewChannelForBroker(broker);
             var connection = await connectionManager.GetConnectionAsync(broker);
             channel = await connection.CreateChannelAsync(cancellationToken: cancellationToken);
             _channels[broker] = channel;
@@ -37,6 +39,7 @@ public sealed class RabbitMqClient(IConnectionManager connectionManager) : IRabb
         bool mandatory = true,
         CancellationToken cancellationToken = default) where TMessage : class
     {
+        logger.LogPublishingMessage(typeof(TMessage).Name, exchange, routingKey, broker);
         var channel = await GetChannelAsync(broker, cancellationToken);
         await channel.BasicPublishAsync(
             exchange: exchange,
@@ -70,6 +73,7 @@ public sealed class RabbitMqClient(IConnectionManager connectionManager) : IRabb
         AsyncDefaultBasicConsumer consumer,
         CancellationToken cancellationToken = default)
     {
+        logger.LogStartingConsumptionOnQueue(queue, broker);
         var channel = await GetChannelAsync(broker, cancellationToken);
         return await channel.BasicConsumeAsync(queue, autoAck, consumerTag, noLocal, exclusive, arguments, consumer, cancellationToken);
     }
@@ -85,6 +89,7 @@ public sealed class RabbitMqClient(IConnectionManager connectionManager) : IRabb
         bool noWait = false,
         CancellationToken cancellationToken = default)
     {
+        logger.LogDeclaringQueue(queue, broker);
         var channel = await GetChannelAsync(broker, cancellationToken);
         await channel.QueueDeclareAsync(queue, durable, exclusive, autoDelete, arguments, passive, noWait, cancellationToken);
     }
@@ -100,6 +105,7 @@ public sealed class RabbitMqClient(IConnectionManager connectionManager) : IRabb
         bool noWait = false,
         CancellationToken cancellationToken = default)
     {
+        logger.LogDeclaringExchange(exchange, broker);
         var channel = await GetChannelAsync(broker, cancellationToken);
         await channel.ExchangeDeclareAsync(exchange, type, durable, autoDelete, arguments, passive, noWait, cancellationToken);
     }
@@ -113,14 +119,16 @@ public sealed class RabbitMqClient(IConnectionManager connectionManager) : IRabb
         bool noWait = false,
         CancellationToken cancellationToken = default)
     {
+        logger.LogBindingQueueToExchange(queue, exchange, routingKey, broker);
         var channel = await GetChannelAsync(broker, cancellationToken);
         await channel.QueueBindAsync(queue, exchange, routingKey, arguments, noWait, cancellationToken);
     }
 
     public async ValueTask DisposeAsync()
     {
-        foreach (var channel in _channels.Values)
+        foreach (var (broker, channel) in _channels)
         {
+            logger.LogDisposingChannelForBroker(broker);
             await channel.DisposeAsync();
         }
         _channels.Clear();

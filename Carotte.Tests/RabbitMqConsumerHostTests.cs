@@ -1,4 +1,5 @@
-﻿using Moq;
+﻿using Microsoft.Extensions.Logging;
+using Moq;
 using RabbitMQ.Client;
 
 namespace Carotte.Tests;
@@ -25,10 +26,14 @@ public class RabbitMqConsumerHostTests
         channel.Setup(c => c.IsOpen).Returns(true);
 
         var mediator = new ConsumerMediator(serviceProvider.Object);
+        var loggerMock = new Mock<ILogger<RabbitMqConsumerHost<TestConsumer>>>();
+        loggerMock.Setup(x => x.IsEnabled(It.IsAny<LogLevel>())).Returns(true);
+
         var host = new RabbitMqConsumerHost<TestConsumer>(
             mediator,
             rabbitMqClient.Object,
             serializer.Object,
+            loggerMock.Object,
             broker,
             queueAttributes);
 
@@ -36,6 +41,10 @@ public class RabbitMqConsumerHostTests
         await host.StartAsync(CancellationToken.None);
 
         // Assert
+        VerifyLog(loggerMock, LogLevel.Information, "Starting RabbitMqConsumerHost for TestConsumer on broker test-broker");
+        VerifyLog(loggerMock, LogLevel.Information, "Setting up topology for TestConsumer");
+        VerifyLog(loggerMock, LogLevel.Information, "Opening channel for TestConsumer on broker test-broker");
+
         rabbitMqClient.Verify(m => m.GetChannelAsync(broker, It.IsAny<CancellationToken>()), Times.AtLeastOnce);
 
         // Check topology setup
@@ -72,10 +81,14 @@ public class RabbitMqConsumerHostTests
         channel.Setup(c => c.IsOpen).Returns(true);
 
         var mediator = new ConsumerMediator(serviceProvider.Object);
+        var loggerMock = new Mock<ILogger<RabbitMqConsumerHost<TestConsumer>>>();
+        loggerMock.Setup(x => x.IsEnabled(It.IsAny<LogLevel>())).Returns(true);
+
         var host = new RabbitMqConsumerHost<TestConsumer>(
             mediator,
             rabbitMqClient.Object,
             serializer.Object,
+            loggerMock.Object,
             broker,
             queueAttributes);
 
@@ -83,6 +96,10 @@ public class RabbitMqConsumerHostTests
         await host.StartAsync(CancellationToken.None);
 
         // Assert
+        VerifyLog(loggerMock, LogLevel.Information, "Starting RabbitMqConsumerHost for TestConsumer on broker test-broker");
+        VerifyLog(loggerMock, LogLevel.Information, "Setting up topology for TestConsumer");
+        VerifyLog(loggerMock, LogLevel.Information, "Opening channel for TestConsumer on broker test-broker");
+
         rabbitMqClient.Verify(c => c.QueueDeclareAsync(broker, testQueue, true, false, false, It.IsAny<IDictionary<string, object?>>(), false, false, It.IsAny<CancellationToken>()), Times.Once);
 
         rabbitMqClient.Verify(c => c.ExchangeDeclareAsync(broker, testExchange, "topic", true, false, It.IsAny<IDictionary<string, object?>>(), false, false, It.IsAny<CancellationToken>()), Times.Once);
@@ -110,6 +127,7 @@ public class RabbitMqConsumerHostTests
             mediator,
             rabbitMqClient.Object,
             serializer.Object,
+            Mock.Of<ILogger<RabbitMqConsumerHost<TestConsumer>>>(),
             broker,
             queueAttributes);
 
@@ -124,5 +142,17 @@ public class RabbitMqConsumerHostTests
     public class TestConsumer : IConsumer<TestMessage>
     {
         public Task HandleAsync(TestMessage message, CancellationToken cancellationToken) => Task.CompletedTask;
+    }
+
+    private static void VerifyLog<T>(Mock<ILogger<T>> loggerMock, LogLevel level, string message)
+    {
+        loggerMock.Verify(
+            x => x.Log(
+                level,
+                It.IsAny<EventId>(),
+                It.Is<It.IsAnyType>((v, t) => v.ToString() == message),
+                It.IsAny<Exception>(),
+                It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
+            Times.Once);
     }
 }

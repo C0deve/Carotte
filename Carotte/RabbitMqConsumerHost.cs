@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using RabbitMQ.Client.Events;
 using Carotte.pipeline;
 
@@ -8,6 +9,7 @@ public sealed class RabbitMqConsumerHost<TConsumer>(
     ConsumerMediator mediator,
     IRabbitMqClient rabbitMqClient,
     ISerializer serializer,
+    ILogger<RabbitMqConsumerHost<TConsumer>> logger,
     string broker,
     IEnumerable<QueueAttribute> queueAttributes)
     : BackgroundService
@@ -18,6 +20,7 @@ public sealed class RabbitMqConsumerHost<TConsumer>(
 
     public override async Task StartAsync(CancellationToken cancellationToken)
     {
+        logger.LogStartingRabbitmqConsumerHost(typeof(TConsumer).Name, broker);
         mediator.Initialize<TConsumer>();
         BuildPipeline();
 
@@ -29,6 +32,7 @@ public sealed class RabbitMqConsumerHost<TConsumer>(
 
     public override async Task StopAsync(CancellationToken cancellationToken)
     {
+        logger.LogStoppingRabbitmqConsumerHost(typeof(TConsumer).Name);
         await base.StopAsync(cancellationToken);
     }
 
@@ -50,10 +54,10 @@ public sealed class RabbitMqConsumerHost<TConsumer>(
             {
                 // Normal exit
             }
-            catch (Exception)
+            catch (Exception ex)
             {
                 _isConnected = false;
-                // Log exception if possible, or just wait before retrying
+                logger.LogError(ex, "Error while executing consumer {ConsumerType}. Retrying in 5 seconds...", typeof(TConsumer).Name);
                 await Task.Delay(5000, stoppingToken);
             }
         }
@@ -76,6 +80,7 @@ public sealed class RabbitMqConsumerHost<TConsumer>(
 
     private async Task ConsumeAsync(CancellationToken stoppingToken)
     {
+        logger.LogOpeningChannel(typeof(TConsumer).Name, broker);
         var channel = await rabbitMqClient.GetChannelAsync(broker, stoppingToken);
         var consumer = new AsyncEventingBasicConsumer(channel);
         consumer.ReceivedAsync += (_, ea) => 
@@ -100,6 +105,7 @@ public sealed class RabbitMqConsumerHost<TConsumer>(
 
     private async Task SetupTopologyAsync(CancellationToken stoppingToken)
     {
+        logger.LogSettingUpTopology(typeof(TConsumer).Name);
         var declaredQueues = new HashSet<string>();
         var declaredExchanges = new HashSet<string>();
 
