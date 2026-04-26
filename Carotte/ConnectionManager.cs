@@ -5,11 +5,14 @@ namespace Carotte;
 public interface IConnectionManager : IDisposable
 {
     ValueTask<IConnection> GetConnectionAsync(string brokerName);
+    Task RegisterHostAsync(string brokerName);
+    Task UnregisterHostAsync(string brokerName);
 }
 
 public class ConnectionManager(IDictionary<string, RabbitMqOptions> options) : IConnectionManager
 {
     private readonly IDictionary<string, IConnection> _connections = new Dictionary<string, IConnection>();
+    private readonly IDictionary<string, int> _activeHosts = new Dictionary<string, int>();
     private readonly SemaphoreSlim _semaphore = new(1, 1);
 
     public async ValueTask<IConnection> GetConnectionAsync(string brokerName)
@@ -50,6 +53,52 @@ public class ConnectionManager(IDictionary<string, RabbitMqOptions> options) : I
         }
     }
 
+    public async Task RegisterHostAsync(string brokerName)
+    {
+        await _semaphore.WaitAsync();
+        try
+        {
+            if (!_activeHosts.TryGetValue(brokerName, out var count))
+            {
+                count = 0;
+            }
+            _activeHosts[brokerName] = count + 1;
+        }
+        finally
+        {
+            _semaphore.Release();
+        }
+    }
+
+    public async Task UnregisterHostAsync(string brokerName)
+    {
+        await _semaphore.WaitAsync();
+        try
+        {
+            if (_activeHosts.TryGetValue(brokerName, out var count))
+            {
+                count--;
+                if (count <= 0)
+                {
+                    _activeHosts.Remove(brokerName);
+                    if (_connections.TryGetValue(brokerName, out var connection))
+                    {
+                        await connection.CloseAsync();
+                        _connections.Remove(brokerName);
+                    }
+                }
+                else
+                {
+                    _activeHosts[brokerName] = count;
+                }
+            }
+        }
+        finally
+        {
+            _semaphore.Release();
+        }
+    }
+
     public void Dispose()
     {
         foreach (var connection in _connections.Values)
@@ -57,6 +106,7 @@ public class ConnectionManager(IDictionary<string, RabbitMqOptions> options) : I
             connection.Dispose();
         }
         _connections.Clear();
+        _activeHosts.Clear();
         _semaphore.Dispose();
     }
 }

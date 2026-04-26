@@ -7,28 +7,29 @@ namespace Carotte.Tests;
 public class ProducerPipelineTests
 {
     [Fact]
-    public async Task SendAsync_ShouldExecuteCustomMiddleware()
+    public async Task SendAsync_ShouldExecutePipelineWithChannel()
     {
         // Arrange
         var rabbitMqClientMock = new Mock<IRabbitMqClient>();
+        var connectionManagerMock = new Mock<IConnectionManager>();
         var serializerMock = new Mock<ISerializer>();
+        var connectionMock = new Mock<IConnection>();
+        var channelMock = new Mock<IChannel>();
 
+        var broker = "test-broker";
+        var exchange = "test-exchange";
         var message = new TestMessage("Hello");
+
+        connectionManagerMock.Setup(m => m.GetConnectionAsync(broker)).ReturnsAsync(connectionMock.Object);
+        connectionMock.Setup(c => c.CreateChannelAsync(It.IsAny<CreateChannelOptions?>(), It.IsAny<CancellationToken>())).ReturnsAsync(channelMock.Object);
+        channelMock.Setup(c => c.IsOpen).Returns(true);
         serializerMock.Setup(s => s.Serialize(message)).Returns([1, 2, 3]);
 
-        var customMiddleware = new Mock<IProducerMiddleware<TestMessage>>();
-        customMiddleware.Setup(m => m.InvokeAsync(It.IsAny<ProducerContext<TestMessage>>(), It.IsAny<ProducerDelegate<TestMessage>>()))
-            .Returns<ProducerContext<TestMessage>, ProducerDelegate<TestMessage>>((ctx, next) => next(ctx));
-
-        // To inject a custom middleware, we can modify RabbitMqProducer or create one that accepts it.
-        // Currently, RabbitMqProducer constructs its own middlewares in a hardcoded way.
-        // Let's add a test that verifies that the default middlewares are correctly executed.
-        
         var producer = new RabbitMqProducer<TestMessage>(
-            rabbitMqClientMock.Object, 
-            serializerMock.Object, 
-            "test-broker", 
-            "test-exchange");
+            rabbitMqClientMock.Object,
+            serializerMock.Object,
+            broker,
+            exchange);
 
         // Act
         await producer.SendAsync(message);
@@ -36,15 +37,19 @@ public class ProducerPipelineTests
         // Assert
         // Verify that the publication middleware was called (via the client mock)
         rabbitMqClientMock.Verify(c => c.BasicPublishAsync<TestMessage>(
-            "test-broker",
-            "test-exchange",
+            exchange,
             nameof(TestMessage),
             It.IsAny<byte[]>(),
             It.IsAny<BasicProperties>(),
             true,
             It.IsAny<CancellationToken>()), Times.Once);
-        
+
         // Verify that serialization took place
         serializerMock.Verify(s => s.Serialize(message), Times.Once);
+        
+        await producer.DisposeAsync();
+        rabbitMqClientMock.Verify(c => c.DisposeAsync(), Times.Once);
     }
+
+    public record TestMessage(string Content);
 }

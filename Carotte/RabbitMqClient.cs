@@ -1,37 +1,52 @@
 ﻿using Microsoft.Extensions.Logging;
 using RabbitMQ.Client;
+using RabbitMQ.Client.Events;
 
 namespace Carotte;
 
 public sealed class RabbitMqClient(IConnectionManager connectionManager, ILogger<RabbitMqClient> logger) : IRabbitMqClient
 {
-    private readonly Dictionary<string, IChannel> _channels = new();
-    private readonly SemaphoreSlim _semaphore = new(1, 1);
+    private IChannel? _channel;
+    private AsyncEventingBasicConsumer? _consumer;
+    private string? _brokerName;
 
-    public async ValueTask<IChannel> GetChannelAsync(string broker, CancellationToken cancellationToken = default)
+    public event AsyncEventHandler<BasicDeliverEventArgs>? ReceivedAsync;
+
+    public async Task ConnectAsync(string brokerName, CancellationToken cancellationToken = default)
     {
-        await _semaphore.WaitAsync(cancellationToken);
-        try
-        {
-            if (_channels.TryGetValue(broker, out var channel) && channel.IsOpen)
-            {
-                return channel;
-            }
+        if (_channel != null) return;
+        _brokerName = brokerName;
+        await connectionManager.RegisterHostAsync(brokerName);
+        var connection = await connectionManager.GetConnectionAsync(brokerName);
+        _channel = await connection.CreateChannelAsync(cancellationToken: cancellationToken);
+        _consumer = new AsyncEventingBasicConsumer(_channel);
+        _consumer.ReceivedAsync += (sender, ea) => ReceivedAsync?.Invoke(sender, ea) ?? Task.CompletedTask;
+    }
 
-            logger.LogCreatingNewChannelForBroker(broker);
-            var connection = await connectionManager.GetConnectionAsync(broker);
-            channel = await connection.CreateChannelAsync(cancellationToken: cancellationToken);
-            _channels[broker] = channel;
-            return channel;
-        }
-        finally
+    public async Task CloseAsync(CancellationToken cancellationToken = default)
+    {
+        if (_channel != null)
         {
-            _semaphore.Release();
+            await _channel.CloseAsync(cancellationToken);
+
+            if (_brokerName != null)
+            {
+                await connectionManager.UnregisterHostAsync(_brokerName);
+                _brokerName = null;
+            }
+        }
+    }
+    
+    public async ValueTask DisposeAsync()
+    {
+        if (_channel != null)
+        {
+            await _channel.DisposeAsync();
+            _channel = null;
         }
     }
 
     public async Task BasicPublishAsync<TMessage>(
-        string broker,
         string exchange,
         string routingKey,
         byte[] body,
@@ -39,9 +54,9 @@ public sealed class RabbitMqClient(IConnectionManager connectionManager, ILogger
         bool mandatory = true,
         CancellationToken cancellationToken = default) where TMessage : class
     {
-        logger.LogPublishingMessage(typeof(TMessage).Name, exchange, routingKey, broker);
-        var channel = await GetChannelAsync(broker, cancellationToken);
-        await channel.BasicPublishAsync(
+        if (_channel == null) throw new InvalidOperationException("Client not initialized.");
+        logger.LogPublishingMessage(typeof(TMessage).Name, exchange, routingKey, string.Empty);
+        await _channel.BasicPublishAsync(
             exchange: exchange,
             routingKey: routingKey,
             mandatory: mandatory,
@@ -50,36 +65,22 @@ public sealed class RabbitMqClient(IConnectionManager connectionManager, ILogger
             cancellationToken: cancellationToken);
     }
 
-    public async Task BasicAckAsync(string broker, ulong deliveryTag, bool multiple = false, CancellationToken cancellationToken = default)
-    {
-        var channel = await GetChannelAsync(broker, cancellationToken);
-        await channel.BasicAckAsync(deliveryTag, multiple, cancellationToken);
-    }
-
-    public async Task BasicNackAsync(string broker, ulong deliveryTag, bool multiple = false, bool requeue = true, CancellationToken cancellationToken = default)
-    {
-        var channel = await GetChannelAsync(broker, cancellationToken);
-        await channel.BasicNackAsync(deliveryTag, multiple, requeue, cancellationToken);
-    }
-
     public async Task<string> BasicConsumeAsync(
-        string broker,
         string queue,
         bool autoAck,
         string consumerTag,
         bool noLocal,
         bool exclusive,
         IDictionary<string, object?>? arguments,
-        AsyncDefaultBasicConsumer consumer,
         CancellationToken cancellationToken = default)
     {
-        logger.LogStartingConsumptionOnQueue(queue, broker);
-        var channel = await GetChannelAsync(broker, cancellationToken);
-        return await channel.BasicConsumeAsync(queue, autoAck, consumerTag, noLocal, exclusive, arguments, consumer, cancellationToken);
+        if (_channel == null) throw new InvalidOperationException("Client not initialized.");
+        if (_consumer == null) throw new InvalidOperationException("Consumer not initialized.");
+        logger.LogStartingConsumptionOnQueue(queue, string.Empty);
+        return await _channel.BasicConsumeAsync(queue, autoAck, consumerTag, noLocal, exclusive, arguments, _consumer, cancellationToken);
     }
 
     public async Task QueueDeclareAsync(
-        string broker,
         string queue,
         bool durable = true,
         bool exclusive = false,
@@ -89,13 +90,12 @@ public sealed class RabbitMqClient(IConnectionManager connectionManager, ILogger
         bool noWait = false,
         CancellationToken cancellationToken = default)
     {
-        logger.LogDeclaringQueue(queue, broker);
-        var channel = await GetChannelAsync(broker, cancellationToken);
-        await channel.QueueDeclareAsync(queue, durable, exclusive, autoDelete, arguments, passive, noWait, cancellationToken);
+        if (_channel == null) throw new InvalidOperationException("Client not initialized.");
+        logger.LogDeclaringQueue(queue, string.Empty);
+        await _channel.QueueDeclareAsync(queue, durable, exclusive, autoDelete, arguments, passive, noWait, cancellationToken);
     }
 
     public async Task ExchangeDeclareAsync(
-        string broker,
         string exchange,
         string type = "topic",
         bool durable = true,
@@ -105,13 +105,12 @@ public sealed class RabbitMqClient(IConnectionManager connectionManager, ILogger
         bool noWait = false,
         CancellationToken cancellationToken = default)
     {
-        logger.LogDeclaringExchange(exchange, broker);
-        var channel = await GetChannelAsync(broker, cancellationToken);
-        await channel.ExchangeDeclareAsync(exchange, type, durable, autoDelete, arguments, passive, noWait, cancellationToken);
+        if (_channel == null) throw new InvalidOperationException("Client not initialized.");
+        logger.LogDeclaringExchange(exchange, string.Empty);
+        await _channel.ExchangeDeclareAsync(exchange, type, durable, autoDelete, arguments, passive, noWait, cancellationToken);
     }
 
     public async Task QueueBindAsync(
-        string broker,
         string queue,
         string exchange,
         string routingKey = "",
@@ -119,19 +118,20 @@ public sealed class RabbitMqClient(IConnectionManager connectionManager, ILogger
         bool noWait = false,
         CancellationToken cancellationToken = default)
     {
-        logger.LogBindingQueueToExchange(queue, exchange, routingKey, broker);
-        var channel = await GetChannelAsync(broker, cancellationToken);
-        await channel.QueueBindAsync(queue, exchange, routingKey, arguments, noWait, cancellationToken);
+        if (_channel == null) throw new InvalidOperationException("Client not initialized.");
+        logger.LogBindingQueueToExchange(queue, exchange, routingKey, string.Empty);
+        await _channel.QueueBindAsync(queue, exchange, routingKey, arguments, noWait, cancellationToken);
     }
 
-    public async ValueTask DisposeAsync()
+    public async Task BasicAckAsync(ulong deliveryTag, bool multiple, CancellationToken cancellationToken = default)
     {
-        foreach (var (broker, channel) in _channels)
-        {
-            logger.LogDisposingChannelForBroker(broker);
-            await channel.DisposeAsync();
-        }
-        _channels.Clear();
-        _semaphore.Dispose();
+        if (_channel == null) throw new InvalidOperationException("Client not initialized.");
+        await _channel.BasicAckAsync(deliveryTag, multiple, cancellationToken);
+    }
+
+    public async Task BasicNackAsync(ulong deliveryTag, bool multiple, bool requeue, CancellationToken cancellationToken = default)
+    {
+        if (_channel == null) throw new InvalidOperationException("Client not initialized.");
+        await _channel.BasicNackAsync(deliveryTag, multiple, requeue, cancellationToken);
     }
 }

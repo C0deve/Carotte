@@ -17,6 +17,8 @@ public class DIScanTests
             builder.AddAssemblies(typeof(DIScanTests).Assembly);
             builder.ConsumerConfigs[typeof(CarotteTestKitTests.NoAttributeConsumer)] = ("test-broker", "test-queue");
             builder.ConsumerConfigs[typeof(Validation.ValidationTests.NoAttributeConsumer)] = ("test-broker", "test-queue");
+            builder.ConsumerConfigs[typeof(Validation.ValidationTests.MultiQueueConsumer)] = ("test-broker", "test-queue");
+            builder.ConsumerConfigs[typeof(Validation.ValidationTests.BindingWithoutQueueConsumer)] = ("test-broker", "test-queue");
         });
 
         // Assert
@@ -46,6 +48,8 @@ public class DIScanTests
             builder.AddAssemblies(typeof(DIScanTests).Assembly);
             builder.ConsumerConfigs[typeof(CarotteTestKitTests.NoAttributeConsumer)] = ("test-broker", "test-queue");
             builder.ConsumerConfigs[typeof(Validation.ValidationTests.NoAttributeConsumer)] = ("test-broker", "test-queue");
+            builder.ConsumerConfigs[typeof(Validation.ValidationTests.MultiQueueConsumer)] = ("test-broker", "test-queue");
+            builder.ConsumerConfigs[typeof(Validation.ValidationTests.BindingWithoutQueueConsumer)] = ("test-broker", "test-queue");
         });
 
         // Assert
@@ -63,7 +67,6 @@ public class DIScanTests
     public class Message2 { }
 
     [Queue("test-queue-1", broker: "test-broker")]
-    [Queue("test-queue-2", broker: "test-broker")]
     public class MultiConsumer : IConsumer<Message>, IConsumer<Message2>
     {
         public Task HandleAsync(Message message, CancellationToken cancellationToken) => Task.CompletedTask;

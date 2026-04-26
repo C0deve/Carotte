@@ -9,135 +9,136 @@ public class RabbitMqClientTests
     private readonly Mock<IConnectionManager> _connectionManagerMock = new();
     private readonly Mock<ILogger<RabbitMqClient>> _loggerMock = new();
     private readonly RabbitMqClient _client;
+    private readonly Mock<IChannel> _channelMock = new();
+
+    private readonly Mock<IConnection> _connectionMock = new();
 
     public RabbitMqClientTests()
     {
         _loggerMock.Setup(x => x.IsEnabled(It.IsAny<LogLevel>())).Returns(true);
         _client = new RabbitMqClient(_connectionManagerMock.Object, _loggerMock.Object);
+        _channelMock.Setup(c => c.IsOpen).Returns(true);
+        _connectionManagerMock.Setup(m => m.GetConnectionAsync(It.IsAny<string>()))
+            .ReturnsAsync(_connectionMock.Object);
+        _connectionMock.Setup(c => c.CreateChannelAsync(It.IsAny<CreateChannelOptions>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(_channelMock.Object);
+    }
+
+    private async Task InitializeClientAsync()
+    {
+        await _client.ConnectAsync("test-broker");
     }
 
     [Fact]
-    public async Task GetChannelAsync_ShouldLogCreation()
+    public async Task InitializeAsync_ShouldRegisterHost()
     {
-        // Arrange
-        const string broker = "test-broker";
-        var connectionMock = new Mock<IConnection>();
-        var channelMock = new Mock<IChannel>();
-        _connectionManagerMock.Setup(m => m.GetConnectionAsync(broker)).ReturnsAsync(connectionMock.Object);
-        connectionMock.Setup(c => c.CreateChannelAsync(It.IsAny<CreateChannelOptions?>(), It.IsAny<CancellationToken>())).ReturnsAsync(channelMock.Object);
-
         // Act
-        await _client.GetChannelAsync(broker);
+        await _client.ConnectAsync("test-broker");
 
         // Assert
-        VerifyLog(LogLevel.Information, "Creating new channel for broker test-broker");
+        _connectionManagerMock.Verify(m => m.RegisterHostAsync("test-broker"), Times.Once);
+        _connectionManagerMock.Verify(m => m.GetConnectionAsync("test-broker"), Times.Once);
+    }
+
+    [Fact]
+    public async Task CloseAsync_ShouldUnregisterHost()
+    {
+        // Arrange
+        await _client.ConnectAsync("test-broker");
+
+        // Act
+        await _client.CloseAsync();
+
+        // Assert
+        _connectionManagerMock.Verify(m => m.UnregisterHostAsync("test-broker"), Times.Once);
     }
 
     [Fact]
     public async Task BasicPublishAsync_ShouldLogPublishing()
     {
         // Arrange
-        const string broker = "test-broker";
-        SetupBroker(broker);
+        await InitializeClientAsync();
+        const string exchange = "test-exchange";
+        const string routingKey = "test-key";
 
         // Act
         await _client.BasicPublishAsync<TestMessage>(
-            broker: broker,
-            exchange: "test-exchange",
-            routingKey: "test-key",
+            exchange: exchange,
+            routingKey: routingKey,
             body: [],
             properties: new BasicProperties());
 
         // Assert
-        VerifyLog(LogLevel.Debug, "Publishing message TestMessage to exchange test-exchange with routing key test-key on broker test-broker");
+        VerifyLog(LogLevel.Debug, $"Publishing message TestMessage to exchange {exchange} with routing key {routingKey} on broker ");
+        _channelMock.Verify(c => c.BasicPublishAsync(exchange, routingKey, true, It.IsAny<BasicProperties>(), It.IsAny<ReadOnlyMemory<byte>>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
     public async Task BasicConsumeAsync_ShouldLogConsumption()
     {
         // Arrange
-        const string broker = "test-broker";
-        SetupBroker(broker);
+        await InitializeClientAsync();
+        const string queue = "test-queue";
 
         // Act
         await _client.BasicConsumeAsync(
-            broker: broker,
-            queue: "test-queue",
+            queue: queue,
             autoAck: false,
             consumerTag: "tag",
             noLocal: false,
             exclusive: false,
-            arguments: null,
-            consumer: null!);
+            arguments: null);
 
         // Assert
-        VerifyLog(LogLevel.Information, "Starting consumption on queue test-queue for broker test-broker");
+        VerifyLog(LogLevel.Information, $"Starting consumption on queue {queue} for broker ");
+        _channelMock.Verify(c => c.BasicConsumeAsync(queue, false, "tag", false, false, null, It.IsAny<IAsyncBasicConsumer>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
     public async Task QueueDeclareAsync_ShouldLogDeclaration()
     {
         // Arrange
-        const string broker = "test-broker";
-        SetupBroker(broker);
+        await InitializeClientAsync();
+        const string queue = "test-queue";
 
         // Act
-        await _client.QueueDeclareAsync(broker, "test-queue");
+        await _client.QueueDeclareAsync(queue);
 
         // Assert
-        VerifyLog(LogLevel.Information, "Declaring queue test-queue on broker test-broker");
+        VerifyLog(LogLevel.Information, $"Declaring queue {queue} on broker ");
+        _channelMock.Verify(c => c.QueueDeclareAsync(queue, true, false, false, null, false, false, It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
     public async Task ExchangeDeclareAsync_ShouldLogDeclaration()
     {
         // Arrange
-        const string broker = "test-broker";
-        SetupBroker(broker);
+        await InitializeClientAsync();
+        const string exchange = "test-exchange";
 
         // Act
-        await _client.ExchangeDeclareAsync(broker, "test-exchange");
+        await _client.ExchangeDeclareAsync(exchange);
 
         // Assert
-        VerifyLog(LogLevel.Information, "Declaring exchange test-exchange on broker test-broker");
+        VerifyLog(LogLevel.Information, $"Declaring exchange {exchange} on broker ");
+        _channelMock.Verify(c => c.ExchangeDeclareAsync(exchange, "topic", true, false, null, false, false, It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
     public async Task QueueBindAsync_ShouldLogBinding()
     {
         // Arrange
-        const string broker = "test-broker";
-        SetupBroker(broker);
+        await InitializeClientAsync();
+        const string queue = "test-queue";
+        const string exchange = "test-exchange";
+        const string routingKey = "test-key";
 
         // Act
-        await _client.QueueBindAsync(broker, "test-queue", "test-exchange", "test-key");
+        await _client.QueueBindAsync(queue, exchange, routingKey);
 
         // Assert
-        VerifyLog(LogLevel.Information, "Binding queue test-queue to exchange test-exchange with routing key test-key on broker test-broker");
-    }
-
-    [Fact]
-    public async Task DisposeAsync_ShouldLogDisposing()
-    {
-        // Arrange
-        const string broker = "test-broker";
-        SetupBroker(broker);
-        await _client.GetChannelAsync(broker);
-
-        // Act
-        await _client.DisposeAsync();
-
-        // Assert
-        VerifyLog(LogLevel.Information, "Disposing channel for broker test-broker");
-    }
-
-    private void SetupBroker(string broker)
-    {
-        var connectionMock = new Mock<IConnection>();
-        var channelMock = new Mock<IChannel>();
-        channelMock.Setup(c => c.IsOpen).Returns(true);
-        _connectionManagerMock.Setup(m => m.GetConnectionAsync(broker)).ReturnsAsync(connectionMock.Object);
-        connectionMock.Setup(c => c.CreateChannelAsync(It.IsAny<CreateChannelOptions?>(), It.IsAny<CancellationToken>())).ReturnsAsync(channelMock.Object);
+        VerifyLog(LogLevel.Information, $"Binding queue {queue} to exchange {exchange} with routing key {routingKey} on broker ");
+        _channelMock.Verify(c => c.QueueBindAsync(queue, exchange, routingKey, null, false, It.IsAny<CancellationToken>()), Times.Once);
     }
 
     private void VerifyLog(LogLevel level, string message) => _loggerMock.Verify(
@@ -151,7 +152,5 @@ public class RabbitMqClientTests
 #pragma warning restore CA1873
         Times.Once);
 
-    // ReSharper disable once ClassNeverInstantiated.Global
-    // ReSharper disable once MemberCanBePrivate.Global
     public class TestMessage;
 }

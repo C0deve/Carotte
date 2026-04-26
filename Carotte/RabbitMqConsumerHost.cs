@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
 using Carotte.pipeline;
 
@@ -15,7 +16,6 @@ public sealed class RabbitMqConsumerHost<TConsumer>(
     : BackgroundService
     where TConsumer : class
 {
-    private bool _isConnected;
     private ConsumerPipeline? _pipeline;
 
     public override async Task StartAsync(CancellationToken cancellationToken)
@@ -24,8 +24,10 @@ public sealed class RabbitMqConsumerHost<TConsumer>(
         mediator.Initialize<TConsumer>();
         BuildPipeline();
 
+        await rabbitMqClient.ConnectAsync(broker, cancellationToken);
+        rabbitMqClient.ReceivedAsync += (_, ea) => HandleMessageAsync(ea, CancellationToken.None);
+        
         await SetupTopologyAsync(cancellationToken);
-        _isConnected = true;
 
         await base.StartAsync(cancellationToken);
     }
@@ -33,6 +35,10 @@ public sealed class RabbitMqConsumerHost<TConsumer>(
     public override async Task StopAsync(CancellationToken cancellationToken)
     {
         logger.LogStoppingRabbitmqConsumerHost(typeof(TConsumer).Name);
+        
+        await rabbitMqClient.CloseAsync(cancellationToken);
+        await rabbitMqClient.DisposeAsync();
+        
         await base.StopAsync(cancellationToken);
     }
 
@@ -42,12 +48,6 @@ public sealed class RabbitMqConsumerHost<TConsumer>(
         {
             try
             {
-                if (!_isConnected)
-                {
-                    await SetupTopologyAsync(stoppingToken);
-                    _isConnected = true;
-                }
-
                 await ConsumeAsync(stoppingToken);
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
@@ -56,16 +56,10 @@ public sealed class RabbitMqConsumerHost<TConsumer>(
             }
             catch (Exception ex)
             {
-                _isConnected = false;
                 logger.LogError(ex, "Error while executing consumer {ConsumerType}. Retrying in 5 seconds...", typeof(TConsumer).Name);
                 await Task.Delay(5000, stoppingToken);
             }
         }
-    }
-
-    public override void Dispose()
-    {
-        base.Dispose();
     }
 
     private void BuildPipeline()
@@ -80,23 +74,15 @@ public sealed class RabbitMqConsumerHost<TConsumer>(
 
     private async Task ConsumeAsync(CancellationToken stoppingToken)
     {
-        logger.LogOpeningChannel(typeof(TConsumer).Name, broker);
-        var channel = await rabbitMqClient.GetChannelAsync(broker, stoppingToken);
-        var consumer = new AsyncEventingBasicConsumer(channel);
-        consumer.ReceivedAsync += (_, ea) => 
-            HandleMessageAsync(ea, stoppingToken);
-
         foreach (var attr in queueAttributes.Select(a => a.Name).Distinct())
         {
             await rabbitMqClient.BasicConsumeAsync(
-                broker: broker,
                 queue: attr,
                 autoAck: false,
                 consumerTag: string.Empty,
                 noLocal: false,
                 exclusive: false,
                 arguments: null,
-                consumer: consumer,
                 cancellationToken: stoppingToken);
         }
 
@@ -114,7 +100,6 @@ public sealed class RabbitMqConsumerHost<TConsumer>(
             if (declaredQueues.Add(attr.Name))
             {
                 await rabbitMqClient.QueueDeclareAsync(
-                    broker: broker,
                     queue: attr.Name,
                     durable: true,
                     exclusive: false,
@@ -130,7 +115,6 @@ public sealed class RabbitMqConsumerHost<TConsumer>(
             if (declaredExchanges.Add(attr.Exchange))
             {
                 await rabbitMqClient.ExchangeDeclareAsync(
-                    broker: broker,
                     exchange: attr.Exchange,
                     type: "topic",
                     durable: true,
@@ -142,7 +126,6 @@ public sealed class RabbitMqConsumerHost<TConsumer>(
             }
 
             await rabbitMqClient.QueueBindAsync(
-                broker: broker,
                 queue: attr.Name,
                 exchange: attr.Exchange,
                 routingKey: attr.RoutingKey,
@@ -169,11 +152,11 @@ public sealed class RabbitMqConsumerHost<TConsumer>(
                 await _pipeline.ExecuteAsync(context);
             }
 
-            await rabbitMqClient.BasicAckAsync(broker, ea.DeliveryTag, false, cancellationToken: stoppingToken);
+            await rabbitMqClient.BasicAckAsync(ea.DeliveryTag, false, cancellationToken: stoppingToken);
         }
         catch (Exception)
         {
-            await rabbitMqClient.BasicNackAsync(broker, ea.DeliveryTag, false, true, cancellationToken: stoppingToken);
+            await rabbitMqClient.BasicNackAsync(ea.DeliveryTag, false, false, cancellationToken: stoppingToken);
         }
     }
 }

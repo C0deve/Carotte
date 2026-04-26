@@ -1,13 +1,15 @@
 ﻿using RabbitMQ.Client;
+using RabbitMQ.Client.Events;
 
 namespace Carotte;
 
 public interface IRabbitMqClient : IAsyncDisposable
 {
-    ValueTask<IChannel> GetChannelAsync(string broker, CancellationToken cancellationToken = default);
-    
+    event AsyncEventHandler<BasicDeliverEventArgs>? ReceivedAsync;
+    Task ConnectAsync(string brokerName, CancellationToken cancellationToken = default);
+    Task CloseAsync(CancellationToken cancellationToken = default);
+
     Task BasicPublishAsync<TMessage>(
-        string broker,
         string exchange,
         string routingKey,
         byte[] body,
@@ -15,23 +17,16 @@ public interface IRabbitMqClient : IAsyncDisposable
         bool mandatory = true,
         CancellationToken cancellationToken = default) where TMessage : class;
 
-    Task BasicAckAsync(string broker, ulong deliveryTag, bool multiple = false, CancellationToken cancellationToken = default);
-    
-    Task BasicNackAsync(string broker, ulong deliveryTag, bool multiple = false, bool requeue = true, CancellationToken cancellationToken = default);
-
     Task<string> BasicConsumeAsync(
-        string broker,
         string queue,
         bool autoAck,
         string consumerTag,
         bool noLocal,
         bool exclusive,
         IDictionary<string, object?>? arguments,
-        AsyncDefaultBasicConsumer consumer,
         CancellationToken cancellationToken = default);
 
     Task QueueDeclareAsync(
-        string broker,
         string queue,
         bool durable = true,
         bool exclusive = false,
@@ -42,7 +37,6 @@ public interface IRabbitMqClient : IAsyncDisposable
         CancellationToken cancellationToken = default);
 
     Task ExchangeDeclareAsync(
-        string broker,
         string exchange,
         string type = "topic",
         bool durable = true,
@@ -53,11 +47,13 @@ public interface IRabbitMqClient : IAsyncDisposable
         CancellationToken cancellationToken = default);
 
     Task QueueBindAsync(
-        string broker,
         string queue,
         string exchange,
         string routingKey = "",
         IDictionary<string, object?>? arguments = null,
         bool noWait = false,
         CancellationToken cancellationToken = default);
+
+    Task BasicAckAsync(ulong deliveryTag, bool multiple, CancellationToken cancellationToken = default);
+    Task BasicNackAsync(ulong deliveryTag, bool multiple, bool requeue, CancellationToken cancellationToken = default);
 }
