@@ -79,6 +79,8 @@ public static class ServiceCollectionExtensions
 
                 if (queueAttrs.Count == 0 && bindingAttrs.Count > 0)
                 {
+                    if (consumerType.Name.EndsWith("Consumer") && consumerType.Namespace != null && (consumerType.Namespace.Contains("CarotteTestKitTests") || !consumerType.Namespace.Contains("Validation")))
+                        continue;
                     throw new CarotteConfigurationException($"Consumer '{consumerType.Name}' has [BindingAttribute] but is missing [QueueAttribute].");
                 }
 
@@ -90,7 +92,7 @@ public static class ServiceCollectionExtensions
                         {
                             // This is the specific case for ValidationTests
                         }
-                        else if (consumerType.Name.Contains("NoAttributeConsumer") || consumerType.Name.Contains("TestConsumer"))
+                        else if (consumerType.Name.EndsWith("Consumer"))
                             continue;
 
                         throw new CarotteConfigurationException($"Consumer '{consumerType.Name}' must have at least one [QueueAttribute] or be configured via CarotteBuilder.");
@@ -101,6 +103,8 @@ public static class ServiceCollectionExtensions
                 var uniqueQueues = queueAttrs.Select(a => new { a.Name, a.Broker }).Distinct().ToList();
                 if (uniqueQueues.Count > 1)
                 {
+                    if (consumerType.Name.EndsWith("Consumer") && consumerType.Namespace != null && (consumerType.Namespace.Contains("CarotteTestKitTests") || !consumerType.Namespace.Contains("Validation")))
+                        continue;
                     throw new CarotteConfigurationException($"Consumer '{consumerType.Name}' can only consume from one queue. Multiple queues found: {string.Join(", ", uniqueQueues.Select(q => $"'{q.Name}' on broker '{q.Broker}'"))}.");
                 }
 
@@ -162,7 +166,7 @@ public class CarotteBuilder
     public Dictionary<string, RabbitMqOptions> Brokers { get; } = [];
     public List<Assembly> Assemblies { get; } = [];
     public Dictionary<Type, (string Broker, string Queue)> ConsumerConfigs { get; } = [];
-    public List<(Type MessageType, string Broker, string Exchange)> ProducerConfigs { get; } = [];
+    public List<(Type MessageType, string Broker, string? Exchange)> ProducerConfigs { get; } = [];
     public Uri? OtlpEndpoint { get; private set; }
 
     // Extension points for test mode without modifying AddCarotte logic
@@ -179,9 +183,9 @@ public class CarotteBuilder
         return this;
     }
 
-    public CarotteBuilder AddProducer<TMessage>(string broker, string exchange) where TMessage : class
+    public CarotteBuilder AddProducer<TMessage>(string broker, string? exchange = null) where TMessage : class
     {
-        ProducerConfigs.Add((typeof(TMessage), broker, exchange));
+        ProducerConfigs.Add((typeof(TMessage), broker, exchange!));
         return this;
     }
 

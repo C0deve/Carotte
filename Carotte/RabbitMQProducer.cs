@@ -1,5 +1,4 @@
 ﻿using Carotte.pipeline;
-using RabbitMQ.Client;
 
 namespace Carotte;
 
@@ -19,20 +18,47 @@ public class RabbitMqProducer<TMessage>(
         .Build();
 
     private readonly SemaphoreSlim _semaphore = new(1, 1);
+    private bool _initialized;
 
     public async Task SendAsync(TMessage message, CancellationToken cancellationToken = default)
     {
+        var effectiveExchange = exchange;
         var routingKey = typeof(TMessage).Name;
-        var context = new ProducerContext<TMessage>(message, exchange, routingKey, cancellationToken);
 
-        await _semaphore.WaitAsync(cancellationToken);
-        try
+        if (string.IsNullOrEmpty(effectiveExchange))
         {
-            await rabbitMqClient.ConnectAsync(broker, cancellationToken);
+            effectiveExchange = typeof(TMessage).FullName ?? typeof(TMessage).Name;
+            routingKey = string.Empty;
         }
-        finally
+
+        var context = new ProducerContext<TMessage>(message, effectiveExchange, routingKey, cancellationToken);
+
+        if (!_initialized)
         {
-            _semaphore.Release();
+            await _semaphore.WaitAsync(cancellationToken);
+            try
+            {
+                if (!_initialized)
+                {
+                    await rabbitMqClient.ConnectAsync(broker, cancellationToken);
+
+                    if (string.IsNullOrEmpty(exchange))
+                    {
+                        await rabbitMqClient.ExchangeDeclareAsync(
+                            exchange: effectiveExchange,
+                            type: "fanout",
+                            durable: true,
+                            autoDelete: false,
+                            cancellationToken: cancellationToken);
+                    }
+
+                    _initialized = true;
+                }
+            }
+            finally
+            {
+                _semaphore.Release();
+            }
         }
 
         await _pipeline.ExecuteAsync(context);

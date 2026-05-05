@@ -1,6 +1,5 @@
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
 using Carotte.pipeline;
 
@@ -95,6 +94,48 @@ public sealed class RabbitMqConsumerHost<TConsumer>(
         var declaredQueues = new HashSet<string>();
         var declaredExchanges = new HashSet<string>();
 
+        await SetupConventionTopologyAsync(declaredExchanges, stoppingToken);
+        await SetupAttributeTopologyAsync(declaredQueues, declaredExchanges, stoppingToken);
+    }
+
+    private async Task SetupConventionTopologyAsync(HashSet<string> declaredExchanges, CancellationToken stoppingToken)
+    {
+        var consumerExchange = $"{typeof(TConsumer).Name}";
+        if (declaredExchanges.Add(consumerExchange))
+        {
+            await rabbitMqClient.ExchangeDeclareAsync(
+                exchange: consumerExchange,
+                type: "fanout",
+                durable: true,
+                autoDelete: false,
+                cancellationToken: stoppingToken);
+        }
+
+        foreach (var messageType in mediator.GetHandledMessageTypes())
+        {
+            var messageExchange = messageType.FullName ?? messageType.Name;
+            if (declaredExchanges.Add(messageExchange))
+            {
+                await rabbitMqClient.ExchangeDeclareAsync(
+                    exchange: messageExchange,
+                    type: "fanout",
+                    durable: true,
+                    autoDelete: false,
+                    cancellationToken: stoppingToken);
+            }
+
+            await rabbitMqClient.ExchangeBindAsync(
+                destination: consumerExchange,
+                source: messageExchange,
+                routingKey: "",
+                cancellationToken: stoppingToken);
+        }
+    }
+
+    private async Task SetupAttributeTopologyAsync(HashSet<string> declaredQueues, HashSet<string> declaredExchanges, CancellationToken stoppingToken)
+    {
+        var consumerExchange = $"{typeof(TConsumer).Name}";
+
         foreach (var attr in queueAttributes)
         {
             if (declaredQueues.Add(attr.Name))
@@ -107,6 +148,13 @@ public sealed class RabbitMqConsumerHost<TConsumer>(
                     arguments: null,
                     passive: false,
                     noWait: false,
+                    cancellationToken: stoppingToken);
+
+                // Bind consumer exchange to the queue
+                await rabbitMqClient.QueueBindAsync(
+                    queue: attr.Name,
+                    exchange: consumerExchange,
+                    routingKey: "",
                     cancellationToken: stoppingToken);
             }
 

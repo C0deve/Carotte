@@ -1,6 +1,5 @@
 ﻿using Microsoft.Extensions.Logging;
 using Moq;
-using RabbitMQ.Client;
 
 namespace Carotte.Tests;
 

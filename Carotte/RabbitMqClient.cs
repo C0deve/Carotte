@@ -123,6 +123,19 @@ public sealed class RabbitMqClient(IConnectionManager connectionManager, ILogger
         await _channel.QueueBindAsync(queue, exchange, routingKey, arguments, noWait, cancellationToken);
     }
 
+    public async Task ExchangeBindAsync(
+        string destination,
+        string source,
+        string routingKey = "",
+        IDictionary<string, object?>? arguments = null,
+        bool noWait = false,
+        CancellationToken cancellationToken = default)
+    {
+        if (_channel == null) throw new InvalidOperationException("Client not initialized.");
+        logger.LogBindingExchangeToExchange(destination, source, routingKey, string.Empty);
+        await _channel.ExchangeBindAsync(destination, source, routingKey, arguments, noWait, cancellationToken);
+    }
+
     public async Task BasicAckAsync(ulong deliveryTag, bool multiple, CancellationToken cancellationToken = default)
     {
         if (_channel == null) throw new InvalidOperationException("Client not initialized.");

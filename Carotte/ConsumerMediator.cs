@@ -27,6 +27,8 @@ public sealed class ConsumerMediator(IServiceProvider serviceProvider)
         }
     }
 
+    public IEnumerable<Type> GetHandledMessageTypes() => _handlerMethods.Keys;
+
     public Type? ResolveMessageType(BasicDeliverEventArgs ea)
     {
         if (ea.BasicProperties.Type != null && _handlerMethods.Keys.Any(k => k.Name == ea.BasicProperties.Type))

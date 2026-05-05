@@ -22,6 +22,9 @@ internal static partial class RabbitMqLoggingExtensions
     [LoggerMessage(LogLevel.Information, "Binding queue {QueueName} to exchange {ExchangeName} with routing key {RoutingKey} on broker {Broker}")]
     public static partial void LogBindingQueueToExchange(this ILogger logger, string queueName, string exchangeName, string routingKey, string broker);
 
+    [LoggerMessage(LogLevel.Information, "Binding exchange {Destination} to exchange {Source} with routing key {RoutingKey} on broker {Broker}")]
+    public static partial void LogBindingExchangeToExchange(this ILogger logger, string destination, string source, string routingKey, string broker);
+
     [LoggerMessage(LogLevel.Debug, "Publishing message {MessageType} to exchange {ExchangeName} with routing key {RoutingKey} on broker {Broker}")]
     public static partial void LogPublishingMessage(this ILogger logger, string messageType, string exchangeName, string routingKey, string broker);
 

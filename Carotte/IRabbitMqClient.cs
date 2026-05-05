@@ -54,6 +54,14 @@ public interface IRabbitMqClient : IAsyncDisposable
         bool noWait = false,
         CancellationToken cancellationToken = default);
 
+    Task ExchangeBindAsync(
+        string destination,
+        string source,
+        string routingKey = "",
+        IDictionary<string, object?>? arguments = null,
+        bool noWait = false,
+        CancellationToken cancellationToken = default);
+
     Task BasicAckAsync(ulong deliveryTag, bool multiple, CancellationToken cancellationToken = default);
     Task BasicNackAsync(ulong deliveryTag, bool multiple, bool requeue, CancellationToken cancellationToken = default);
 }
