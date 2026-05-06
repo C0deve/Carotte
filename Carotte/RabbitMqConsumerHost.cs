@@ -113,7 +113,7 @@ public sealed class RabbitMqConsumerHost<TConsumer>(
 
         foreach (var messageType in mediator.GetHandledMessageTypes())
         {
-            var messageExchange = messageType.FullName ?? messageType.Name;
+            var messageExchange = messageType.Name.ToDefaultExchangeName();
             if (declaredExchanges.Add(messageExchange))
             {
                 await rabbitMqClient.ExchangeDeclareAsync(

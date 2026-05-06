@@ -27,7 +27,7 @@ public class RabbitMqProducerTests
         await producer.SendAsync(message, CancellationToken.None);
 
         // Assert
-        var expectedExchange = typeof(TestMessage).FullName;
+        var expectedExchange = "message-test";
         
         // Vérifier que l'exchange est déclaré en fanout (convention)
         rabbitMqClient.Verify(c => c.ExchangeDeclareAsync(

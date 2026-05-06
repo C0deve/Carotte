@@ -27,7 +27,7 @@ public class RabbitMqProducer<TMessage>(
 
         if (string.IsNullOrEmpty(effectiveExchange))
         {
-            effectiveExchange = typeof(TMessage).FullName ?? typeof(TMessage).Name;
+            effectiveExchange = typeof(TMessage).Name.ToDefaultExchangeName();
             routingKey = string.Empty;
         }
 

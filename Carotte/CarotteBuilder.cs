@@ -80,12 +80,12 @@ public static class ServiceCollectionExtensions
                 {
                     if (queueAttrs.Count == 0 && bindingAttrs.Count > 0)
                     {
-                        queueAttrs.Add(new QueueAttribute(consumerType.Name));
+                        queueAttrs.Add(new QueueAttribute(consumerType.Name.ToDefaultQueueName()));
                     }
 
                     if (queueAttrs.Count == 0)
                     {
-                        queueAttrs.Add(new QueueAttribute(consumerType.Name));
+                        queueAttrs.Add(new QueueAttribute(consumerType.Name.ToDefaultQueueName()));
                     }
 
                     var uniqueQueues = queueAttrs.Select(a => new { a.Name, a.Broker }).Distinct().ToList();
@@ -124,7 +124,7 @@ public static class ServiceCollectionExtensions
 
                 var baseQueue = queueAttrs.First();
                 
-                // On fusionne les bindings
+                // We merge the bindings
                 var allBindings = new List<QueueAttribute>();
                 foreach (var attr in queueAttrs)
                 {
@@ -136,7 +136,7 @@ public static class ServiceCollectionExtensions
                     allBindings.Add(new QueueAttribute(baseQueue.Name, baseQueue.Broker, binding.Exchange, binding.RoutingKey));
                 }
                 
-                // S'il n'y a aucun binding défini via Queue ou Binding attribute, on garde au moins la queue elle-même
+                // If no binding is defined via Queue or Binding attribute, we keep at least the queue itself
                 if (allBindings.Count == 0)
                 {
                     allBindings.Add(baseQueue);
