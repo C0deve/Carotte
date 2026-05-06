@@ -67,8 +67,7 @@ app.Run();
 ```csharp
 public record OrderCreatedMessage(Guid OrderId, string CustomerName, decimal Amount);
 
-// The [Queue] attribute is mandatory for all consumers
-[Queue("order-processing-queue", broker: "my-broker", exchange: "orders-exchange", routingKey: "order.created")]
+// Convention-based consumer: queue named after the class, automatically bound to message exchange
 public class OrderConsumer(ILogger<OrderConsumer> logger) : IConsumer<OrderCreatedMessage>
 {
     public Task HandleAsync(OrderCreatedMessage message, CancellationToken cancellationToken)
@@ -81,21 +80,52 @@ public class OrderConsumer(ILogger<OrderConsumer> logger) : IConsumer<OrderCreat
 
 ### 3. Consumer Configuration & Validation
 
-Carotte enforces strict configuration for its consumers to avoid runtime issues:
+Carotte favors **Convention over Configuration**. By default, any class implementing `IConsumer<T>` is automatically registered and configured using top-level conventions.
 
-- **Mandatory Configuration**: Every class implementing `IConsumer<T>` must have at least one `[Queue]` attribute or be explicitly configured during setup. Failure to do so will result in a `CarotteConfigurationException` at startup.
-- **Duplicate Warnings**: If a consumer defines multiple `[Queue]` attributes with the same name and broker, a warning will be logged to the console during registration.
-- **Programmatic Configuration**: For consumers without attributes (e.g., from external libraries), you can use the `ConsumerConfigs` dictionary in the builder:
+- **Automatic Registration**: All classes implementing `IConsumer<T>` are automatically picked up via `AddAssemblies`.
+- **Default Queue Name**: The queue name defaults to the consumer's class name.
+- **Automatic Topology**: Carotte creates the necessary exchanges and bindings based on the message type (see below).
+- **Duplicate Warnings**: If a consumer defines multiple bindings for the same queue and broker, a warning will be logged to the console during registration.
+
+For advanced scenarios, you can still customize your consumers using attributes or programmatic configuration (see **Configuration Examples** at the bottom).
+
+### 4. Topology Conventions (E2E Binding)
+
+Carotte uses a **"Convention over Configuration"** approach to simplify RabbitMQ setup. If you don't specify an exchange or routing key, Carotte automatically applies the following rules based on **Exchange-to-Exchange (E2E)** binding.
+
+#### Why this convention?
+- **Total Decoupling**: The producer publishes to a "message type", not to a destination.
+- **Flexibility**: A consumer can listen to multiple message types without changing its queue configuration.
+- **Simplicity**: Fewer attributes to write.
+
+#### Producer Side (Publication)
+By default, a producer publishes to a `fanout` exchange whose name is the **FullName** of the message class.
+- **Exchange**: `MyNamespace.Messages.OrderCreated`
+- **Routing Key**: Empty (since it's a `fanout`).
+
+#### Consumer Side (Reception)
+Carotte automatically creates a two-level mesh:
+1. **Message Exchange (Source)**: A global exchange for the message type.
+2. **Consumer Exchange (Destination)**: An internal exchange named after the consumer class.
+3. **The Mesh (E2E)**: Carotte binds the message exchange to the consumer exchange.
+4. **The Queue**: The consumer exchange is bound to the final queue.
+
+**Example of generated topology:**
+`[Exchange: OrderCreated]` --(E2E)--> `[Exchange: OrderConsumer]` --(Binding)--> `[Queue: order-queue]`
+
+#### Simplified Example
+Thanks to conventions, configuration is minimal:
 
 ```csharp
-builder.Services.AddCarotte(carotte =>
-{
-    // ...
-    carotte.ConsumerConfigs[typeof(ExternalConsumer)] = ("my-broker", "external-queue");
-});
+// Producer without explicit exchange
+carotte.AddProducer<OrderCreatedMessage>("my-broker");
+
+// Consumer with just the queue name
+[Queue("order-processing-queue", broker: "my-broker")]
+public class OrderConsumer : IConsumer<OrderCreatedMessage> { ... }
 ```
 
-### 4. Send a Message
+### 5. Send a Message
 
 Inject `IProducer<TMessage>` and call `SendAsync`:
 
@@ -192,6 +222,47 @@ var sentMessages = testKit.GetSentMessages<OrderCreatedMessage>();
 - **Run Sample**: `dotnet run --project Carotte.Sample`
 - **Test**: `dotnet test`
 - **Benchmarks**: `dotnet run -c Release --project Carotte.Benchmarks`
+
+## 🛠️ Configuration Examples
+
+Here are the different ways to configure your consumers, from the simplest to the most customized.
+
+### 1. Zero Configuration (Convention)
+The recommended way. Any class implementing `IConsumer<T>`.
+
+```csharp
+// Queue name: "OrderConsumer"
+// Automatically bound to "OrderCreatedMessage" fanout exchange
+public class OrderConsumer : IConsumer<OrderCreatedMessage> { ... }
+```
+
+### 2. Custom Binding Only
+Use `[Binding]` if you want to use the default queue name (the class name) but bind it to a specific exchange.
+
+```csharp
+// Queue name: "SpecialConsumer"
+// Bound to "custom-exchange" with "routing.key"
+[Binding("custom-exchange", "routing.key")]
+public class SpecialConsumer : IConsumer<Message> { ... }
+```
+
+### 3. Full Customization
+Use `[Queue]` for full control over the queue name, broker, and bindings.
+
+```csharp
+[Queue("my-custom-queue", broker: "secondary-broker", exchange: "orders", routingKey: "created")]
+public class CustomConsumer : IConsumer<OrderMessage> { ... }
+```
+
+### 4. Programmatic Configuration
+Useful for consumers in external assemblies where you cannot add attributes.
+
+```csharp
+builder.Services.AddCarotte(carotte =>
+{
+    carotte.ConsumerConfigs[typeof(ExternalConsumer)] = ("my-broker", "external-queue");
+});
+```
 
 ## 📄 License
 

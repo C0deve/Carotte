@@ -27,13 +27,6 @@ public class ValidationTests
         public Task HandleAsync(Message message, CancellationToken cancellationToken) => Task.CompletedTask;
     }
 
-    [Queue("test-queue", broker: "test-broker", exchange: "exchange1", routingKey: "key1")]
-    [Queue("test-queue", broker: "test-broker", exchange: "exchange2", routingKey: "key2")]
-    public class MultiBindingConsumer : IConsumer<Message>
-    {
-        public Task HandleAsync(Message message, CancellationToken cancellationToken) => Task.CompletedTask;
-    }
-
     [Queue("test-queue", broker: "test-broker")]
     [Binding("exchange1", "key1")]
     [Binding("exchange2", "key2")]
@@ -85,40 +78,36 @@ public class ValidationTests
     }
 
     [Fact]
-    public void AddCarotte_ShouldThrowException_WhenBindingWithoutQueue()
+    public void AddCarotte_ShouldAllowBindingWithoutQueue()
     {
         // Arrange
         var services = new ServiceCollection();
 
-        // Act & Assert
-        var ex = Should.Throw<CarotteConfigurationException>(() => {
-            services.AddCarotte(builder => {
-                builder.ConsumerConfigs[typeof(NoAttributeConsumer)] = ("test-broker", "test-queue");
-                builder.ConsumerConfigs[typeof(MultiQueueConsumer)] = ("test-broker", "test-queue");
-                // On ne configure pas BindingWithoutQueueConsumer pour qu'il utilise son attribut [Binding]
-                builder.AddAssemblies(typeof(ValidationTests).Assembly);
-            });
+        // Act
+        services.AddCarotte(builder => {
+            builder.AddAssemblies(typeof(ValidationTests).Assembly);
+            builder.ConsumerConfigs[typeof(NoAttributeConsumer)] = ("test-broker", "test-queue");
+            builder.ConsumerConfigs[typeof(MultiQueueConsumer)] = ("test-broker", "test-queue");
         });
 
-        ex.Message.ShouldContain(nameof(BindingWithoutQueueConsumer));
-        ex.Message.ShouldContain("missing [QueueAttribute]");
+        // Assert
+        // Should not throw CarotteConfigurationException for BindingWithoutQueueConsumer
     }
 
     [Fact]
-    public void AddCarotte_ShouldThrowException_WhenConsumerHasNoQueueAttribute()
+    public void AddCarotte_ShouldNotThrowException_WhenConsumerHasNoAttribute()
     {
         // Arrange
         var services = new ServiceCollection();
 
-        // Act & Assert
-        var ex = Should.Throw<CarotteConfigurationException>(() => {
-            services.AddCarotte(builder => {
-                builder.AddAssemblies(typeof(ValidationTests).Assembly);
-            });
+        // Act
+        services.AddCarotte(builder => {
+            builder.AddAssemblies(typeof(ValidationTests).Assembly);
+            builder.ConsumerConfigs[typeof(MultiQueueConsumer)] = ("test-broker", "test-queue");
         });
 
-        ex.Message.ShouldContain(nameof(NoAttributeConsumer));
-        ex.Message.ShouldContain("QueueAttribute");
+        // Assert
+        // Should not throw, NoAttributeConsumer is now automatically configured with its class name as queue.
     }
 
     [Fact]
@@ -135,12 +124,8 @@ public class ValidationTests
             // Act
             services.AddCarotte(builder =>
             {
-                // On configure explicitement les NoAttributeConsumer pour éviter l'exception d'absence d'attribut
-                builder.ConsumerConfigs[typeof(NoAttributeConsumer)] = ("test-broker", "test-queue");
-                builder.ConsumerConfigs[typeof(CarotteTestKitTests.NoAttributeConsumer)] = ("test-broker", "test-queue");
+                // On configure explicitement les MultiQueueConsumer pour éviter l'exception d'absence d'attribut
                 builder.ConsumerConfigs[typeof(MultiQueueConsumer)] = ("test-broker", "test-queue");
-                builder.ConsumerConfigs[typeof(BindingWithoutQueueConsumer)] = ("test-broker", "test-queue");
-                builder.ConsumerConfigs[typeof(NewMultiBindingConsumer)] = ("test-broker", "test-queue");
                 builder.AddAssemblies(typeof(ValidationTests).Assembly);
             });
 

@@ -32,8 +32,6 @@ public class CarotteTestKitTests
         {
             c.AddProducer<ResponseMessage>("broker1", "exchange1")
              .AddAssemblies(typeof(TestConsumer).Assembly);
-            c.ConsumerConfigs[typeof(NoAttributeConsumer)] = ("broker1", "queue1");
-            c.ConsumerConfigs[typeof(Validation.ValidationTests.NoAttributeConsumer)] = ("broker1", "queue1");
         });
         services.AddCarotteTestKit();
 
@@ -60,8 +58,6 @@ public class CarotteTestKitTests
         {
             c.AddProducer<ResponseMessage>("broker1", "exchange1")
              .AddAssemblies(typeof(TestConsumer).Assembly);
-            c.ConsumerConfigs[typeof(NoAttributeConsumer)] = ("broker1", "queue1");
-            c.ConsumerConfigs[typeof(Validation.ValidationTests.NoAttributeConsumer)] = ("broker1", "queue1");
         });
         services.AddCarotteTestKit();
 
@@ -90,8 +86,6 @@ public class CarotteTestKitTests
         {
             c.AddProducer<ResponseMessage>("broker1", "exchange1")
              .AddAssemblies(typeof(TestConsumer).Assembly);
-            c.ConsumerConfigs[typeof(NoAttributeConsumer)] = ("broker1", "queue1");
-            c.ConsumerConfigs[typeof(Validation.ValidationTests.NoAttributeConsumer)] = ("broker1", "queue1");
         });
 
         // Act - Appel indépendant après AddCarotte
