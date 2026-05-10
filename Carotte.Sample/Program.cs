@@ -15,8 +15,9 @@ builder.Services.AddCarotte(carotte =>
     });
 
     // Register a Publisher to be able to send test commands
-    carotte.AddPublisher<OrderCreatedMessage>("my-broker", "orders-exchange");
-    carotte.AddPublisher<NotificationMessage>("my-broker", "notifications-exchange");
+    // (Optional if messages are already marked with [Publisher])
+    // carotte.AddPublisher<OrderCreatedMessage>("my-broker", "orders-exchange");
+    // carotte.AddPublisher<NotificationMessage>("my-broker", "notifications-exchange");
 
     // Automatic consumer scan in this assembly
     carotte.AddAssemblies(typeof(Program).Assembly);

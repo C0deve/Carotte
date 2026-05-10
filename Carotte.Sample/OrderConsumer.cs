@@ -1,5 +1,6 @@
 ﻿namespace Carotte.Sample;
 
+[Publisher("my-broker", "orders-exchange")]
 public record OrderCreatedMessage(Guid OrderId, string CustomerName, decimal Amount);
 
 [Queue("order-processing-queue", broker: "my-broker", exchange: "orders-exchange", routingKey: "order.created")]

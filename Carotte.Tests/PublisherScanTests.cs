@@ -10,7 +10,7 @@ public class PublisherScanTests
     public class NonScannedMessage;
 
     [Fact]
-    public void AddAssemblies_ShouldRegisterPublishersWithAttribute_WhenImplementingIPublisher()
+    public void AddAssemblies_ShouldRegisterPublishersWithAttribute_EvenWithoutExplicitImplementation()
     {
         // Arrange
         var services = new ServiceCollection();
@@ -25,10 +25,10 @@ public class PublisherScanTests
         var serviceProvider = services.BuildServiceProvider();
 
         // Assert
-        // ScannedMessage has the [Publisher] attribute but no class implements it as a publisher.
-        // So it should NOT be registered by assembly scan (only if added manually).
+        // ScannedMessage has the [Publisher] attribute.
+        // It should now be registered by assembly scan even without an explicit IPublisher implementation.
         var publisher = serviceProvider.GetService<IPublisher<ScannedMessage>>();
-        Assert.Null(publisher);
+        Assert.NotNull(publisher);
 
         var nonScannedPublisher = serviceProvider.GetService<IPublisher<NonScannedMessage>>();
         Assert.Null(nonScannedPublisher);

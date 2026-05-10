@@ -1,5 +1,6 @@
 ﻿namespace Carotte.Sample;
 
+[Publisher("my-broker", "notifications-exchange")]
 public record NotificationMessage(Guid OrderId, string Message, string RecipientEmail);
 
 [Queue("order-processing-queue", broker: "my-broker", exchange: "orders-exchange", routingKey: "order.created")]

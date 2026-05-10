@@ -193,7 +193,22 @@ public static class ServiceCollectionExtensions
                 services.TryAddSingleton(explicitPub.InterfaceType, sp => sp.GetRequiredService(explicitPub.ImplementationType));
             }
 
-            // 3. Register manually configured publishers that don't have a scanned explicit implementation
+            // 3. Scan for messages marked with [Publisher]
+            var messagesWithPublisherAttribute = builder.Assemblies
+                .SelectMany(a => a.GetTypes())
+                .Where(t => t.GetCustomAttribute<PublisherAttribute>() != null)
+                .ToList();
+
+            foreach (var messageType in messagesWithPublisherAttribute)
+            {
+                if (builder.PublisherConfigs.All(p => p.MessageType != messageType))
+                {
+                    var attr = messageType.GetCustomAttribute<PublisherAttribute>()!;
+                    builder.AddPublisherInternal(messageType, attr.Broker, attr.Exchange);
+                }
+            }
+
+            // 4. Register manually configured publishers that don't have a scanned explicit implementation
             // (They will use the default RabbitMqPublisher<TMessage>)
             foreach (var pubConfig in builder.PublisherConfigs)
             {
