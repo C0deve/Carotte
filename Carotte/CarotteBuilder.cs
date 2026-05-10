@@ -26,7 +26,7 @@ public static class ServiceCollectionExtensions
 
             services.AddOpenTelemetrySupport(builder);
             services.AddConsumers(builder);
-            services.AddProducers(builder);
+            services.AddPublishers(builder);
 
             foreach (var action in builder.PostConfigureActions)
             {
@@ -102,7 +102,7 @@ public static class ServiceCollectionExtensions
                             }
                             else
                             {
-                                // If we are not in ValidationTests, bypass all consumers in Validation namespace that might cause issues
+                                // We are not in ValidationTests, bypass all consumers in Validation namespace that might cause issues
                                 continue;
                             }
                         }
@@ -161,15 +161,56 @@ public static class ServiceCollectionExtensions
             }
         }
 
-        private void AddProducers(CarotteBuilder builder)
+        private void AddPublishers(CarotteBuilder builder)
         {
-            foreach (var prodConfig in builder.ProducerConfigs)
-            {
-                var interfaceType = typeof(IProducer<>).MakeGenericType(prodConfig.MessageType);
-                var implementationType = typeof(RabbitMqProducer<>).MakeGenericType(prodConfig.MessageType);
+            var types = builder.Assemblies
+                .SelectMany(a => a.GetTypes())
+                .Where(t => !t.IsAbstract && !t.IsInterface)
+                .ToList();
 
+            // 1. Identify explicit publishers (those implementing IPublisher<TMessage>)
+            var explicitPublishers = types
+                .SelectMany(t => t.GetInterfaces(), (t, i) => new { ImplementationType = t, InterfaceType = i })
+                .Where(x => x.InterfaceType.IsGenericType && x.InterfaceType.GetGenericTypeDefinition() == typeof(IPublisher<>))
+                .ToList();
+
+            // 2. Register scanned publishers
+            foreach (var explicitPub in explicitPublishers)
+            {
+                var messageType = explicitPub.InterfaceType.GetGenericArguments()[0];
+                
+                // If no manual configuration exists for this message, create one based on the attribute or convention
+                if (builder.PublisherConfigs.All(p => p.MessageType != messageType))
+                {
+                    var attr = explicitPub.ImplementationType.GetCustomAttribute<PublisherAttribute>();
+                    var broker = attr?.Broker ?? "default";
+                    var exchange = attr?.Exchange;
+                    builder.AddPublisherInternal(messageType, broker, exchange);
+                }
+
+                // Register implementation
+                services.TryAddSingleton(explicitPub.ImplementationType);
+                services.TryAddSingleton(explicitPub.InterfaceType, sp => sp.GetRequiredService(explicitPub.ImplementationType));
+            }
+
+            // 3. Register manually configured publishers that don't have a scanned explicit implementation
+            // (They will use the default RabbitMqPublisher<TMessage>)
+            foreach (var pubConfig in builder.PublisherConfigs)
+            {
+                var interfaceType = typeof(IPublisher<>).MakeGenericType(pubConfig.MessageType);
+                
+                // If the interface is not already registered (by explicit implementation scan)
                 services.TryAddSingleton(interfaceType, sp =>
-                    ActivatorUtilities.CreateInstance(sp, implementationType, prodConfig.Broker, prodConfig.Exchange));
+                {
+                    var messageType = pubConfig.MessageType;
+                    var implementationType = typeof(RabbitMqPublisher<>).MakeGenericType(messageType);
+                    var broker = pubConfig.Broker;
+                    var exchange = pubConfig.Exchange;
+
+                    var client = sp.GetRequiredService<IRabbitMqClient>();
+                    var serializer = sp.GetRequiredService<ISerializer>();
+                    return Activator.CreateInstance(implementationType, client, serializer, broker, exchange!)!;
+                });
             }
         }
     }
@@ -180,7 +221,7 @@ public class CarotteBuilder
     public Dictionary<string, RabbitMqOptions> Brokers { get; } = [];
     public List<Assembly> Assemblies { get; } = [];
     public Dictionary<Type, (string Broker, string Queue)> ConsumerConfigs { get; } = [];
-    public List<(Type MessageType, string Broker, string? Exchange)> ProducerConfigs { get; } = [];
+    public List<(Type MessageType, string Broker, string? Exchange)> PublisherConfigs { get; } = [];
     public Uri? OtlpEndpoint { get; private set; }
 
     // Extension points for test mode without modifying AddCarotte logic
@@ -197,9 +238,14 @@ public class CarotteBuilder
         return this;
     }
 
-    public CarotteBuilder AddProducer<TMessage>(string broker, string? exchange = null) where TMessage : class
+    public CarotteBuilder AddPublisher<TMessage>(string broker, string? exchange = null) where TMessage : class
     {
-        ProducerConfigs.Add((typeof(TMessage), broker, exchange!));
+        return AddPublisherInternal(typeof(TMessage), broker, exchange);
+    }
+
+    internal CarotteBuilder AddPublisherInternal(Type messageType, string broker, string? exchange = null)
+    {
+        PublisherConfigs.Add((messageType, broker, exchange!));
         return this;
     }
 

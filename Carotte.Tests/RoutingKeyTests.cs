@@ -6,7 +6,7 @@ namespace Carotte.Tests;
 public class RoutingKeyTests
 {
     [Fact]
-    public async Task SendAsync_ShouldUseClassNameAsDefaultRoutingKey()
+    public async Task PublishAsync_ShouldUseClassNameAsDefaultRoutingKey()
     {
         // Arrange
         var rabbitMqClientMock = new Mock<IRabbitMqClient>();
@@ -24,17 +24,17 @@ public class RoutingKeyTests
         channelMock.Setup(c => c.IsOpen).Returns(true);
         serializerMock.Setup(s => s.Serialize(message)).Returns([1, 2, 3]);
 
-        var producer = new RabbitMqProducer<TestMessage>(
+        var publisher = new RabbitMqPublisher<TestMessage>(
             rabbitMqClientMock.Object, 
             serializerMock.Object, 
             broker, 
             exchange);
 
         // Act
-        await producer.SendAsync(message);
+        await publisher.PublishAsync(message);
 
         // Assert
-        // On vérifie que BasicPublishAsync a été appelé avec le nom de la classe comme routingKey
+        // Verify that BasicPublishAsync was called with the class name as routingKey
         rabbitMqClientMock.Verify(c => c.BasicPublishAsync<TestMessage>(
             exchange,
             nameof(TestMessage),

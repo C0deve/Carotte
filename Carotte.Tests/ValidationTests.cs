@@ -124,7 +124,7 @@ public class ValidationTests
             // Act
             services.AddCarotte(builder =>
             {
-                // On configure explicitement les MultiQueueConsumer pour éviter l'exception d'absence d'attribut
+                // Explicitly configure MultiQueueConsumer to avoid exception due to lack of attribute
                 builder.ConsumerConfigs[typeof(MultiQueueConsumer)] = ("test-broker", "test-queue");
                 builder.AddAssemblies(typeof(ValidationTests).Assembly);
             });

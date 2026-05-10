@@ -9,8 +9,8 @@ Carotte is a high-level RabbitMQ client wrapper for .NET 10, designed for seamle
 ## 🚀 Features
 
 - **Built-in Observability**: First-class support for OpenTelemetry (Tracing & Metrics).
-- **Producer/Consumer Abstractions**: Clean interfaces for message handling.
-- **Pipeline-based Processing**: Middleware support for both consumers and producers.
+- **Publisher/Consumer Abstractions**: Clean interfaces for message handling.
+- **Pipeline-based Processing**: Middleware support for both consumers and publishers.
 - **Automatic Registration**: Easy dependency injection setup with assembly scanning.
 - **Test-Driven Design**: Includes a dedicated `TestKit` for easy integration testing.
 - **High Performance**: Optimized for .NET 10 with a lightweight footprint.
@@ -48,8 +48,8 @@ builder.Services.AddCarotte(carotte =>
         options.Password = "guest";
     });
 
-    // Register Producers
-    carotte.AddProducer<OrderCreatedMessage>("my-broker", "orders-exchange");
+    // Register Publishers
+    carotte.AddPublisher<OrderCreatedMessage>("my-broker", "orders-exchange");
 
     // Register Consumers (Automatic scan in this assembly)
     carotte.AddAssemblies(typeof(Program).Assembly);
@@ -94,12 +94,12 @@ For advanced scenarios, you can still customize your consumers using attributes 
 Carotte uses a **"Convention over Configuration"** approach to simplify RabbitMQ setup. If you don't specify an exchange or routing key, Carotte automatically applies the following rules based on **Exchange-to-Exchange (E2E)** binding.
 
 #### Why this convention?
-- **Total Decoupling**: The producer publishes to a "message type", not to a destination.
+- **Total Decoupling**: The publisher publishes to a "message type", not to a destination.
 - **Flexibility**: A consumer can listen to multiple message types without changing its queue configuration.
 - **Simplicity**: Fewer attributes to write.
 
-#### Producer Side (Publication)
-By default, a producer publishes to a `fanout` exchange whose name is the **FullName** of the message class.
+#### Publisher Side (Publication)
+By default, a publisher publishes to a `fanout` exchange whose name is the **FullName** of the message class.
 - **Exchange**: `MyNamespace.Messages.OrderCreated`
 - **Routing Key**: Empty (since it's a `fanout`).
 
@@ -117,8 +117,8 @@ Carotte automatically creates a two-level mesh:
 Thanks to conventions, configuration is minimal:
 
 ```csharp
-// Producer without explicit exchange
-carotte.AddProducer<OrderCreatedMessage>("my-broker");
+// Publisher without explicit exchange
+carotte.AddPublisher<OrderCreatedMessage>("my-broker");
 
 // Consumer with just the queue name
 [Queue("order-processing-queue", broker: "my-broker")]
@@ -127,13 +127,13 @@ public class OrderConsumer : IConsumer<OrderCreatedMessage> { ... }
 
 ### 5. Send a Message
 
-Inject `IProducer<TMessage>` and call `SendAsync`:
+Inject `IPublisher<TMessage>` and call `SendAsync`:
 
 ```csharp
-app.MapPost("/order", async (IProducer<OrderCreatedMessage> producer) =>
+app.MapPost("/order", async (IPublisher<OrderCreatedMessage> publisher) =>
 {
     var order = new OrderCreatedMessage(Guid.NewGuid(), "Jean Dupont", 42.50m);
-    await producer.SendAsync(order);
+    await publisher.SendAsync(order);
     return Results.Accepted();
 });
 ```
@@ -176,7 +176,7 @@ Carotte optimizes the use of RabbitMQ resources by intelligently managing connec
 
 ### 1. Connections (One per Broker)
 The `ConnectionManager` acts as a registry of persistent connections.
-- **Reuse**: For each configured broker (e.g., `"my-broker"`), a single TCP connection is established and shared between all producers and consumers using that broker.
+- **Reuse**: For each configured broker (e.g., `"my-broker"`), a single TCP connection is established and shared between all publishers and consumers using that broker.
 - **Thread-Safety**: Connection creation is protected by asynchronous locks (`SemaphoreSlim`) to avoid redundant connections during a massive startup.
 - **Lifecycle**: Connections are managed as singletons and are properly closed when the application stops.
 
@@ -195,7 +195,7 @@ This ensures that no messages are lost due to a missing configuration on the Rab
 
 ## 🧪 Testing
 
-Carotte provides a `TestKit` to simplify testing your consumers and producers without a live RabbitMQ broker.
+Carotte provides a `TestKit` to simplify testing your consumers and publishers without a live RabbitMQ broker.
 
 ```csharp
 // Use CarotteTestKit in your integration tests
@@ -204,7 +204,7 @@ var testKit = host.Services.GetRequiredService<CarotteTestKit>();
 // Simulate receiving a message
 await testKit.SimulateReceiveAsync<OrderConsumer, OrderCreatedMessage>(new OrderCreatedMessage(...));
 
-// Verify messages sent by producers
+// Verify messages sent by publishers
 var sentMessages = testKit.GetSentMessages<OrderCreatedMessage>();
 ```
 

@@ -7,37 +7,45 @@ namespace Carotte.Tests;
 public class BackgroundServiceTests
 {
     [Fact]
-    public async Task Producer_ShouldBeInjectableInBackgroundService()
+    public Task Publisher_ShouldBeInjectableInBackgroundService()
     {
-        // Arrange
-        var services = new ServiceCollection();
-        
-        services.AddCarotte(builder =>
+        try
         {
-            builder.AddBroker("test-broker", options =>
-            {
-                options.Host = "localhost";
-            });
-            builder.AddProducer<TestMessage>("test-broker", "test-exchange");
-        });
-
-        services.AddSingleton<ProducerUsingBackgroundService>();
-        services.AddSingleton<IHostedService>(sp => sp.GetRequiredService<ProducerUsingBackgroundService>());
-
-        var sp = services.BuildServiceProvider();
-
-        // Act
-        var backgroundService = sp.GetService<ProducerUsingBackgroundService>();
+            // Arrange
+            var services = new ServiceCollection();
         
-        // Assert
-        backgroundService.ShouldNotBeNull();
-        backgroundService.Producer.ShouldNotBeNull();
-        backgroundService.Producer.ShouldBeAssignableTo<IProducer<TestMessage>>();
+            services.AddCarotte(builder =>
+            {
+                builder.AddBroker("test-broker", options =>
+                {
+                    options.Host = "localhost";
+                });
+                builder.AddPublisher<TestMessage>("test-broker", "test-exchange");
+            });
+
+            services.AddSingleton<PublisherUsingBackgroundService>();
+            services.AddSingleton<IHostedService>(sp => sp.GetRequiredService<PublisherUsingBackgroundService>());
+
+            var sp = services.BuildServiceProvider();
+
+            // Act
+            var backgroundService = sp.GetService<PublisherUsingBackgroundService>();
+        
+            // Assert
+            backgroundService.ShouldNotBeNull();
+            backgroundService.Publisher.ShouldNotBeNull();
+            backgroundService.Publisher.ShouldBeAssignableTo<IPublisher<TestMessage>>();
+            return Task.CompletedTask;
+        }
+        catch (Exception exception)
+        {
+            return Task.FromException(exception);
+        }
     }
 
-    public class ProducerUsingBackgroundService(IProducer<TestMessage> producer) : BackgroundService
+    public class PublisherUsingBackgroundService(IPublisher<TestMessage> publisher) : BackgroundService
     {
-        public IProducer<TestMessage> Producer { get; } = producer;
+        public IPublisher<TestMessage> Publisher { get; } = publisher;
 
         protected override Task ExecuteAsync(CancellationToken stoppingToken)
         {

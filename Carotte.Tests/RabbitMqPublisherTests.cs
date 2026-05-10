@@ -3,12 +3,12 @@ using RabbitMQ.Client;
 
 namespace Carotte.Tests;
 
-public class RabbitMqProducerTests
+public class RabbitMqPublisherTests
 {
     public class TestMessage;
 
     [Fact]
-    public async Task SendAsync_ShouldRespectConvention_WhenExchangeIsNull()
+    public async Task PublishAsync_ShouldRespectConvention_WhenExchangeIsNull()
     {
         // Arrange
         var rabbitMqClient = new Mock<IRabbitMqClient>();
@@ -16,20 +16,20 @@ public class RabbitMqProducerTests
         var broker = "test-broker";
         var message = new TestMessage();
         
-        // On passe null ou string.Empty pour l'exchange pour déclencher la convention
-        var producer = new RabbitMqProducer<TestMessage>(
+        // Pass null or string.Empty for exchange to trigger convention
+        var publisher = new RabbitMqPublisher<TestMessage>(
             rabbitMqClient.Object,
             serializer.Object,
             broker,
             null!);
 
         // Act
-        await producer.SendAsync(message, CancellationToken.None);
+        await publisher.PublishAsync(message, CancellationToken.None);
 
         // Assert
         var expectedExchange = "message-test";
         
-        // Vérifier que l'exchange est déclaré en fanout (convention)
+        // Verify exchange is declared as fanout (convention)
         rabbitMqClient.Verify(c => c.ExchangeDeclareAsync(
             expectedExchange,
             "fanout",
@@ -40,7 +40,7 @@ public class RabbitMqProducerTests
             false,
             It.IsAny<CancellationToken>()), Times.Once);
 
-        // Vérifier que le message est publié sur cet exchange
+        // Verify message is published to this exchange
         rabbitMqClient.Verify(c => c.BasicPublishAsync<TestMessage>(
             expectedExchange,
             It.IsAny<string>(),
@@ -51,7 +51,7 @@ public class RabbitMqProducerTests
     }
 
     [Fact]
-    public async Task SendAsync_ShouldInitializeOnlyOnce()
+    public async Task PublishAsync_ShouldInitializeOnlyOnce()
     {
         // Arrange
         var rabbitMqClient = new Mock<IRabbitMqClient>();
@@ -59,18 +59,18 @@ public class RabbitMqProducerTests
         var broker = "test-broker";
         var message = new TestMessage();
         
-        var producer = new RabbitMqProducer<TestMessage>(
+        var publisher = new RabbitMqPublisher<TestMessage>(
             rabbitMqClient.Object,
             serializer.Object,
             broker,
             null!);
 
         // Act
-        await producer.SendAsync(message, CancellationToken.None);
-        await producer.SendAsync(message, CancellationToken.None);
+        await publisher.PublishAsync(message, CancellationToken.None);
+        await publisher.PublishAsync(message, CancellationToken.None);
 
         // Assert
-        // ConnectAsync et ExchangeDeclareAsync ne doivent être appelés qu'une seule fois
+        // ConnectAsync and ExchangeDeclareAsync should be called only once
         rabbitMqClient.Verify(c => c.ConnectAsync(broker, It.IsAny<CancellationToken>()), Times.Once);
         rabbitMqClient.Verify(c => c.ExchangeDeclareAsync(
             It.IsAny<string>(),
@@ -84,7 +84,7 @@ public class RabbitMqProducerTests
     }
 
     [Fact]
-    public async Task SendAsync_ShouldUseExplicitExchange_WhenProvided()
+    public async Task PublishAsync_ShouldUseExplicitExchange_WhenProvided()
     {
         // Arrange
         var rabbitMqClient = new Mock<IRabbitMqClient>();
@@ -93,18 +93,18 @@ public class RabbitMqProducerTests
         var explicitExchange = "explicit-exchange";
         var message = new TestMessage();
         
-        var producer = new RabbitMqProducer<TestMessage>(
+        var publisher = new RabbitMqPublisher<TestMessage>(
             rabbitMqClient.Object,
             serializer.Object,
             broker,
             explicitExchange);
 
         // Act
-        await producer.SendAsync(message, CancellationToken.None);
+        await publisher.PublishAsync(message, CancellationToken.None);
 
         // Assert
-        // Ne devrait PAS déclarer l'exchange par convention (ou du moins pas celui du message en fanout)
-        // Actuellement RabbitMqProducer ne déclare rien, il délègue au middleware de publication.
+        // Should NOT declare exchange by convention (or at least not the message one in fanout)
+        // Currently RabbitMqPublisher doesn't declare anything, it delegates to publication middleware.
         
         rabbitMqClient.Verify(c => c.BasicPublishAsync<TestMessage>(
             explicitExchange,

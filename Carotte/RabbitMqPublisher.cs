@@ -2,17 +2,17 @@
 
 namespace Carotte;
 
-public class RabbitMqProducer<TMessage>(
+public class RabbitMqPublisher<TMessage>(
     IRabbitMqClient rabbitMqClient,
     ISerializer serializer,
     string broker,
     string exchange)
-    : IProducer<TMessage>
+    : IPublisher<TMessage>
     where TMessage : class
 {
-    private readonly ProducerPipeline<TMessage> _pipeline = new ProducerPipelineBuilder<TMessage>()
-        .Use(new ProducerMetricsMiddleware<TMessage>())
-        .Use(new ProducerTracingMiddleware<TMessage>())
+    private readonly PublisherPipeline<TMessage> _pipeline = new PublisherPipelineBuilder<TMessage>()
+        .Use(new PublisherMetricsMiddleware<TMessage>())
+        .Use(new PublisherTracingMiddleware<TMessage>())
         .Use(new SerializationMiddleware<TMessage>(serializer))
         .Use(new RabbitMqPublishMiddleware<TMessage>(rabbitMqClient, broker))
         .Build();
@@ -20,7 +20,7 @@ public class RabbitMqProducer<TMessage>(
     private readonly SemaphoreSlim _semaphore = new(1, 1);
     private bool _initialized;
 
-    public async Task SendAsync(TMessage message, CancellationToken cancellationToken = default)
+    public async Task PublishAsync(TMessage message, CancellationToken cancellationToken = default)
     {
         var effectiveExchange = exchange;
         var routingKey = typeof(TMessage).Name;
@@ -31,7 +31,7 @@ public class RabbitMqProducer<TMessage>(
             routingKey = string.Empty;
         }
 
-        var context = new ProducerContext<TMessage>(message, effectiveExchange, routingKey, cancellationToken);
+        var context = new PublisherContext<TMessage>(message, effectiveExchange, routingKey, cancellationToken);
 
         if (!_initialized)
         {
@@ -44,6 +44,7 @@ public class RabbitMqProducer<TMessage>(
 
                     if (string.IsNullOrEmpty(exchange))
                     {
+                        // Declare fanout exchange (convention)
                         await rabbitMqClient.ExchangeDeclareAsync(
                             exchange: effectiveExchange,
                             type: "fanout",

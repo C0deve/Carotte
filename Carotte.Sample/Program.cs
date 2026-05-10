@@ -14,9 +14,9 @@ builder.Services.AddCarotte(carotte =>
         options.Password = "guest";
     });
 
-    // Register a producer to be able to send test commands
-    carotte.AddProducer<OrderCreatedMessage>("my-broker", "orders-exchange");
-    carotte.AddProducer<NotificationMessage>("my-broker", "notifications-exchange");
+    // Register a Publisher to be able to send test commands
+    carotte.AddPublisher<OrderCreatedMessage>("my-broker", "orders-exchange");
+    carotte.AddPublisher<NotificationMessage>("my-broker", "notifications-exchange");
 
     // Automatic consumer scan in this assembly
     carotte.AddAssemblies(typeof(Program).Assembly);
@@ -30,18 +30,18 @@ var app = builder.Build();
 app.MapGet("/", () => "Carotte Sample API is running. Use POST /order to simulate a message.");
 
 // Endpoint to simulate sending a message
-app.MapPost("/order", async (IProducer<OrderCreatedMessage> producer) =>
+app.MapPost("/order", async (IPublisher<OrderCreatedMessage> publisher) =>
 {
     var order = new OrderCreatedMessage(Guid.NewGuid(), "Jean Dupont", 42.50m);
-    await producer.SendAsync(order);
+    await publisher.PublishAsync(order);
     return Results.Accepted(value: order);
 });
 
 // Endpoint to simulate sending a notification
-app.MapPost("/notify", async (IProducer<NotificationMessage> producer) =>
+app.MapPost("/notify", async (IPublisher<NotificationMessage> publisher) =>
 {
-    var notification = new NotificationMessage(Guid.NewGuid(), "Votre commande est expédiée !", "client@example.com");
-    await producer.SendAsync(notification);
+    var notification = new NotificationMessage(Guid.NewGuid(), "Your order has been shipped!", "client@example.com");
+    await publisher.PublishAsync(notification);
     return Results.Accepted(value: notification);
 });
 

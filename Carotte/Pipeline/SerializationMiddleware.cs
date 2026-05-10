@@ -1,8 +1,8 @@
 ﻿namespace Carotte.pipeline;
 
-public class SerializationMiddleware<TMessage>(ISerializer serializer) : IProducerMiddleware<TMessage> where TMessage : class
+public class SerializationMiddleware<TMessage>(ISerializer serializer) : IPublisherMiddleware<TMessage> where TMessage : class
 {
-    public async Task InvokeAsync(ProducerContext<TMessage> context, ProducerDelegate<TMessage> next)
+    public async Task InvokeAsync(PublisherContext<TMessage> context, PublisherDelegate<TMessage> next)
     {
         context.Body ??= serializer.Serialize(context.Message);
 

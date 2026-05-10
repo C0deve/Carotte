@@ -27,9 +27,9 @@ public class EndToEndTests
     }
 
     [Fact]
-    public async Task ProducerAndConsumer_ShouldWorkWithRealRabbitMQ()
+    public async Task PublisherAndConsumer_ShouldWorkWithRealRabbitMQ()
     {
-        // 1. Démarrer le conteneur RabbitMQ
+        // 1. Start RabbitMQ container
         var rabbitMqContainer = new RabbitMqBuilder("rabbitmq:4.2.5")
             .WithImage("rabbitmq:4.0-management")
             .Build();
@@ -40,7 +40,7 @@ public class EndToEndTests
         {
             var services = new ServiceCollection();
             
-            // 2. Configurer Carotte
+            // 2. Configure Carotte
             services.AddCarotte(builder =>
             {
                 builder.AddBroker("default", options =>
@@ -50,35 +50,35 @@ public class EndToEndTests
                     options.UserName = RabbitMqBuilder.DefaultUsername;
                     options.Password = RabbitMqBuilder.DefaultPassword;
                 });
-                builder.AddProducer<SimpleMessage>("default", "simple-exchange");
+                builder.AddPublisher<SimpleMessage>("default", "simple-exchange");
                 builder.AddAssemblies(typeof(SimpleConsumer).Assembly);
             });
 
             var serviceProvider = services.BuildServiceProvider();
 
-            // 3. Démarrer les BackgroundServices (le consommateur)
+            // 3. Start BackgroundServices (the consumer)
             foreach (var hostedService in serviceProvider.GetServices<IHostedService>())
             {
                 await hostedService.StartAsync(CancellationToken.None);
             }
 
-            // Attendre un peu que la topologie soit créée par le consommateur
+            // Wait a bit for the topology to be created by the consumer
             await Task.Delay(2000);
 
-            // 4. Envoyer un message via le producteur
-            var producer = serviceProvider.GetRequiredService<IProducer<SimpleMessage>>();
+            // 4. Send a message via the publisher
+            var publisher = serviceProvider.GetRequiredService<IPublisher<SimpleMessage>>();
             var messageToSend = new SimpleMessage { Content = "Hello Carotte!" };
             
-            await producer.SendAsync(messageToSend);
+            await publisher.PublishAsync(messageToSend);
 
-            // 5. Vérifier la réception
+            // 5. Verify reception
             var received = await SimpleConsumer.MessageReceived.Task.WaitAsync(TimeSpan.FromSeconds(10));
             
             received.ShouldBeTrue();
             SimpleConsumer.LastReceivedMessage.ShouldNotBeNull();
             SimpleConsumer.LastReceivedMessage.Content.ShouldBe("Hello Carotte!");
 
-            // Arrêter les services
+            // Stop services
             foreach (var hostedService in serviceProvider.GetServices<IHostedService>())
             {
                 await hostedService.StopAsync(CancellationToken.None);

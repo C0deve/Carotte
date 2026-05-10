@@ -5,11 +5,12 @@ using RabbitMQ.Client;
 
 namespace Carotte.pipeline;
 
-public class ProducerTracingMiddleware<TMessage> : IProducerMiddleware<TMessage> where TMessage : class
+public class PublisherTracingMiddleware<TMessage> : IPublisherMiddleware<TMessage> where TMessage : class
 {
-    public async Task InvokeAsync(ProducerContext<TMessage> context, ProducerDelegate<TMessage> next)
+    public async Task InvokeAsync(PublisherContext<TMessage> context, PublisherDelegate<TMessage> next)
     {
-        using var activity = CarotteDiagnostics.ActivitySource.StartActivity($"Produce {context.RoutingKey}", ActivityKind.Producer);
+        using var activity =
+            CarotteDiagnostics.ActivitySource.StartActivity($"Publish {context.RoutingKey}", ActivityKind.Producer);
         activity?.SetTag("messaging.system", "rabbitmq");
         activity?.SetTag("messaging.destination", context.Exchange);
         activity?.SetTag("messaging.destination_kind", "exchange");

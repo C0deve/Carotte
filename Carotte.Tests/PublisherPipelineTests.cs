@@ -3,10 +3,10 @@ using RabbitMQ.Client;
 
 namespace Carotte.Tests;
 
-public class ProducerPipelineTests
+public class PublisherPipelineTests
 {
     [Fact]
-    public async Task SendAsync_ShouldExecutePipelineWithChannel()
+    public async Task PublishAsync_ShouldExecutePipelineWithChannel()
     {
         // Arrange
         var rabbitMqClientMock = new Mock<IRabbitMqClient>();
@@ -24,14 +24,14 @@ public class ProducerPipelineTests
         channelMock.Setup(c => c.IsOpen).Returns(true);
         serializerMock.Setup(s => s.Serialize(message)).Returns([1, 2, 3]);
 
-        var producer = new RabbitMqProducer<TestMessage>(
+        var publisher = new RabbitMqPublisher<TestMessage>(
             rabbitMqClientMock.Object,
             serializerMock.Object,
             broker,
             exchange);
 
         // Act
-        await producer.SendAsync(message);
+        await publisher.PublishAsync(message);
 
         // Assert
         // Verify that the publication middleware was called (via the client mock)
@@ -46,7 +46,7 @@ public class ProducerPipelineTests
         // Verify that serialization took place
         serializerMock.Verify(s => s.Serialize(message), Times.Once);
         
-        await producer.DisposeAsync();
+        await publisher.DisposeAsync();
         rabbitMqClientMock.Verify(c => c.DisposeAsync(), Times.Once);
     }
 

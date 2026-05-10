@@ -7,11 +7,11 @@ public partial class OrderConsumer(ILogger<OrderConsumer> logger) : IConsumer<Or
 {
     public Task HandleAsync(OrderCreatedMessage message, CancellationToken cancellationToken)
     {
-        LogTimeCommandeReçueIdOrderidClientCustomerMontantAmount(logger, DateTime.Now.ToLongTimeString(), message.OrderId, message.CustomerName, message.Amount);
+        LogTimeOrderReceivedIdOrderidClientCustomerAmountAmount(logger, DateTime.Now.ToLongTimeString(), message.OrderId, message.CustomerName, message.Amount);
         
         return Task.CompletedTask;
     }
 
-    [LoggerMessage(LogLevel.Information, "[{time}] Commande reçue : ID={orderId}, Client={customer}, Montant={amount}€")]
-    static partial void LogTimeCommandeReçueIdOrderidClientCustomerMontantAmount(ILogger<OrderConsumer> logger, string time, Guid orderId, string customer, decimal amount);
+    [LoggerMessage(LogLevel.Information, "[{time}] Order received: ID={orderId}, Client={customer}, Amount={amount}€")]
+    static partial void LogTimeOrderReceivedIdOrderidClientCustomerAmountAmount(ILogger<OrderConsumer> logger, string time, Guid orderId, string customer, decimal amount);
 }

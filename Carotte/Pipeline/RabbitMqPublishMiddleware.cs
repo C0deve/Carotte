@@ -2,9 +2,9 @@
 
 namespace Carotte.pipeline;
 
-public class RabbitMqPublishMiddleware<TMessage>(IRabbitMqClient rabbitMqClient, string broker) : IProducerMiddleware<TMessage> where TMessage : class
+public class RabbitMqPublishMiddleware<TMessage>(IRabbitMqClient rabbitMqClient, string broker) : IPublisherMiddleware<TMessage> where TMessage : class
 {
-    public async Task InvokeAsync(ProducerContext<TMessage> context, ProducerDelegate<TMessage> next)
+    public async Task InvokeAsync(PublisherContext<TMessage> context, PublisherDelegate<TMessage> next)
     {
         await rabbitMqClient.BasicPublishAsync<TMessage>(
             exchange: context.Exchange,

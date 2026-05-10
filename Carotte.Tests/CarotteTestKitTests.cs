@@ -10,11 +10,11 @@ public class CarotteTestKitTests
     public record ResponseMessage(string Content);
 
     [Queue("test-queue", broker: "test-broker")]
-    public class TestConsumer(IProducer<ResponseMessage> producer) : IConsumer<TestMessage>
+    public class TestConsumer(IPublisher<ResponseMessage> publisher) : IConsumer<TestMessage>
     {
         public async Task HandleAsync(TestMessage message, CancellationToken cancellationToken = default)
         {
-            await producer.SendAsync(new ResponseMessage($"Received: {message.Content}"), cancellationToken);
+            await publisher.PublishAsync(new ResponseMessage($"Received: {message.Content}"), cancellationToken);
         }
     }
 
@@ -30,7 +30,7 @@ public class CarotteTestKitTests
         var services = new ServiceCollection();
         services.AddCarotte(c =>
         {
-            c.AddProducer<ResponseMessage>("broker1", "exchange1")
+            c.AddPublisher<ResponseMessage>("broker1", "exchange1")
              .AddAssemblies(typeof(TestConsumer).Assembly);
         });
         services.AddCarotteTestKit();
@@ -50,23 +50,23 @@ public class CarotteTestKitTests
     }
 
     [Fact]
-    public async Task Producer_ShouldBeMockable_WithMoq()
+    public async Task Publisher_ShouldBeMockable_WithMoq()
     {
         // Arrange
         var services = new ServiceCollection();
         services.AddCarotte(c =>
         {
-            c.AddProducer<ResponseMessage>("broker1", "exchange1")
+            c.AddPublisher<ResponseMessage>("broker1", "exchange1")
              .AddAssemblies(typeof(TestConsumer).Assembly);
         });
         services.AddCarotteTestKit();
 
         // Enregistrement explicite du mock
-        services.AddMockProducer<ResponseMessage>();
+        services.AddMockPublisher<ResponseMessage>();
 
         var sp = services.BuildServiceProvider();
         var testKit = sp.GetRequiredService<CarotteTestKit>();
-        var mockProducer = sp.GetMockProducer<ResponseMessage>();
+        var mockPublisher = sp.GetMockPublisher<ResponseMessage>();
 
         var testMessage = new TestMessage("Mock Me");
 
@@ -74,7 +74,7 @@ public class CarotteTestKitTests
         await testKit.SimulateReceiveAsync<TestConsumer, TestMessage>(testMessage);
 
         // Assert
-        mockProducer.Verify(p => p.SendAsync(It.Is<ResponseMessage>(r => r.Content == "Received: Mock Me"), It.IsAny<CancellationToken>()), Times.Once);
+        mockPublisher.Verify(p => p.PublishAsync(It.Is<ResponseMessage>(r => r.Content == "Received: Mock Me"), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
@@ -84,7 +84,7 @@ public class CarotteTestKitTests
         var services = new ServiceCollection();
         services.AddCarotte(c =>
         {
-            c.AddProducer<ResponseMessage>("broker1", "exchange1")
+            c.AddPublisher<ResponseMessage>("broker1", "exchange1")
              .AddAssemblies(typeof(TestConsumer).Assembly);
         });
 
