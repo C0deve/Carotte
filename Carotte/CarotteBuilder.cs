@@ -219,7 +219,17 @@ public static class ServiceCollectionExtensions
                 {
                     var messageType = pubConfig.MessageType;
                     var implementationType = typeof(RabbitMqPublisher<>).MakeGenericType(messageType);
+                    
                     var broker = pubConfig.Broker;
+                    if (string.IsNullOrEmpty(broker) || broker == "default")
+                    {
+                        if (!builder.Brokers.ContainsKey(broker ?? "default") && builder.Brokers.Count > 0)
+                        {
+                            broker = builder.Brokers.Keys.First();
+                        }
+                    }
+                    
+                    broker ??= "default";
                     var exchange = pubConfig.Exchange;
 
                     var client = sp.GetRequiredService<IRabbitMqClient>();
@@ -236,7 +246,7 @@ public class CarotteBuilder
     public Dictionary<string, RabbitMqOptions> Brokers { get; } = [];
     public List<Assembly> Assemblies { get; } = [];
     public Dictionary<Type, (string Broker, string Queue)> ConsumerConfigs { get; } = [];
-    public List<(Type MessageType, string Broker, string? Exchange)> PublisherConfigs { get; } = [];
+    public List<(Type MessageType, string? Broker, string? Exchange)> PublisherConfigs { get; } = [];
     public Uri? OtlpEndpoint { get; private set; }
 
     // Extension points for test mode without modifying AddCarotte logic
@@ -253,12 +263,12 @@ public class CarotteBuilder
         return this;
     }
 
-    public CarotteBuilder AddPublisher<TMessage>(string broker, string? exchange = null) where TMessage : class
+    public CarotteBuilder AddPublisher<TMessage>(string? broker = null, string? exchange = null) where TMessage : class
     {
         return AddPublisherInternal(typeof(TMessage), broker, exchange);
     }
 
-    internal CarotteBuilder AddPublisherInternal(Type messageType, string broker, string? exchange = null)
+    internal CarotteBuilder AddPublisherInternal(Type messageType, string? broker, string? exchange = null)
     {
         PublisherConfigs.Add((messageType, broker, exchange!));
         return this;

@@ -2,7 +2,7 @@
 
 namespace Carotte;
 
-public class RabbitMqPublisher<TMessage>(
+internal class RabbitMqPublisher<TMessage>(
     IRabbitMqClient rabbitMqClient,
     ISerializer serializer,
     string broker,

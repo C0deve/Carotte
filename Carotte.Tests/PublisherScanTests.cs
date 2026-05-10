@@ -132,6 +132,43 @@ public class PublisherScanTests
     }
 
     [Fact]
+    public void AddCarotte_ShouldUseFirstBroker_WhenNoneSpecified()
+    {
+        // Arrange
+        var services = new ServiceCollection();
+        
+        // Act
+        services.AddCarotte(carotte =>
+        {
+            // Register two brokers, but neither is "default"
+            carotte.AddBroker("broker1", _ => { });
+            carotte.AddBroker("broker2", _ => { });
+            
+            // Add a publisher without specifying a broker
+            carotte.AddPublisher<ScannedMessage>(exchange: "my-exchange");
+        });
+
+        var serviceProvider = services.BuildServiceProvider();
+
+        // Assert
+        var publisher = serviceProvider.GetRequiredService<IPublisher<ScannedMessage>>();
+        Assert.NotNull(publisher);
+        
+        // Internal access to verify broker
+        var rbPublisher = (RabbitMqPublisher<ScannedMessage>)publisher;
+        
+        // We find the field that stores the broker name. 
+        // In C# 12+ primary constructors, it's typically a private field named <broker>P or just broker.
+        var type = typeof(RabbitMqPublisher<ScannedMessage>);
+        var brokerField = type.GetFields(System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
+            .FirstOrDefault(f => f.Name == "broker" || f.Name.Contains("<broker>"));
+        
+        Assert.NotNull(brokerField);
+        var brokerValue = brokerField.GetValue(rbPublisher);
+        Assert.Equal("broker1", brokerValue);
+    }
+
+    [Fact]
     public void AddAssemblies_ShouldNotRegisterPublisherByConvention_WhenConsumed()
     {
         // Arrange
