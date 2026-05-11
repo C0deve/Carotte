@@ -25,9 +25,9 @@ public class DefaultExchangeNameTests
             builder.AddAssemblies(typeof(DefaultExchangeNameTests).Assembly);
             // Bypass other consumers
             builder.ConsumerConfigs[typeof(CarotteTestKitTests.NoAttributeConsumer)] = ("test-broker", "test-queue");
-            builder.ConsumerConfigs[typeof(Validation.ValidationTests.NoAttributeConsumer)] = ("test-broker", "test-queue");
-            builder.ConsumerConfigs[typeof(Validation.ValidationTests.MultiQueueConsumer)] = ("test-broker", "test-queue");
-            builder.ConsumerConfigs[typeof(Validation.ValidationTests.BindingWithoutQueueConsumer)] = ("test-broker", "test-queue");
+            builder.ConsumerConfigs[typeof(ValidationTests.NoAttributeConsumer)] = ("test-broker", "test-queue");
+            builder.ConsumerConfigs[typeof(ValidationTests.MultiQueueConsumer)] = ("test-broker", "test-queue");
+            builder.ConsumerConfigs[typeof(ValidationTests.BindingWithoutQueueConsumer)] = ("test-broker", "test-queue");
         });
         
         // We need to replace the IRabbitMqClient to verify calls

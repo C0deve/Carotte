@@ -18,9 +18,9 @@ public class DefaultQueueNameTests
             builder.AddAssemblies(typeof(DefaultQueueNameTests).Assembly);
             // Ensure that other consumers that could cause issues are configured
             builder.ConsumerConfigs[typeof(CarotteTestKitTests.NoAttributeConsumer)] = ("test-broker", "test-queue");
-            builder.ConsumerConfigs[typeof(Validation.ValidationTests.NoAttributeConsumer)] = ("test-broker", "test-queue");
-            builder.ConsumerConfigs[typeof(Validation.ValidationTests.MultiQueueConsumer)] = ("test-broker", "test-queue");
-            builder.ConsumerConfigs[typeof(Validation.ValidationTests.BindingWithoutQueueConsumer)] = ("test-broker", "test-queue");
+            builder.ConsumerConfigs[typeof(ValidationTests.NoAttributeConsumer)] = ("test-broker", "test-queue");
+            builder.ConsumerConfigs[typeof(ValidationTests.MultiQueueConsumer)] = ("test-broker", "test-queue");
+            builder.ConsumerConfigs[typeof(ValidationTests.BindingWithoutQueueConsumer)] = ("test-broker", "test-queue");
         });
 
         var sp = services.BuildServiceProvider();

@@ -16,9 +16,9 @@ public class DIScanTests
         services.AddCarotte(builder => {
             builder.AddAssemblies(typeof(DIScanTests).Assembly);
             builder.ConsumerConfigs[typeof(CarotteTestKitTests.NoAttributeConsumer)] = ("test-broker", "test-queue");
-            builder.ConsumerConfigs[typeof(Validation.ValidationTests.NoAttributeConsumer)] = ("test-broker", "test-queue");
-            builder.ConsumerConfigs[typeof(Validation.ValidationTests.MultiQueueConsumer)] = ("test-broker", "test-queue");
-            builder.ConsumerConfigs[typeof(Validation.ValidationTests.BindingWithoutQueueConsumer)] = ("test-broker", "test-queue");
+            builder.ConsumerConfigs[typeof(ValidationTests.NoAttributeConsumer)] = ("test-broker", "test-queue");
+            builder.ConsumerConfigs[typeof(ValidationTests.MultiQueueConsumer)] = ("test-broker", "test-queue");
+            builder.ConsumerConfigs[typeof(ValidationTests.BindingWithoutQueueConsumer)] = ("test-broker", "test-queue");
         });
 
         // Assert
@@ -47,9 +47,9 @@ public class DIScanTests
         services.AddCarotte(builder => {
             builder.AddAssemblies(typeof(DIScanTests).Assembly);
             builder.ConsumerConfigs[typeof(CarotteTestKitTests.NoAttributeConsumer)] = ("test-broker", "test-queue");
-            builder.ConsumerConfigs[typeof(Validation.ValidationTests.NoAttributeConsumer)] = ("test-broker", "test-queue");
-            builder.ConsumerConfigs[typeof(Validation.ValidationTests.MultiQueueConsumer)] = ("test-broker", "test-queue");
-            builder.ConsumerConfigs[typeof(Validation.ValidationTests.BindingWithoutQueueConsumer)] = ("test-broker", "test-queue");
+            builder.ConsumerConfigs[typeof(ValidationTests.NoAttributeConsumer)] = ("test-broker", "test-queue");
+            builder.ConsumerConfigs[typeof(ValidationTests.MultiQueueConsumer)] = ("test-broker", "test-queue");
+            builder.ConsumerConfigs[typeof(ValidationTests.BindingWithoutQueueConsumer)] = ("test-broker", "test-queue");
         });
 
         // Assert
