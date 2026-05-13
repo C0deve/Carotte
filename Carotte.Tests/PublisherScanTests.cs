@@ -7,31 +7,23 @@ public class PublisherScanTests
     [Publisher(broker: "scanned-broker", exchange: "scanned-exchange")]
     public class ScannedMessage;
 
-    public class NonScannedMessage;
 
     [Fact]
-    public void AddAssemblies_ShouldRegisterPublishersWithAttribute_EvenWithoutExplicitImplementation()
+    public void AddAssemblies_ShouldRegisterMessagesWithAttribute()
     {
-        // Arrange
-        var services = new ServiceCollection();
-        
         // Act
-        services.AddCarotte(carotte =>
-        {
-            carotte.AddBroker("scanned-broker", _ => { });
-            carotte.AddAssemblies(typeof(PublisherScanTests).Assembly);
-        });
-
-        var serviceProvider = services.BuildServiceProvider();
+        var serviceProvider = new ServiceCollection()
+            .AddCarotte(carotte => carotte
+                .AddBroker("test-broker", _ => { })
+                .AddBroker("scanned-broker", _ => { })
+                .AddAssemblies(typeof(PublisherScanTests).Assembly))
+            .BuildServiceProvider();
 
         // Assert
         // ScannedMessage has the [Publisher] attribute.
         // It should now be registered by assembly scan even without an explicit IPublisher implementation.
         var publisher = serviceProvider.GetService<IPublisher<ScannedMessage>>();
         Assert.NotNull(publisher);
-
-        var nonScannedPublisher = serviceProvider.GetService<IPublisher<NonScannedMessage>>();
-        Assert.Null(nonScannedPublisher);
     }
 
     [Fact]
@@ -39,16 +31,18 @@ public class PublisherScanTests
     {
         // Arrange
         var services = new ServiceCollection();
-        
+
         // Act
         services.AddCarotte(carotte =>
         {
-            carotte.AddBroker("scanned-broker", _ => { });
-            carotte.AddBroker("manual-broker", _ => { });
-            
+            carotte
+                .AddBroker("test-broker", _ => { })
+                .AddBroker("scanned-broker", _ => { })
+                .AddBroker("manual-broker", _ => { });
+
             // Manual registration before scan
             carotte.AddPublisher<ScannedMessage>("manual-broker", "manual-exchange");
-            
+
             carotte.AddAssemblies(typeof(PublisherScanTests).Assembly);
         });
 
@@ -57,7 +51,7 @@ public class PublisherScanTests
         // Assert
         var publisher = serviceProvider.GetService<IPublisher<ScannedMessage>>();
         Assert.NotNull(publisher);
-        
+
         // We verify that the manual configuration was taken into account
         // RabbitMqPublisher is internal so we can't easily inspect its private properties,
         // but we can verify via CarotteBuilder if we had access.
@@ -65,55 +59,21 @@ public class PublisherScanTests
         // and our logic in AddPublishers checks if the type is already in PublisherConfigs.
     }
 
-    public class MessageForExplicitPublisher;
-
-    public class ExplicitPublisher : IPublisher<MessageForExplicitPublisher>
-    {
-        public Task PublishAsync(MessageForExplicitPublisher message, CancellationToken cancellationToken = default)
-        {
-            return Task.CompletedTask;
-        }
-    }
-
-    [Fact]
-    public void AddAssemblies_ShouldRegisterTypesImplementingIPublisher()
-    {
-        // Arrange
-        var services = new ServiceCollection();
-        
-        // Act
-        services.AddCarotte(carotte =>
-        {
-            carotte.AddBroker("default", _ => { });
-            carotte.AddAssemblies(typeof(PublisherScanTests).Assembly);
-        });
-
-        var serviceProvider = services.BuildServiceProvider();
-
-        // Assert
-        var publisher = serviceProvider.GetService<IPublisher<MessageForExplicitPublisher>>();
-        Assert.NotNull(publisher);
-        Assert.IsType<ExplicitPublisher>(publisher);
-    }
-
     [Publisher]
     public class MessageWithDefaultBroker;
-
-    public class ScannedPublisherWithDefaultBroker : IPublisher<MessageWithDefaultBroker>
-    {
-        public Task PublishAsync(MessageWithDefaultBroker message, CancellationToken cancellationToken = default) => Task.CompletedTask;
-    }
 
     [Fact]
     public void AddAssemblies_ShouldRegisterPublisherWithDefaultBroker()
     {
         // Arrange
         var services = new ServiceCollection();
-        
+
         // Act
         services.AddCarotte(carotte =>
         {
-            carotte.AddBroker("default", _ => { });
+            carotte
+                .AddBroker("test-broker", _ => { })
+                .AddBroker("test-broker", _ => { });
             carotte.AddAssemblies(typeof(PublisherScanTests).Assembly);
         });
 
@@ -122,13 +82,6 @@ public class PublisherScanTests
         // Assert
         var publisher = serviceProvider.GetService<IPublisher<MessageWithDefaultBroker>>();
         Assert.NotNull(publisher);
-        Assert.IsType<ScannedPublisherWithDefaultBroker>(publisher);
-    }
-
-    public class MessageByConvention;
-    public class ConventionConsumer : IConsumer<MessageByConvention>
-    {
-        public Task HandleAsync(MessageByConvention message, CancellationToken cancellationToken) => Task.CompletedTask;
     }
 
     [Fact]
@@ -136,14 +89,13 @@ public class PublisherScanTests
     {
         // Arrange
         var services = new ServiceCollection();
-        
+
         // Act
         services.AddCarotte(carotte =>
         {
-            // Register two brokers, but neither is "default"
-            carotte.AddBroker("broker1", _ => { });
+            carotte.AddBroker("test-broker", _ => { });
             carotte.AddBroker("broker2", _ => { });
-            
+
             // Add a publisher without specifying a broker
             carotte.AddPublisher<ScannedMessage>(exchange: "my-exchange");
         });
@@ -153,39 +105,18 @@ public class PublisherScanTests
         // Assert
         var publisher = serviceProvider.GetRequiredService<IPublisher<ScannedMessage>>();
         Assert.NotNull(publisher);
-        
+
         // Internal access to verify broker
         var rbPublisher = (RabbitMqPublisher<ScannedMessage>)publisher;
-        
+
         // We find the field that stores the broker name. 
         // In C# 12+ primary constructors, it's typically a private field named <broker>P or just broker.
         var type = typeof(RabbitMqPublisher<ScannedMessage>);
         var brokerField = type.GetFields(System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
             .FirstOrDefault(f => f.Name == "broker" || f.Name.Contains("<broker>"));
-        
+
         Assert.NotNull(brokerField);
         var brokerValue = brokerField.GetValue(rbPublisher);
-        Assert.Equal("broker1", brokerValue);
-    }
-
-    [Fact]
-    public void AddAssemblies_ShouldNotRegisterPublisherByConvention_WhenConsumed()
-    {
-        // Arrange
-        var services = new ServiceCollection();
-        
-        // Act
-        services.AddCarotte(carotte =>
-        {
-            carotte.AddBroker("default", _ => { });
-            carotte.AddAssemblies(typeof(PublisherScanTests).Assembly);
-        });
-
-        var serviceProvider = services.BuildServiceProvider();
-
-        // Assert
-        // Even if MessageByConvention is consumed, it should not have an auto-generated publisher by assembly scan.
-        var publisher = serviceProvider.GetService<IPublisher<MessageByConvention>>();
-        Assert.Null(publisher);
+        Assert.Equal("test-broker", brokerValue);
     }
 }

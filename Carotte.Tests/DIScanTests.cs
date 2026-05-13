@@ -13,58 +13,52 @@ public class DIScanTests
         var services = new ServiceCollection();
 
         // Act
-        services.AddCarotte(builder => {
-            builder.AddAssemblies(typeof(DIScanTests).Assembly);
-            builder.ConsumerConfigs[typeof(CarotteTestKitTests.NoAttributeConsumer)] = ("test-broker", "test-queue");
-            builder.ConsumerConfigs[typeof(ValidationTests.NoAttributeConsumer)] = ("test-broker", "test-queue");
-            builder.ConsumerConfigs[typeof(ValidationTests.MultiQueueConsumer)] = ("test-broker", "test-queue");
-            builder.ConsumerConfigs[typeof(ValidationTests.BindingWithoutQueueConsumer)] = ("test-broker", "test-queue");
-        });
+        services.AddCarotte(builder => builder
+            .AddBroker("test-broker", _ => { })
+            .AddAssemblies(typeof(DIScanTests).Assembly));
 
         // Assert
         var sp = services.BuildServiceProvider();
         var consumer = sp.GetService<AttributeConsumer>();
         consumer.ShouldNotBeNull();
-        
+
         // Check if Singleton
         var consumero2 = sp.GetService<AttributeConsumer>();
         consumero2.ShouldBeSameAs(consumer);
 
         // Check if HostedService is registered
         var hostedServices = sp.GetServices<IHostedService>();
-        hostedServices.ShouldContain(h => h.GetType().IsGenericType && 
-                                            h.GetType().GetGenericTypeDefinition() == typeof(RabbitMqConsumerHost<>) &&
-                                            h.GetType().GetGenericArguments()[0] == typeof(AttributeConsumer));
+        hostedServices.ShouldContain(h => h.GetType().IsGenericType &&
+                                          h.GetType().GetGenericTypeDefinition() == typeof(RabbitMqConsumerHost<>) &&
+                                          h.GetType().GetGenericArguments()[0] == typeof(AttributeConsumer));
     }
 
     [Fact]
     public void AddCarotte_ShouldHandleMultipleInterfaces()
     {
-        // Arrange
-        var services = new ServiceCollection();
-
-        // Act
-        services.AddCarotte(builder => {
-            builder.AddAssemblies(typeof(DIScanTests).Assembly);
-            builder.ConsumerConfigs[typeof(CarotteTestKitTests.NoAttributeConsumer)] = ("test-broker", "test-queue");
-            builder.ConsumerConfigs[typeof(ValidationTests.NoAttributeConsumer)] = ("test-broker", "test-queue");
-            builder.ConsumerConfigs[typeof(ValidationTests.MultiQueueConsumer)] = ("test-broker", "test-queue");
-            builder.ConsumerConfigs[typeof(ValidationTests.BindingWithoutQueueConsumer)] = ("test-broker", "test-queue");
-        });
+        var services = new ServiceCollection()
+            .AddCarotte(builder => builder
+                .AddBroker("test-broker", _ => { })
+                .AddAssemblies(typeof(DIScanTests).Assembly));
 
         // Assert
         var sp = services.BuildServiceProvider();
         var consumer = sp.GetService<MultiConsumer>();
         consumer.ShouldNotBeNull();
-        
+
         var hostedServices = sp.GetServices<IHostedService>();
-        hostedServices.ShouldContain(h => h.GetType().IsGenericType && 
-                                            h.GetType().GetGenericTypeDefinition() == typeof(RabbitMqConsumerHost<>) &&
-                                            h.GetType().GetGenericArguments()[0] == typeof(MultiConsumer));
+        hostedServices.ShouldContain(h => h.GetType().IsGenericType &&
+                                          h.GetType().GetGenericTypeDefinition() == typeof(RabbitMqConsumerHost<>) &&
+                                          h.GetType().GetGenericArguments()[0] == typeof(MultiConsumer));
     }
 
-    public class Message { }
-    public class Message2 { }
+    public class Message
+    {
+    }
+
+    public class Message2
+    {
+    }
 
     [Queue("test-queue-1", broker: "test-broker")]
     public class MultiConsumer : IConsumer<Message>, IConsumer<Message2>

@@ -17,7 +17,9 @@ public class OpenTelemetryTests
         // Act
         services.AddCarotte(builder =>
         {
-            builder.AddOtlpExporter(endpoint);
+            builder
+                .AddBroker("test-broker", _ => { })
+                .AddOtlpExporter(endpoint);
         });
 
         // Assert

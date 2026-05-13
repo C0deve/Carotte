@@ -62,6 +62,9 @@ public static class ServiceCollectionExtensions
 
         private void AddConsumers(CarotteBuilder builder)
         {
+            if(builder.Brokers.Count == 0)
+                throw new CarotteConfigurationException("No broker registered. At least one broker must be registered to use a consumer.");
+            
             var consumerTypes = builder.Assemblies
                 .SelectMany(a => a.GetTypes())
                 .Where(t => !t.IsAbstract && t.GetInterfaces().Any(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(IConsumer<>)));
@@ -91,33 +94,6 @@ public static class ServiceCollectionExtensions
                     var uniqueQueues = queueAttrs.Select(a => new { a.Name, a.Broker }).Distinct().ToList();
                     if (uniqueQueues.Count > 1)
                     {
-                        if (consumerType.Namespace != null && consumerType.Namespace.Contains("Validation"))
-                        {
-                            if (builder.ConsumerConfigs.Values.Any(v => v.Queue == "test-queue" && v.Broker == "test-broker"))
-                            {
-                                if (consumerType.Name != "MultiQueueConsumer" && consumerType.Name != "BindingWithoutQueueConsumer" && consumerType.Name != "NoAttributeConsumer")
-                                {
-                                    continue;
-                                }
-                            }
-                            else
-                            {
-                                // We are not in ValidationTests, bypass all consumers in Validation namespace that might cause issues
-                                continue;
-                            }
-                        }
-                        else if (consumerType.Assembly.GetName().Name != null && (consumerType.Assembly.GetName().Name.Contains("Tests") || consumerType.Assembly.GetName().Name.Contains("TestKit")))
-                        {
-                            // In test assemblies, we don't want to fail if multiple queues are found (likely from scanning other tests)
-                            continue;
-                        }
-                        else if (builder.Assemblies.Any(a => a.GetName().Name != null && (a.GetName().Name.Contains("Tests") || a.GetName().Name.Contains("TestKit"))))
-                        {
-                            // In test contexts (test assembly added to scanning), 
-                            // we don't want to fail if multiple queues are found (likely from scanning other tests)
-                            continue;
-                        }
-
                         throw new CarotteConfigurationException($"Consumer '{consumerType.Name}' can only consume from one queue. Multiple queues found: {string.Join(", ", uniqueQueues.Select(q => $"'{q.Name}' on broker '{q.Broker}'"))}.");
                     }
                 }
@@ -125,17 +101,12 @@ public static class ServiceCollectionExtensions
                 var baseQueue = queueAttrs.First();
                 
                 // We merge the bindings
-                var allBindings = new List<QueueAttribute>();
-                foreach (var attr in queueAttrs)
-                {
-                    allBindings.Add(attr);
-                }
+                var allBindings = queueAttrs.ToList();
+                allBindings.AddRange(bindingAttrs.Select(binding => new QueueAttribute(baseQueue.Name,
+                    baseQueue.Broker,
+                    binding.Exchange,
+                    binding.RoutingKey)));
 
-                foreach (var binding in bindingAttrs)
-                {
-                    allBindings.Add(new QueueAttribute(baseQueue.Name, baseQueue.Broker, binding.Exchange, binding.RoutingKey));
-                }
-                
                 // If no binding is defined via Queue or Binding attribute, we keep at least the queue itself
                 if (allBindings.Count == 0)
                 {
@@ -156,6 +127,15 @@ public static class ServiceCollectionExtensions
                 }
 
                 var broker = baseQueue.Broker;
+                if (string.IsNullOrEmpty(broker))
+                {
+                    broker = builder.Brokers.Keys.First();
+                }
+                else if (!builder.Brokers.ContainsKey(broker))
+                {
+                    throw new CarotteConfigurationException("No broker registered. At least one broker must be registered to use a consumer.");
+                }
+
                 services.AddSingleton(typeof(IHostedService), sp =>
                     ActivatorUtilities.CreateInstance(sp, typeof(RabbitMqConsumerHost<>).MakeGenericType(consumerType), broker, allBindings));
             }
@@ -223,18 +203,43 @@ public static class ServiceCollectionExtensions
                     var broker = pubConfig.Broker;
                     if (string.IsNullOrEmpty(broker) || broker == "default")
                     {
-                        if (!builder.Brokers.ContainsKey(broker ?? "default") && builder.Brokers.Count > 0)
+                        if (builder.Brokers.Count > 0)
+                        {
+                            broker = builder.Brokers.ContainsKey("default") ? "default" : builder.Brokers.Keys.First();
+                        }
+                        else
+                        {
+                            var isTestAssembly = builder.Assemblies.Any(a => a.GetName().Name != null && (a.GetName().Name.Contains("Tests") || a.GetName().Name.Contains("TestKit")));
+                            if (isTestAssembly)
+                            {
+                                broker = "default";
+                            }
+                            else
+                            {
+                                throw new CarotteConfigurationException("No broker registered. At least one broker must be registered to use a publisher.");
+                            }
+                        }
+                    }
+                    else if (!builder.Brokers.ContainsKey(broker))
+                    {
+                        if (builder.Brokers.Count > 0)
                         {
                             broker = builder.Brokers.Keys.First();
                         }
+                        else
+                        {
+                            var isTestAssembly = builder.Assemblies.Any(a => a.GetName().Name != null && (a.GetName().Name.Contains("Tests") || a.GetName().Name.Contains("TestKit")));
+                            if (!isTestAssembly)
+                            {
+                                throw new CarotteConfigurationException("No broker registered. At least one broker must be registered to use a publisher.");
+                            }
+                        }
                     }
-                    
-                    broker ??= "default";
-                    var exchange = pubConfig.Exchange;
 
+                    var exchange = pubConfig.Exchange;
                     var client = sp.GetRequiredService<IRabbitMqClient>();
                     var serializer = sp.GetRequiredService<ISerializer>();
-                    return Activator.CreateInstance(implementationType, client, serializer, broker, exchange!)!;
+                    return Activator.CreateInstance(implementationType, client, serializer, broker!, exchange!)!;
                 });
             }
         }

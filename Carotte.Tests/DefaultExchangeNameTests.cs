@@ -22,11 +22,12 @@ public class DefaultExchangeNameTests
         var rabbitMqClient = new Mock<IRabbitMqClient>();
         
         services.AddCarotte(builder => {
-            builder.AddAssemblies(typeof(DefaultExchangeNameTests).Assembly);
+            builder
+                .AddBroker("test-broker", _ => { })
+                .AddAssemblies(typeof(DefaultExchangeNameTests).Assembly);
             // Bypass other consumers
             builder.ConsumerConfigs[typeof(CarotteTestKitTests.NoAttributeConsumer)] = ("test-broker", "test-queue");
             builder.ConsumerConfigs[typeof(ValidationTests.NoAttributeConsumer)] = ("test-broker", "test-queue");
-            builder.ConsumerConfigs[typeof(ValidationTests.MultiQueueConsumer)] = ("test-broker", "test-queue");
             builder.ConsumerConfigs[typeof(ValidationTests.BindingWithoutQueueConsumer)] = ("test-broker", "test-queue");
         });
         
