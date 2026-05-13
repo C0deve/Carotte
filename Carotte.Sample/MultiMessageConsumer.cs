@@ -4,7 +4,6 @@
 public record NotificationMessage(Guid OrderId, string Message, string RecipientEmail);
 
 [Queue("order-processing-queue", broker: "my-broker", exchange: "orders-exchange", routingKey: "order.created")]
-[Queue("notifications-queue", broker: "my-broker", exchange: "notifications-exchange", routingKey: "notification.sent")]
 public partial class MultiMessageConsumer(ILogger<MultiMessageConsumer> logger) : IConsumer<OrderCreatedMessage>, IConsumer<NotificationMessage>
 {
     public Task HandleAsync(OrderCreatedMessage message, CancellationToken cancellationToken)
