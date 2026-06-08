@@ -36,9 +36,21 @@ public static partial class StringExtensions
             return $"x.pub.{cleaned.ToKebabCase()}";
         }
 
-        public string ToConsumerExchangeName() => $"x.sub.{name.ToKebabCase()}";
+        public string ToConsumerExchangeName(string? clientName = null)
+        {
+            var kebabName = name.ToKebabCase();
+            return string.IsNullOrEmpty(clientName)
+                ? $"x.sub.{kebabName}"
+                : $"x.sub.{clientName.ToKebabCase()}.{kebabName}";
+        }
 
-        public string ToConsumerQueueName() => $"q.{name.ToKebabCase()}";
+        public string ToConsumerQueueName(string? clientName = null)
+        {
+            var kebabName = name.ToKebabCase();
+            return string.IsNullOrEmpty(clientName)
+                ? $"q.{kebabName}"
+                : $"q.{clientName.ToKebabCase()}.{kebabName}";
+        }
 
         public string ToDefaultQueueName() => name.ToConsumerQueueName();
 

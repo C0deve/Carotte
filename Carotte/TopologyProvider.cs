@@ -6,18 +6,18 @@ internal static class TopologyProvider
 {
     extension(ConsumerScanResult scan)
     {
-        private ConsumerInfo ToConsumerInfo() => new(
+        private ConsumerInfo ToConsumerInfo(string? clientName) => new(
             scan.ConsumerType,
             [..scan.MessageTypes],
             scan.QueueAttr?.Broker ?? string.Empty,
-            scan.ToConsumerTopology()
+            scan.ToConsumerTopology(clientName)
         );
 
-        private IConsumerTopology ToConsumerTopology() => scan.QueueAttr == null
+        private IConsumerTopology ToConsumerTopology(string? clientName) => scan.QueueAttr == null
             ? new ConsumerConventionTopology(
                 Broker: scan.QueueAttr?.Broker ?? string.Empty,
-                Queue: scan.ConsumerType.Name.ToConsumerQueueName(),
-                ConsumerExchangeName: scan.ConsumerType.Name.ToConsumerExchangeName(),
+                Queue: scan.ConsumerType.Name.ToConsumerQueueName(clientName),
+                ConsumerExchangeName: scan.ConsumerType.Name.ToConsumerExchangeName(clientName),
                 MessageExchangeNames: scan.MessageTypes
                     .Select(m => m.Name.ToMessageExchangeName())
                     .ToList()
@@ -32,18 +32,16 @@ internal static class TopologyProvider
                     .AsReadOnly());
     }
 
-    extension(PublisherScanResult scan)
-    {
-        private ProducerInfo ToProducerInfo() =>
-            new(scan.MessageType,
-                scan.PublisherAttribute.Broker ?? string.Empty,
-                scan.PublisherAttribute.Exchange ?? scan.MessageType.Name.ToDefaultExchangeName());
-    }
+    private static ProducerInfo ToProducerInfo(this PublisherScanResult scan) =>
+        new(scan.MessageType,
+            scan.PublisherAttribute.Broker ?? string.Empty,
+            scan.PublisherAttribute.Exchange ?? scan.MessageType.Name.ToDefaultExchangeName());
 
     public static MessageBrokerSettings CreateSettings(
         Dictionary<string, RabbitMqOptions> brokers,
         ReadOnlyCollection<ConsumerScanResult> consumerScanResults,
-        ReadOnlyCollection<PublisherScanResult> publisherScanResults)
+        ReadOnlyCollection<PublisherScanResult> publisherScanResults,
+        string? clientName = null)
     {
         var firstBrokerName = brokers.Keys.FirstOrDefault() ?? string.Empty;
 
@@ -54,7 +52,7 @@ internal static class TopologyProvider
 
         var consumers =
             consumerScanResults
-                .Select(sc => sc.ToConsumerInfo())
+                .Select(sc => sc.ToConsumerInfo(clientName))
                 .Select(info => string.IsNullOrEmpty(info.Broker)
                     ? info with { Broker = firstBrokerName }
                     : info)

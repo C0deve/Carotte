@@ -21,7 +21,8 @@ namespace Carotte;
             var messageBrokerSettings = TopologyProvider.CreateSettings(
                 builder.Brokers,
                 consumerScanResults,
-                publisherScanResults);
+                publisherScanResults,
+                builder.ClientName);
 
             var validationResult = CarotteBuilderValidator.Validate(messageBrokerSettings);
 
@@ -110,9 +111,16 @@ public class CarotteBuilder
     internal HashSet<Assembly> Assemblies { get; } = [];
     internal HashSet<string> Namespaces { get; } = [];
     internal Uri? OtlpEndpoint { get; private set; }
+    public string? ClientName { get; private set; }
 
     // Extension points for test mode without modifying AddCarotte logic
     public List<Action<IServiceCollection>> PostConfigureActions { get; } = [];
+
+    public CarotteBuilder SetClientName(string name)
+    {
+        ClientName = name;
+        return this;
+    }
 
     public CarotteBuilder AddOtlpExporter(string endpoint)
     {

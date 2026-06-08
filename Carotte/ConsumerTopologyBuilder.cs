@@ -29,6 +29,18 @@ internal static class ConsumerTopologyBuilder
             autoDelete: false,
             cancellationToken: cancellationToken);
 
+        await rabbitMqClient.QueueDeclareAsync(
+            queue: topology.Queue,
+            durable: true,
+            exclusive: false,
+            autoDelete: false,
+            cancellationToken: cancellationToken);
+
+        await rabbitMqClient.QueueBindAsync(
+            queue: topology.Queue,
+            exchange: topology.ConsumerExchangeName,
+            routingKey: "",
+            cancellationToken: cancellationToken);
 
         foreach (var messageExchange in topology.MessageExchangeNames)
         {
