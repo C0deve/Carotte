@@ -7,7 +7,7 @@ namespace Carotte.Tests;
 public class ValidationTests
 {
     public class Message;
-
+    
     public class NoAttributeConsumer : IConsumer<Message>
     {
         public Task HandleAsync(Message message, CancellationToken cancellationToken) => Task.CompletedTask;
@@ -28,6 +28,7 @@ public class ValidationTests
         // Act
         services.AddCarotte(builder => builder
             .AddBroker("test-broker", _ => { })
+            .AddBroker("scanned-broker", _ => { })
             .AddAssemblies(typeof(ValidationTests).Assembly));
 
         // Assert
@@ -43,6 +44,7 @@ public class ValidationTests
         // Act
         services.AddCarotte(builder => builder
             .AddBroker("test-broker", _ => { })
+            .AddBroker("scanned-broker", _ => { })
             .AddAssemblies(typeof(ValidationTests).Assembly));
 
         // Assert
@@ -58,6 +60,7 @@ public class ValidationTests
         // Act
         services.AddCarotte(builder => builder
             .AddBroker("test-broker", _ => { })
+            .AddBroker("scanned-broker", _ => { })
             .AddAssemblies(typeof(ValidationTests).Assembly));
 
         // Assert
@@ -83,21 +86,26 @@ public class ValidationTests
         ex.Message.ShouldContain("No broker registered");
     }
 
-    [Fact]
-    public void Publisher_ShouldThrowException_WhenNoBrokerIsRegistered()
+
+    [Queue("queue", "test-broker")]
+    public class TestConsumer : IConsumer<Message>
     {
+        public Task HandleAsync(Message message, CancellationToken cancellationToken) => Task.CompletedTask;
+    }
+
+    [Fact]
+    public void AddCarotte_ShouldThrowException_WhenBrokerInAttributeIsMissing()
+    {
+        // Arrange
+        var services = new ServiceCollection();
+
         // Act & Assert
         var ex = Should.Throw<CarotteConfigurationException>(() =>
-        {
-            new ServiceCollection().AddCarotte(builder =>
-                {
-                    builder.AddPublisher<Message>();
-                    // No broker added
-                })
-                .BuildServiceProvider()
-                .GetRequiredService<IPublisher<Message>>();
-        });
+            services
+                .AddCarotte(builder => builder
+                    .AddBroker("other-broker", _ => { })
+                    .AddAssemblies(typeof(ValidationTests).Assembly)));
 
-        ex.Message.ShouldContain("No broker registered");
+        ex.Message.ShouldContain("No broker registered with name 'test-broker' for consumer 'TestConsumer'");
     }
 }

@@ -20,6 +20,7 @@ public class RabbitMqConsumerHostLifecycleTests
     }
 
     public record TestMessage(string Content);
+
     public class TestConsumer : IConsumer<TestMessage>
     {
         public Task HandleAsync(TestMessage message, CancellationToken cancellationToken) => Task.CompletedTask;
@@ -30,8 +31,8 @@ public class RabbitMqConsumerHostLifecycleTests
     {
         // Arrange
         var services = new ServiceCollection();
-        var brokerName = "test-broker";
-        var queueAttrs = new List<QueueAttribute> { new QueueAttribute("test-queue", brokerName) };
+        const string brokerName = "test-broker";
+        var topology = new ConsumerAttributeTopology(Broker: brokerName, Queue: "test-queue", Bindings: []);
 
         services.AddSingleton(_connectionManagerMock.Object);
         services.AddSingleton(_serializerMock.Object);
@@ -43,8 +44,8 @@ public class RabbitMqConsumerHostLifecycleTests
         services.AddLogging();
 
         var sp = services.BuildServiceProvider();
-        var host1 = ActivatorUtilities.CreateInstance<RabbitMqConsumerHost<TestConsumer>>(sp, brokerName, queueAttrs);
-        var host2 = ActivatorUtilities.CreateInstance<RabbitMqConsumerHost<TestConsumer>>(sp, brokerName, queueAttrs);
+        var host1 = ActivatorUtilities.CreateInstance<RabbitMqConsumerHost<TestConsumer>>(sp, brokerName, topology);
+        var host2 = ActivatorUtilities.CreateInstance<RabbitMqConsumerHost<TestConsumer>>(sp, brokerName, topology);
 
         // Act
         var cts = new CancellationTokenSource();
@@ -54,7 +55,7 @@ public class RabbitMqConsumerHostLifecycleTests
         // Assert
         _connectionManagerMock.Verify(m => m.RegisterHostAsync(brokerName), Times.Exactly(2));
         _connectionMock.Verify(c => c.CreateChannelAsync(It.IsAny<CreateChannelOptions?>(), It.IsAny<CancellationToken>()), Times.Exactly(2));
-        
+
         await host1.StopAsync(cts.Token);
         await host2.StopAsync(cts.Token);
 
@@ -66,8 +67,8 @@ public class RabbitMqConsumerHostLifecycleTests
     {
         // Arrange
         var services = new ServiceCollection();
-        var brokerName = "test-broker";
-        var queueAttrs = new List<QueueAttribute> { new QueueAttribute("test-queue", brokerName) };
+        const string brokerName = "test-broker";
+        var topology = new ConsumerAttributeTopology(Broker: brokerName, Queue: "test-queue", Bindings: []);
 
         services.AddSingleton(_connectionManagerMock.Object);
         services.AddSingleton(_serializerMock.Object);
@@ -79,11 +80,11 @@ public class RabbitMqConsumerHostLifecycleTests
         services.AddLogging();
 
         var sp = services.BuildServiceProvider();
-        var host = ActivatorUtilities.CreateInstance<RabbitMqConsumerHost<TestConsumer>>(sp, brokerName, queueAttrs);
+        var host = ActivatorUtilities.CreateInstance<RabbitMqConsumerHost<TestConsumer>>(sp, brokerName, topology);
 
         var cts = new CancellationTokenSource();
         await host.StartAsync(cts.Token);
-        
+
         // Act
         await host.StopAsync(cts.Token);
 

@@ -18,10 +18,6 @@ public class DefaultQueueNameTests
             builder
                 .AddBroker("test-broker", _ => { })
                 .AddAssemblies(typeof(DefaultQueueNameTests).Assembly);
-            // Ensure that other consumers that could cause issues are configured
-            builder.ConsumerConfigs[typeof(CarotteTestKitTests.NoAttributeConsumer)] = ("test-broker", "test-queue");
-            builder.ConsumerConfigs[typeof(ValidationTests.NoAttributeConsumer)] = ("test-broker", "test-queue");
-            builder.ConsumerConfigs[typeof(ValidationTests.BindingWithoutQueueConsumer)] = ("test-broker", "test-queue");
         });
 
         var sp = services.BuildServiceProvider();
@@ -35,24 +31,24 @@ public class DefaultQueueNameTests
         host.ShouldNotBeNull();
         
         // Inspect bindings via reflection because they are passed to RabbitMqConsumerHost's constructor
-        var field = host.GetType().GetField("queueAttributes", BindingFlags.NonPublic | BindingFlags.Instance);
+        var field = host.GetType().GetField("topology", BindingFlags.NonPublic | BindingFlags.Instance);
         if (field == null)
         {
             // Maybe it is prefixed by _ in a compiled version or according to conventions
-            field = host.GetType().GetField("_queueAttributes", BindingFlags.NonPublic | BindingFlags.Instance);
+            field = host.GetType().GetField("_topology", BindingFlags.NonPublic | BindingFlags.Instance);
         }
         
-        // If still null, try to find the field that is of type IEnumerable<QueueAttribute>
+        // If still null, try to find the field that is of type IConsumerTopology
         if (field == null)
         {
             field = host.GetType().GetFields(BindingFlags.NonPublic | BindingFlags.Instance)
-                .FirstOrDefault(f => typeof(IEnumerable<QueueAttribute>).IsAssignableFrom(f.FieldType));
+                .FirstOrDefault(f => typeof(IConsumerTopology).IsAssignableFrom(f.FieldType));
         }
 
         field.ShouldNotBeNull();
-        var queueAttributes = (IEnumerable<QueueAttribute>)field.GetValue(host)!;
+        var topology = (IConsumerTopology)field.GetValue(host)!;
         
-        queueAttributes.First().Name.ShouldBe("order-consumer-queue");
+        topology.Queue.ShouldBe("q.order-consumer");
     }
 
     public class OrderMessage { }

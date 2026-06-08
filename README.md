@@ -48,10 +48,7 @@ builder.Services.AddCarotte(carotte =>
         options.Password = "guest";
     });
 
-    // Register Publishers
-    carotte.AddPublisher<OrderCreatedMessage>("my-broker", "orders-exchange");
-
-    // Register Consumers (Automatic scan in this assembly)
+    // Register Consumers & Publishers (Automatic scan in this assembly)
     carotte.AddAssemblies(typeof(Program).Assembly);
 
     // Optional: Add OpenTelemetry
@@ -87,7 +84,7 @@ Carotte favors **Convention over Configuration**. By default, any class implemen
 - **Automatic Topology**: Carotte creates the necessary exchanges and bindings based on the message type (see below).
 - **Duplicate Warnings**: If a consumer defines multiple bindings for the same queue and broker, a warning will be logged to the console during registration.
 
-For advanced scenarios, you can still customize your consumers using attributes or programmatic configuration (see **Configuration Examples** at the bottom).
+For advanced scenarios, you can still customize your consumers using attributes (see **Configuration Examples** at the bottom).
 
 ### 4. Topology Conventions (E2E Binding)
 
@@ -117,9 +114,6 @@ Carotte automatically creates a two-level mesh:
 Thanks to conventions, configuration is minimal:
 
 ```csharp
-// Publisher without explicit exchange
-carotte.AddPublisher<OrderCreatedMessage>("my-broker");
-
 // Consumer with just the queue name
 [Queue("order-processing-queue", broker: "my-broker")]
 public class OrderConsumer : IConsumer<OrderCreatedMessage> { ... }
@@ -252,16 +246,6 @@ Use `[Queue]` for full control over the queue name, broker, and bindings.
 ```csharp
 [Queue("my-custom-queue", broker: "secondary-broker", exchange: "orders", routingKey: "created")]
 public class CustomConsumer : IConsumer<OrderMessage> { ... }
-```
-
-### 4. Programmatic Configuration
-Useful for consumers in external assemblies where you cannot add attributes.
-
-```csharp
-builder.Services.AddCarotte(carotte =>
-{
-    carotte.ConsumerConfigs[typeof(ExternalConsumer)] = ("my-broker", "external-queue");
-});
 ```
 
 ## 📄 License

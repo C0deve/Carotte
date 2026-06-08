@@ -27,7 +27,7 @@ public class RabbitMqPublisherTests
         await publisher.PublishAsync(message, CancellationToken.None);
 
         // Assert
-        var expectedExchange = "message-test";
+        var expectedExchange = "x.pub.test";
         
         // Verify exchange is declared as fanout (convention)
         rabbitMqClient.Verify(c => c.ExchangeDeclareAsync(

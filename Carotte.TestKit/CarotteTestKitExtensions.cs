@@ -41,12 +41,19 @@ public static class CarotteTestKitExtensions
             var builderDescriptor = services.FirstOrDefault(d => d.ServiceType == typeof(CarotteBuilder));
             if (builderDescriptor?.ImplementationInstance is CarotteBuilder builder)
             {
-                foreach (var pubConfig in builder.PublisherConfigs)
-                {
-                    var interfaceType = typeof(IPublisher<>).MakeGenericType(pubConfig.MessageType);
-                    var implementationType = typeof(InMemoryPublisher<>).MakeGenericType(pubConfig.MessageType);
+                // Note: We don't have access to PublisherConfigs anymore,
+                // so we rely on the fact that IPublisher<T> are registered as singletons.
+                // We'll replace them if they are of type RabbitMqPublisher<T>
+                var publishers = services.Where(d => d.ServiceType.IsGenericType && 
+                                                   d.ServiceType.GetGenericTypeDefinition() == typeof(IPublisher<>))
+                                        .ToList();
 
-                    services.Replace(ServiceDescriptor.Singleton(interfaceType, sp =>
+                foreach (var pub in publishers)
+                {
+                    var messageType = pub.ServiceType.GetGenericArguments()[0];
+                    var implementationType = typeof(InMemoryPublisher<>).MakeGenericType(messageType);
+
+                    services.Replace(ServiceDescriptor.Singleton(pub.ServiceType, sp =>
                     {
                         var store = sp.GetRequiredService<MessageTestStore>();
                         return Activator.CreateInstance(implementationType, store)!;

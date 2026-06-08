@@ -50,3 +50,13 @@ Use record readonly when possible
 Use immutability when possible
 Use a fonctionnel style
 Avoid all warning message from compilation
+
+🧪 3. Response Guidelines
+•
+Always use a fluent approach for builders and configurations.
+•
+Keep methods simple and focused.
+•
+Avoid `if` statements when possible (prefer polymorphism, LINQ, or guard clauses).
+•
+Ask for confirmation before modifying code.

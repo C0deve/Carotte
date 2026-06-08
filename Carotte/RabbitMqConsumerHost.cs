@@ -11,7 +11,7 @@ public sealed class RabbitMqConsumerHost<TConsumer>(
     ISerializer serializer,
     ILogger<RabbitMqConsumerHost<TConsumer>> logger,
     string broker,
-    IEnumerable<QueueAttribute> queueAttributes)
+    IConsumerTopology topology)
     : BackgroundService
     where TConsumer : class
 {
@@ -23,7 +23,7 @@ public sealed class RabbitMqConsumerHost<TConsumer>(
         mediator.Initialize<TConsumer>();
         BuildPipeline();
 
-        await rabbitMqClient.ConnectAsync(broker, cancellationToken);
+        await rabbitMqClient.ConnectAsync(topology.Broker, cancellationToken);
         rabbitMqClient.ReceivedAsync += (_, ea) => HandleMessageAsync(ea, CancellationToken.None);
         
         await SetupTopologyAsync(cancellationToken);
@@ -73,17 +73,14 @@ public sealed class RabbitMqConsumerHost<TConsumer>(
 
     private async Task ConsumeAsync(CancellationToken stoppingToken)
     {
-        foreach (var attr in queueAttributes.Select(a => a.Name).Distinct())
-        {
-            await rabbitMqClient.BasicConsumeAsync(
-                queue: attr,
-                autoAck: false,
-                consumerTag: string.Empty,
-                noLocal: false,
-                exclusive: false,
-                arguments: null,
-                cancellationToken: stoppingToken);
-        }
+        await rabbitMqClient.BasicConsumeAsync(
+            queue: topology.Queue,
+            autoAck: false,
+            consumerTag: string.Empty,
+            noLocal: false,
+            exclusive: false,
+            arguments: null,
+            cancellationToken: stoppingToken);
 
         await Task.Delay(Timeout.Infinite, stoppingToken);
     }
@@ -91,96 +88,7 @@ public sealed class RabbitMqConsumerHost<TConsumer>(
     private async Task SetupTopologyAsync(CancellationToken stoppingToken)
     {
         logger.LogSettingUpTopology(typeof(TConsumer).Name);
-        var declaredQueues = new HashSet<string>();
-        var declaredExchanges = new HashSet<string>();
-
-        await SetupConventionTopologyAsync(declaredExchanges, stoppingToken);
-        await SetupAttributeTopologyAsync(declaredQueues, declaredExchanges, stoppingToken);
-    }
-
-    private async Task SetupConventionTopologyAsync(HashSet<string> declaredExchanges, CancellationToken stoppingToken)
-    {
-        var consumerExchange = $"{typeof(TConsumer).Name}";
-        if (declaredExchanges.Add(consumerExchange))
-        {
-            await rabbitMqClient.ExchangeDeclareAsync(
-                exchange: consumerExchange,
-                type: "fanout",
-                durable: true,
-                autoDelete: false,
-                cancellationToken: stoppingToken);
-        }
-
-        foreach (var messageType in mediator.GetHandledMessageTypes())
-        {
-            var messageExchange = messageType.Name.ToDefaultExchangeName();
-            if (declaredExchanges.Add(messageExchange))
-            {
-                await rabbitMqClient.ExchangeDeclareAsync(
-                    exchange: messageExchange,
-                    type: "fanout",
-                    durable: true,
-                    autoDelete: false,
-                    cancellationToken: stoppingToken);
-            }
-
-            await rabbitMqClient.ExchangeBindAsync(
-                destination: consumerExchange,
-                source: messageExchange,
-                routingKey: "",
-                cancellationToken: stoppingToken);
-        }
-    }
-
-    private async Task SetupAttributeTopologyAsync(HashSet<string> declaredQueues, HashSet<string> declaredExchanges, CancellationToken stoppingToken)
-    {
-        var consumerExchange = $"{typeof(TConsumer).Name}";
-
-        foreach (var attr in queueAttributes)
-        {
-            if (declaredQueues.Add(attr.Name))
-            {
-                await rabbitMqClient.QueueDeclareAsync(
-                    queue: attr.Name,
-                    durable: true,
-                    exclusive: false,
-                    autoDelete: false,
-                    arguments: null,
-                    passive: false,
-                    noWait: false,
-                    cancellationToken: stoppingToken);
-
-                // Bind consumer exchange to the queue
-                await rabbitMqClient.QueueBindAsync(
-                    queue: attr.Name,
-                    exchange: consumerExchange,
-                    routingKey: "",
-                    cancellationToken: stoppingToken);
-            }
-
-            if (string.IsNullOrEmpty(attr.Exchange)) continue;
-
-            if (declaredExchanges.Add(attr.Exchange))
-            {
-                await rabbitMqClient.ExchangeDeclareAsync(
-                    exchange: attr.Exchange,
-                    type: "topic",
-                    durable: true,
-                    autoDelete: false,
-                    arguments: null,
-                    passive: false,
-                    noWait: false,
-                    cancellationToken: stoppingToken);
-            }
-
-            await rabbitMqClient.QueueBindAsync(
-                queue: attr.Name,
-                exchange: attr.Exchange,
-                routingKey: attr.RoutingKey,
-                arguments: null,
-                noWait: false,
-                cancellationToken: stoppingToken);
-        }
+        await ConsumerTopologyBuilder.BuildAsync(rabbitMqClient, topology, stoppingToken);
     }
 
     private async Task HandleMessageAsync(BasicDeliverEventArgs ea, CancellationToken stoppingToken)

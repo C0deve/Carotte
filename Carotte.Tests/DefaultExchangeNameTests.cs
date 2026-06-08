@@ -10,8 +10,17 @@ public class DefaultExchangeNameTests
     [Fact]
     public void ToDefaultExchangeName_ShouldFormatCorrectly()
     {
-        "OrderCreated".ToDefaultExchangeName().ShouldBe("message-order-created");
-        "OrderCreatedMessage".ToDefaultExchangeName().ShouldBe("message-order-created");
+        "OrderCreated".ToDefaultExchangeName().ShouldBe("x.pub.order-created");
+        "OrderCreatedMessage".ToDefaultExchangeName().ShouldBe("x.pub.order-created");
+        "OrderCreatedEvent".ToDefaultExchangeName().ShouldBe("x.pub.order-created");
+        "CreateOrderCommand".ToDefaultExchangeName().ShouldBe("x.pub.create-order");
+    }
+
+    [Fact]
+    public void ConsumerNames_ShouldFormatCorrectly()
+    {
+        "OrderService".ToConsumerExchangeName().ShouldBe("x.sub.order-service");
+        "OrderService".ToConsumerQueueName().ShouldBe("q.order-service");
     }
 
     [Fact]
@@ -25,10 +34,6 @@ public class DefaultExchangeNameTests
             builder
                 .AddBroker("test-broker", _ => { })
                 .AddAssemblies(typeof(DefaultExchangeNameTests).Assembly);
-            // Bypass other consumers
-            builder.ConsumerConfigs[typeof(CarotteTestKitTests.NoAttributeConsumer)] = ("test-broker", "test-queue");
-            builder.ConsumerConfigs[typeof(ValidationTests.NoAttributeConsumer)] = ("test-broker", "test-queue");
-            builder.ConsumerConfigs[typeof(ValidationTests.BindingWithoutQueueConsumer)] = ("test-broker", "test-queue");
         });
         
         // We need to replace the IRabbitMqClient to verify calls
@@ -46,8 +51,8 @@ public class DefaultExchangeNameTests
         await host.StartAsync(CancellationToken.None);
 
         // Assert
-        // Expected exchange name for ExchangeTestMessage should be message-exchange-test
-        var expectedExchange = "message-exchange-test";
+        // Expected exchange name for ExchangeTestMessage should be x.pub.exchange-test
+        var expectedExchange = "x.pub.exchange-test";
         
         rabbitMqClient.Verify(c => c.ExchangeDeclareAsync(
             expectedExchange,

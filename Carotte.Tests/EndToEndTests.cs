@@ -7,6 +7,7 @@ namespace Carotte.Tests;
 
 public class EndToEndTests
 {
+    [Publisher]
     public class SimpleMessage
     {
         public string Content { get; set; } = string.Empty;
@@ -43,14 +44,13 @@ public class EndToEndTests
             // 2. Configure Carotte
             services.AddCarotte(builder =>
             {
-                builder.AddBroker("default", options =>
+                builder.AddBroker("test-broker", options =>
                 {
                     options.Host = rabbitMqContainer.Hostname;
                     options.Port = rabbitMqContainer.GetMappedPublicPort(5672);
                     options.UserName = RabbitMqBuilder.DefaultUsername;
                     options.Password = RabbitMqBuilder.DefaultPassword;
                 });
-                builder.AddPublisher<SimpleMessage>("default", "simple-exchange");
                 builder.AddAssemblies(typeof(SimpleConsumer).Assembly);
             });
 

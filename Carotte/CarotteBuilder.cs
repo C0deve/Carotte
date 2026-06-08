@@ -1,22 +1,34 @@
-using Carotte.Exceptions;
 using System.Reflection;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
+using Carotte.Exceptions;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 
 namespace Carotte;
 
-public static class ServiceCollectionExtensions
-{
-    extension(IServiceCollection services)
+    public static class ServiceCollectionExtensions
     {
-        public IServiceCollection AddCarotte(Action<CarotteBuilder> configure)
+        public static IServiceCollection AddCarotte(this IServiceCollection services, Action<CarotteBuilder> configure)
         {
             var builder = new CarotteBuilder();
             configure(builder);
+
+            var (consumerScanResults, publisherScanResults) = builder.Assemblies.Scan(builder.Namespaces);
+
+            var messageBrokerSettings = TopologyProvider.CreateSettings(
+                builder.Brokers,
+                consumerScanResults,
+                publisherScanResults);
+
+            var validationResult = CarotteBuilderValidator.Validate(messageBrokerSettings);
+
+            if (!validationResult.IsSuccess)
+            {
+                throw new CarotteConfigurationException($"Carotte configuration validation failed: {string.Join(", ", validationResult.Errors.Select(e => e.Message))}");
+            }
 
             services.AddLogging();
             services.TryAddSingleton<IConnectionManager>(_ => new ConnectionManager(builder.Brokers));
@@ -24,9 +36,9 @@ public static class ServiceCollectionExtensions
             services.TryAddSingleton<ITopologyManager, TopologyManager>();
             services.TryAddSingleton<ISerializer, JsonSerializerImpl>();
 
-            services.AddOpenTelemetrySupport(builder);
-            services.AddConsumers(builder);
-            services.AddPublishers(builder);
+            AddOpenTelemetrySupport(services, builder);
+            AddConsumers(services, builder, messageBrokerSettings);
+            AddPublishers(services, builder, messageBrokerSettings);
 
             foreach (var action in builder.PostConfigureActions)
             {
@@ -38,7 +50,7 @@ public static class ServiceCollectionExtensions
             return services;
         }
 
-        private void AddOpenTelemetrySupport(CarotteBuilder builder)
+        private static void AddOpenTelemetrySupport(IServiceCollection services, CarotteBuilder builder)
         {
             services.AddOpenTelemetry()
                 .ConfigureResource(r => r.AddService(CarotteDiagnostics.ServiceName))
@@ -60,222 +72,51 @@ public static class ServiceCollectionExtensions
                 });
         }
 
-        private void AddConsumers(CarotteBuilder builder)
+        private static void AddConsumers(IServiceCollection services, CarotteBuilder builder, MessageBrokerSettings messageBrokerSettings)
         {
-            if(builder.Brokers.Count == 0)
-                throw new CarotteConfigurationException("No broker registered. At least one broker must be registered to use a consumer.");
-            
-            var consumerTypes = builder.Assemblies
-                .SelectMany(a => a.GetTypes())
-                .Where(t => !t.IsAbstract && t.GetInterfaces().Any(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(IConsumer<>)));
-
-            foreach (var consumerType in consumerTypes)
+            foreach (var consumer in messageBrokerSettings.Consumers)
             {
-                var queueAttrs = consumerType.GetCustomAttributes<QueueAttribute>(true).ToList();
-                var bindingAttrs = consumerType.GetCustomAttributes<BindingAttribute>(true).ToList();
-
-                if (builder.ConsumerConfigs.TryGetValue(consumerType, out var config))
-                {
-                    queueAttrs.Clear();
-                    queueAttrs.Add(new QueueAttribute(config.Queue, config.Broker));
-                }
-                else
-                {
-                    if (queueAttrs.Count == 0 && bindingAttrs.Count > 0)
-                    {
-                        queueAttrs.Add(new QueueAttribute(consumerType.Name.ToDefaultQueueName()));
-                    }
-
-                    if (queueAttrs.Count == 0)
-                    {
-                        queueAttrs.Add(new QueueAttribute(consumerType.Name.ToDefaultQueueName()));
-                    }
-
-                    var uniqueQueues = queueAttrs.Select(a => new { a.Name, a.Broker }).Distinct().ToList();
-                    if (uniqueQueues.Count > 1)
-                    {
-                        throw new CarotteConfigurationException($"Consumer '{consumerType.Name}' can only consume from one queue. Multiple queues found: {string.Join(", ", uniqueQueues.Select(q => $"'{q.Name}' on broker '{q.Broker}'"))}.");
-                    }
-                }
-
-                var baseQueue = queueAttrs.First();
-                
-                // We merge the bindings
-                var allBindings = queueAttrs.ToList();
-                allBindings.AddRange(bindingAttrs.Select(binding => new QueueAttribute(baseQueue.Name,
-                    baseQueue.Broker,
-                    binding.Exchange,
-                    binding.RoutingKey)));
-
-                // If no binding is defined via Queue or Binding attribute, we keep at least the queue itself
-                if (allBindings.Count == 0)
-                {
-                    allBindings.Add(baseQueue);
-                }
-
-                services.AddSingleton(consumerType);
+                services.AddSingleton(consumer.ConsumerType);
                 services.AddTransient<ConsumerMediator>();
-
-                var duplicates = allBindings
-                    .GroupBy(a => new { a.Name, a.Broker, Exchange = a.Exchange ?? string.Empty, RoutingKey = a.RoutingKey ?? string.Empty })
-                    .Where(g => g.Count() > 1);
-
-                foreach (var duplicate in duplicates) 
-                {
-                    var msg = $"[Warning] Consumer '{consumerType.Name}' has duplicate binding for queue '{duplicate.Key.Name}' on broker '{duplicate.Key.Broker}' with exchange '{duplicate.Key.Exchange}' and routing key '{duplicate.Key.RoutingKey}'.";
-                    Console.WriteLine(msg);
-                }
-
-                var broker = baseQueue.Broker;
-                if (string.IsNullOrEmpty(broker))
-                {
-                    broker = builder.Brokers.Keys.First();
-                }
-                else if (!builder.Brokers.ContainsKey(broker))
-                {
-                    throw new CarotteConfigurationException("No broker registered. At least one broker must be registered to use a consumer.");
-                }
-
+                
                 services.AddSingleton(typeof(IHostedService), sp =>
-                    ActivatorUtilities.CreateInstance(sp, typeof(RabbitMqConsumerHost<>).MakeGenericType(consumerType), broker, allBindings));
+                    ActivatorUtilities.CreateInstance(sp, typeof(RabbitMqConsumerHost<>).MakeGenericType(consumer.ConsumerType),
+                        consumer.Broker,
+                        consumer.Topology));
             }
         }
 
-        private void AddPublishers(CarotteBuilder builder)
+        private static void AddPublishers(IServiceCollection services, CarotteBuilder builder, MessageBrokerSettings messageBrokerSettings)
         {
-            var types = builder.Assemblies
-                .SelectMany(a => a.GetTypes())
-                .Where(t => !t.IsAbstract && !t.IsInterface)
-                .ToList();
-
-            // 1. Identify explicit publishers (those implementing IPublisher<TMessage>)
-            var explicitPublishers = types
-                .SelectMany(t => t.GetInterfaces(), (t, i) => new { ImplementationType = t, InterfaceType = i })
-                .Where(x => x.InterfaceType.IsGenericType && x.InterfaceType.GetGenericTypeDefinition() == typeof(IPublisher<>))
-                .ToList();
-
-            // 2. Register scanned publishers
-            foreach (var explicitPub in explicitPublishers)
+            foreach (var producer in messageBrokerSettings.Producers)
             {
-                var messageType = explicitPub.InterfaceType.GetGenericArguments()[0];
-                
-                // If no manual configuration exists for this message, create one based on the attribute or convention
-                if (builder.PublisherConfigs.All(p => p.MessageType != messageType))
+                var interfaceTypeToRegister = typeof(IPublisher<>).MakeGenericType(producer.MessageType);
+                services.TryAddSingleton(interfaceTypeToRegister, sp =>
                 {
-                    var attr = explicitPub.ImplementationType.GetCustomAttribute<PublisherAttribute>();
-                    var broker = attr?.Broker ?? "default";
-                    var exchange = attr?.Exchange;
-                    builder.AddPublisherInternal(messageType, broker, exchange);
-                }
+                    var implementationType = typeof(RabbitMqPublisher<>).MakeGenericType(producer.MessageType);
 
-                // Register implementation
-                services.TryAddSingleton(explicitPub.ImplementationType);
-                services.TryAddSingleton(explicitPub.InterfaceType, sp => sp.GetRequiredService(explicitPub.ImplementationType));
-            }
-
-            // 3. Scan for messages marked with [Publisher]
-            var messagesWithPublisherAttribute = builder.Assemblies
-                .SelectMany(a => a.GetTypes())
-                .Where(t => t.GetCustomAttribute<PublisherAttribute>() != null)
-                .ToList();
-
-            foreach (var messageType in messagesWithPublisherAttribute)
-            {
-                if (builder.PublisherConfigs.All(p => p.MessageType != messageType))
-                {
-                    var attr = messageType.GetCustomAttribute<PublisherAttribute>()!;
-                    builder.AddPublisherInternal(messageType, attr.Broker, attr.Exchange);
-                }
-            }
-
-            // 4. Register manually configured publishers that don't have a scanned explicit implementation
-            // (They will use the default RabbitMqPublisher<TMessage>)
-            foreach (var pubConfig in builder.PublisherConfigs)
-            {
-                var interfaceType = typeof(IPublisher<>).MakeGenericType(pubConfig.MessageType);
-                
-                // If the interface is not already registered (by explicit implementation scan)
-                services.TryAddSingleton(interfaceType, sp =>
-                {
-                    var messageType = pubConfig.MessageType;
-                    var implementationType = typeof(RabbitMqPublisher<>).MakeGenericType(messageType);
-                    
-                    var broker = pubConfig.Broker;
-                    if (string.IsNullOrEmpty(broker) || broker == "default")
-                    {
-                        if (builder.Brokers.Count > 0)
-                        {
-                            broker = builder.Brokers.ContainsKey("default") ? "default" : builder.Brokers.Keys.First();
-                        }
-                        else
-                        {
-                            var isTestAssembly = builder.Assemblies.Any(a => a.GetName().Name != null && (a.GetName().Name.Contains("Tests") || a.GetName().Name.Contains("TestKit")));
-                            if (isTestAssembly)
-                            {
-                                broker = "default";
-                            }
-                            else
-                            {
-                                throw new CarotteConfigurationException("No broker registered. At least one broker must be registered to use a publisher.");
-                            }
-                        }
-                    }
-                    else if (!builder.Brokers.ContainsKey(broker))
-                    {
-                        if (builder.Brokers.Count > 0)
-                        {
-                            broker = builder.Brokers.Keys.First();
-                        }
-                        else
-                        {
-                            var isTestAssembly = builder.Assemblies.Any(a => a.GetName().Name != null && (a.GetName().Name.Contains("Tests") || a.GetName().Name.Contains("TestKit")));
-                            if (!isTestAssembly)
-                            {
-                                throw new CarotteConfigurationException("No broker registered. At least one broker must be registered to use a publisher.");
-                            }
-                        }
-                    }
-
-                    var exchange = pubConfig.Exchange;
+                    var exchange = producer.ExchangePublication;
                     var client = sp.GetRequiredService<IRabbitMqClient>();
                     var serializer = sp.GetRequiredService<ISerializer>();
-                    return Activator.CreateInstance(implementationType, client, serializer, broker!, exchange!)!;
+                    return Activator.CreateInstance(implementationType, client, serializer, producer.Broker, exchange)!;
                 });
             }
         }
     }
-}
 
 public class CarotteBuilder
 {
-    public Dictionary<string, RabbitMqOptions> Brokers { get; } = [];
-    public List<Assembly> Assemblies { get; } = [];
-    public Dictionary<Type, (string Broker, string Queue)> ConsumerConfigs { get; } = [];
-    public List<(Type MessageType, string? Broker, string? Exchange)> PublisherConfigs { get; } = [];
-    public Uri? OtlpEndpoint { get; private set; }
+    internal Dictionary<string, RabbitMqOptions> Brokers { get; } = [];
+    internal HashSet<Assembly> Assemblies { get; } = [];
+    internal HashSet<string> Namespaces { get; } = [];
+    internal Uri? OtlpEndpoint { get; private set; }
 
     // Extension points for test mode without modifying AddCarotte logic
     public List<Action<IServiceCollection>> PostConfigureActions { get; } = [];
 
-    public CarotteBuilder()
-    {
-        Assemblies.Add(Assembly.GetCallingAssembly());
-    }
-
     public CarotteBuilder AddOtlpExporter(string endpoint)
     {
         OtlpEndpoint = new Uri(endpoint);
-        return this;
-    }
-
-    public CarotteBuilder AddPublisher<TMessage>(string? broker = null, string? exchange = null) where TMessage : class
-    {
-        return AddPublisherInternal(typeof(TMessage), broker, exchange);
-    }
-
-    internal CarotteBuilder AddPublisherInternal(Type messageType, string? broker, string? exchange = null)
-    {
-        PublisherConfigs.Add((messageType, broker, exchange!));
         return this;
     }
 
@@ -289,12 +130,16 @@ public class CarotteBuilder
 
     public CarotteBuilder AddAssemblies(params Assembly[] assemblies)
     {
-        foreach (var assembly in assemblies)
-        {
-            if (!Assemblies.Contains(assembly)) 
-                Assemblies.Add(assembly);
-        }
+        Assemblies.UnionWith(assemblies);
+        return this;
+    }
 
+    public CarotteBuilder AddNamespaces(params string[] namespaces)
+    {
+        foreach (var ns in namespaces)
+        {
+            Namespaces.Add(ns);
+        }
         return this;
     }
 }

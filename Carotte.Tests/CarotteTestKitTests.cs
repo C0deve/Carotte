@@ -8,6 +8,7 @@ public class CarotteTestKitTests
 {
     public record TestMessage(string Content);
 
+    [Publisher]
     public record ResponseMessage(string Content);
 
     [Queue("test-queue", broker: "test-broker")]
@@ -31,7 +32,6 @@ public class CarotteTestKitTests
         var sp = new ServiceCollection()
             .AddCarotte(c => c
                 .AddBroker("test-broker", _ => { })
-                .AddPublisher<ResponseMessage>("test-broker", "exchange1")
                 .AddAssemblies(typeof(TestConsumer).Assembly))
             .AddCarotteTestKit().BuildServiceProvider();
         var testKit = sp.GetRequiredService<CarotteTestKit>();

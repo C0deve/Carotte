@@ -6,6 +6,9 @@ namespace Carotte.Tests;
 
 public class BackgroundServiceTests
 {
+    [Publisher]
+    public class TestMessage;
+
     [Fact]
     public Task Publisher_ShouldBeInjectableInBackgroundService()
     {
@@ -20,7 +23,7 @@ public class BackgroundServiceTests
                 {
                     options.Host = "localhost";
                 });
-                builder.AddPublisher<TestMessage>("test-broker", "test-exchange");
+                builder.AddAssemblies(typeof(BackgroundServiceTests).Assembly);
             });
 
             services.AddSingleton<PublisherUsingBackgroundService>();
