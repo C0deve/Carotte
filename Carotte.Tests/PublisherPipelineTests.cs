@@ -1,4 +1,5 @@
-﻿using Moq;
+﻿using Microsoft.Extensions.Logging;
+using Moq;
 using RabbitMQ.Client;
 
 namespace Carotte.Tests;
@@ -27,6 +28,7 @@ public class PublisherPipelineTests
         var publisher = new RabbitMqPublisher<TestMessage>(
             rabbitMqClientMock.Object,
             serializerMock.Object,
+            Mock.Of<ILogger<RabbitMqPublisher<TestMessage>>>(),
             broker,
             exchange);
 

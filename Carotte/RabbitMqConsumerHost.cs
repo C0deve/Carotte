@@ -19,8 +19,17 @@ public sealed class RabbitMqConsumerHost<TConsumer>(
 
     public override async Task StartAsync(CancellationToken cancellationToken)
     {
-        logger.LogStartingRabbitmqConsumerHost(typeof(TConsumer).Name, broker);
         mediator.Initialize<TConsumer>();
+        
+        var exchanges = topology switch
+        {
+            ConsumerConventionTopology conv => string.Join(", ", conv.MessageExchangeNames.Union([conv.ConsumerExchangeName])),
+            ConsumerAttributeTopology attr => string.Join(", ", attr.Bindings.Select(b => b.ExchangeSource).Distinct()),
+            _ => "Unknown"
+        };
+        var messageTypes = string.Join(", ", mediator.GetHandledMessageTypes().Select(t => $"'{t.Name}'"));
+
+        logger.LogStartingRabbitmqConsumerHost(typeof(TConsumer).Name, broker, topology.Queue, exchanges, messageTypes);
         BuildPipeline();
 
         await rabbitMqClient.ConnectAsync(topology.Broker, cancellationToken);

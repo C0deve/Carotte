@@ -1,4 +1,5 @@
-﻿using Moq;
+﻿using Microsoft.Extensions.Logging;
+using Moq;
 using RabbitMQ.Client;
 
 namespace Carotte.Tests;
@@ -13,6 +14,8 @@ public class RabbitMqPublisherTests
         // Arrange
         var rabbitMqClient = new Mock<IRabbitMqClient>();
         var serializer = new Mock<ISerializer>();
+        var loggerMock = new Mock<ILogger<RabbitMqPublisher<TestMessage>>>();
+        loggerMock.Setup(x => x.IsEnabled(It.IsAny<LogLevel>())).Returns(true);
         var broker = "test-broker";
         var message = new TestMessage();
         
@@ -20,6 +23,7 @@ public class RabbitMqPublisherTests
         var publisher = new RabbitMqPublisher<TestMessage>(
             rabbitMqClient.Object,
             serializer.Object,
+            loggerMock.Object,
             broker,
             null!);
 
@@ -28,6 +32,7 @@ public class RabbitMqPublisherTests
 
         // Assert
         var expectedExchange = "x.pub.test";
+        VerifyLog(loggerMock, LogLevel.Information, $"Starting RabbitMqPublisher for TestMessage on broker test-broker. Exchange: {expectedExchange}");
         
         // Verify exchange is declared as fanout (convention)
         rabbitMqClient.Verify(c => c.ExchangeDeclareAsync(
@@ -56,12 +61,15 @@ public class RabbitMqPublisherTests
         // Arrange
         var rabbitMqClient = new Mock<IRabbitMqClient>();
         var serializer = new Mock<ISerializer>();
+        var loggerMock = new Mock<ILogger<RabbitMqPublisher<TestMessage>>>();
+        loggerMock.Setup(x => x.IsEnabled(It.IsAny<LogLevel>())).Returns(true);
         var broker = "test-broker";
         var message = new TestMessage();
         
         var publisher = new RabbitMqPublisher<TestMessage>(
             rabbitMqClient.Object,
             serializer.Object,
+            loggerMock.Object,
             broker,
             null!);
 
@@ -89,6 +97,8 @@ public class RabbitMqPublisherTests
         // Arrange
         var rabbitMqClient = new Mock<IRabbitMqClient>();
         var serializer = new Mock<ISerializer>();
+        var loggerMock = new Mock<ILogger<RabbitMqPublisher<TestMessage>>>();
+        loggerMock.Setup(x => x.IsEnabled(It.IsAny<LogLevel>())).Returns(true);
         var broker = "test-broker";
         var explicitExchange = "explicit-exchange";
         var message = new TestMessage();
@@ -96,6 +106,7 @@ public class RabbitMqPublisherTests
         var publisher = new RabbitMqPublisher<TestMessage>(
             rabbitMqClient.Object,
             serializer.Object,
+            loggerMock.Object,
             broker,
             explicitExchange);
 
@@ -103,6 +114,7 @@ public class RabbitMqPublisherTests
         await publisher.PublishAsync(message, CancellationToken.None);
 
         // Assert
+        VerifyLog(loggerMock, LogLevel.Information, "Starting RabbitMqPublisher for TestMessage on broker test-broker. Exchange: explicit-exchange");
         // Should NOT declare exchange by convention (or at least not the message one in fanout)
         // Currently RabbitMqPublisher doesn't declare anything, it delegates to publication middleware.
         
@@ -113,5 +125,17 @@ public class RabbitMqPublisherTests
             It.IsAny<BasicProperties>(),
             true,
             It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    private static void VerifyLog<T>(Mock<ILogger<T>> loggerMock, LogLevel level, string message)
+    {
+        loggerMock.Verify(
+            x => x.Log(
+                level,
+                It.IsAny<EventId>(),
+                It.Is<It.IsAnyType>((v, t) => v.ToString() == message),
+                It.IsAny<Exception>(),
+                It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
+            Times.Once);
     }
 }

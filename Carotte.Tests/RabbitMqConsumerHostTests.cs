@@ -34,7 +34,7 @@ public class RabbitMqConsumerHostTests
         await host.StartAsync(CancellationToken.None);
 
         // Assert
-        VerifyLog(loggerMock, LogLevel.Information, "Starting RabbitMqConsumerHost for TestConsumer on broker test-broker");
+        VerifyLog(loggerMock, LogLevel.Information, "Starting RabbitMqConsumerHost for TestConsumer on broker test-broker. Queue: test-queue, Exchanges: test-exchange, Messages: 'TestMessage'");
         VerifyLog(loggerMock, LogLevel.Information, "Setting up topology for TestConsumer");
 
         rabbitMqClient.Verify(c => c.ConnectAsync(broker, It.IsAny<CancellationToken>()), Times.Once);
@@ -84,7 +84,7 @@ public class RabbitMqConsumerHostTests
         await host.StartAsync(CancellationToken.None);
 
         // Assert
-        VerifyLog(loggerMock, LogLevel.Information, "Starting RabbitMqConsumerHost for TestConsumer on broker test-broker");
+        VerifyLog(loggerMock, LogLevel.Information, "Starting RabbitMqConsumerHost for TestConsumer on broker test-broker. Queue: test-queue, Exchanges: test-exchange, Messages: 'TestMessage'");
         VerifyLog(loggerMock, LogLevel.Information, "Setting up topology for TestConsumer");
 
         rabbitMqClient.Verify(c => c.QueueDeclareAsync(testQueue, true, false, false, It.IsAny<IDictionary<string, object?>>(), false, false, It.IsAny<CancellationToken>()), Times.Once);

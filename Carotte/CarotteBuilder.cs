@@ -97,9 +97,7 @@ namespace Carotte;
                     var implementationType = typeof(RabbitMqPublisher<>).MakeGenericType(producer.MessageType);
 
                     var exchange = producer.ExchangePublication;
-                    var client = sp.GetRequiredService<IRabbitMqClient>();
-                    var serializer = sp.GetRequiredService<ISerializer>();
-                    return Activator.CreateInstance(implementationType, client, serializer, producer.Broker, exchange)!;
+                    return ActivatorUtilities.CreateInstance(sp, implementationType, producer.Broker, exchange);
                 });
             }
         }

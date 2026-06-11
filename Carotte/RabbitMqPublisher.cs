@@ -1,10 +1,12 @@
-﻿using Carotte.pipeline;
+﻿using Microsoft.Extensions.Logging;
+using Carotte.pipeline;
 
 namespace Carotte;
 
-internal class RabbitMqPublisher<TMessage>(
+public class RabbitMqPublisher<TMessage>(
     IRabbitMqClient rabbitMqClient,
     ISerializer serializer,
+    ILogger<RabbitMqPublisher<TMessage>> logger,
     string broker,
     string exchange)
     : IPublisher<TMessage>
@@ -54,6 +56,7 @@ internal class RabbitMqPublisher<TMessage>(
                     }
 
                     _initialized = true;
+                    logger.LogStartingRabbitmqPublisher(typeof(TMessage).Name, broker, effectiveExchange);
                 }
             }
             finally

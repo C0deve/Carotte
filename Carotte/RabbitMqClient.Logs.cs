@@ -28,8 +28,11 @@ internal static partial class RabbitMqLoggingExtensions
     [LoggerMessage(LogLevel.Debug, "Publishing message {MessageType} to exchange {ExchangeName} with routing key {RoutingKey} on broker {Broker}")]
     public static partial void LogPublishingMessage(this ILogger logger, string messageType, string exchangeName, string routingKey, string broker);
 
-    [LoggerMessage(LogLevel.Information, "Starting RabbitMqConsumerHost for {ConsumerType} on broker {Broker}")]
-    public static partial void LogStartingRabbitmqConsumerHost(this ILogger logger, string consumerType, string broker);
+    [LoggerMessage(LogLevel.Information, "Starting RabbitMqConsumerHost for {ConsumerType} on broker {Broker}. Queue: {Queue}, Exchanges: {Exchanges}, Messages: {MessageTypes}")]
+    public static partial void LogStartingRabbitmqConsumerHost(this ILogger logger, string consumerType, string broker, string queue, string exchanges, string messageTypes);
+
+    [LoggerMessage(LogLevel.Information, "Starting RabbitMqPublisher for {MessageType} on broker {Broker}. Exchange: {Exchange}")]
+    public static partial void LogStartingRabbitmqPublisher(this ILogger logger, string messageType, string broker, string exchange);
 
     [LoggerMessage(LogLevel.Information, "Stopping RabbitMqConsumerHost for {ConsumerType}")]
     public static partial void LogStoppingRabbitmqConsumerHost(this ILogger logger, string consumerType);
