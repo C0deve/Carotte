@@ -79,12 +79,26 @@ public class OrderConsumer(ILogger<OrderConsumer> logger) : IConsumer<OrderCreat
 
 Carotte favors **Convention over Configuration**. By default, any class implementing `IConsumer<T>` is automatically registered and configured using top-level conventions.
 
+#### Configuration Rules
 - **Automatic Registration**: All classes implementing `IConsumer<T>` are automatically picked up via `AddAssemblies`.
 - **Default Queue Name**: The queue name defaults to the consumer's class name.
-- **Automatic Topology**: Carotte creates the necessary exchanges and bindings based on the message type (see below).
-- **Duplicate Warnings**: If a consumer defines multiple bindings for the same queue and broker, a warning will be logged to the console during registration.
+- **Automatic Topology**: Carotte creates the necessary exchanges and bindings based on the message type.
+- **Broker Assignment**: Consumers are assigned to the default broker unless specified otherwise via attributes.
 
-For advanced scenarios, you can still customize your consumers using attributes (see **Configuration Examples** at the bottom).
+#### Validation at Startup
+Carotte performs strict validation during the `AddCarotte` call to ensure the configuration is valid:
+- **Broker Presence**: At least one broker must be registered using `AddBroker`.
+- **Broker Reference**: If a consumer (via `[Queue]`) or a producer specifies a broker by name, that broker must exist in the configuration.
+- **Duplicate Warnings**: While not a hard error, Carotte logs warnings if multiple bindings are defined for the same queue and broker.
+
+If validation fails, a `CarotteConfigurationException` is thrown with details about the configuration errors.
+
+#### Advanced Configuration
+For advanced scenarios, you can customize your consumers using attributes:
+- `[Queue("name", broker: "name")]`: Specifies the queue name and the broker to use.
+- `[Binding("exchange", "routingKey")]`: Adds additional bindings to the consumer's queue.
+
+(See **Configuration Examples** at the bottom for more details.)
 
 ### 4. Topology Conventions (E2E Binding)
 
