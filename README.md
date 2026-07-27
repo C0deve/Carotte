@@ -9,9 +9,9 @@ Carotte is a high-level RabbitMQ client wrapper for .NET 10, designed for seamle
 ## 🚀 Features
 
 - **Built-in Observability**: First-class support for OpenTelemetry (Tracing & Metrics).
-- **Publisher/Consumer Abstractions**: Clean interfaces for message handling.
-- **Pipeline-based Processing**: Middleware support for both consumers and publishers.
-- **Automatic Registration**: Easy dependency injection setup with assembly scanning.
+- **Publisher/Consumer Abstractions**: Clean interfaces for message handling. A consumer can handle multiple message types.
+- **Pipeline-based Processing**: Middleware support for both consumers and publishers (Logging, Tracing, Metrics).
+- **Automatic Registration**: Easy dependency injection setup with assembly scanning and namespace filtering.
 - **Test-Driven Design**: Includes a dedicated `TestKit` for easy integration testing.
 - **High Performance**: Optimized for .NET 10 with a lightweight footprint.
 
@@ -48,8 +48,14 @@ builder.Services.AddCarotte(carotte =>
         options.Password = "guest";
     });
 
+    // Optional: Set a client name for prefixing queues and exchanges
+    carotte.SetClientName("order-service");
+
     // Register Consumers & Publishers (Automatic scan in this assembly)
     carotte.AddAssemblies(typeof(Program).Assembly);
+
+    // Optional: Filter by namespace
+    // carotte.AddNamespaces("MyService.Consumers");
 
     // Optional: Add OpenTelemetry
     carotte.AddOtlpExporter("http://localhost:4317");
@@ -81,9 +87,11 @@ Carotte favors **Convention over Configuration**. By default, any class implemen
 
 #### Configuration Rules
 - **Automatic Registration**: All classes implementing `IConsumer<T>` are automatically picked up via `AddAssemblies`.
-- **Default Queue Name**: The queue name defaults to the consumer's class name.
+- **Default Queue Name**: The queue name defaults to the consumer's class name in kebab-case, formatted as `q.class-name` (or `q.client-name.class-name` if `ClientName` is set).
 - **Automatic Topology**: Carotte creates the necessary exchanges and bindings based on the message type.
-- **Broker Assignment**: Consumers are assigned to the default broker unless specified otherwise via attributes.
+- **Broker Assignment**: Consumers and publishers are assigned to the default broker unless specified otherwise via attributes.
+- **Multi-Message Support**: A single class can implement multiple `IConsumer<TMessage>` interfaces to handle different message types from the same queue.
+- **Message Resolution**: When a queue receives messages of different types, Carotte attempts to resolve the correct message type using the `Type` property of the RabbitMQ message properties. If only one message type is handled by the consumer, it defaults to that type.
 
 #### Validation at Startup
 Carotte performs strict validation during the `AddCarotte` call to ensure the configuration is valid:
@@ -94,9 +102,10 @@ Carotte performs strict validation during the `AddCarotte` call to ensure the co
 If validation fails, a `CarotteConfigurationException` is thrown with details about the configuration errors.
 
 #### Advanced Configuration
-For advanced scenarios, you can customize your consumers using attributes:
-- `[Queue("name", broker: "name")]`: Specifies the queue name and the broker to use.
+For advanced scenarios, you can customize your consumers and messages using attributes:
+- `[Queue("name", broker: "name")]`: Specifies the queue name and the broker to use for a consumer.
 - `[Binding("exchange", "routingKey")]`: Adds additional bindings to the consumer's queue.
+- `[Publisher(broker: "name", exchange: "name")]`: Customizes the broker or exchange used when publishing a message type.
 
 (See **Configuration Examples** at the bottom for more details.)
 
@@ -110,19 +119,20 @@ Carotte uses a **"Convention over Configuration"** approach to simplify RabbitMQ
 - **Simplicity**: Fewer attributes to write.
 
 #### Publisher Side (Publication)
-By default, a publisher publishes to a `fanout` exchange whose name is the **FullName** of the message class.
-- **Exchange**: `MyNamespace.Messages.OrderCreated`
+By default, a publisher publishes to a `fanout` exchange whose name is derived from the message class name (kebab-case) with an `x.pub.` prefix. Common suffixes like `Message`, `Event`, or `Command` are automatically removed.
+- **Message**: `OrderCreatedMessage`
+- **Exchange**: `x.pub.order-created`
 - **Routing Key**: Empty (since it's a `fanout`).
 
 #### Consumer Side (Reception)
 Carotte automatically creates a two-level mesh:
-1. **Message Exchange (Source)**: A global exchange for the message type.
-2. **Consumer Exchange (Destination)**: An internal exchange named after the consumer class.
+1. **Message Exchange (Source)**: A global exchange for the message type. Its name is the kebab-case version of the message class prefixed by `x.pub.` (e.g., `x.pub.order-created`).
+2. **Consumer Exchange (Destination)**: An internal exchange named after the consumer class in kebab-case, prefixed by `x.sub.`. If a `ClientName` is configured, it is included in the prefix: `x.sub.{client-name}.{consumer-name}`.
 3. **The Mesh (E2E)**: Carotte binds the message exchange to the consumer exchange.
-4. **The Queue**: The consumer exchange is bound to the final queue.
+4. **The Queue**: The consumer exchange is bound to the final queue: `q.{consumer-name}` (or `q.{client-name}.{consumer-name}`).
 
-**Example of generated topology:**
-`[Exchange: OrderCreated]` --(E2E)--> `[Exchange: OrderConsumer]` --(Binding)--> `[Queue: order-queue]`
+**Example of generated topology (without ClientName):**
+`[Exchange: x.pub.order-created]` --(E2E)--> `[Exchange: x.sub.order-consumer]` --(Binding)--> `[Queue: q.order-consumer]`
 
 #### Simplified Example
 Thanks to conventions, configuration is minimal:
@@ -135,13 +145,13 @@ public class OrderConsumer : IConsumer<OrderCreatedMessage> { ... }
 
 ### 5. Send a Message
 
-Inject `IPublisher<TMessage>` and call `SendAsync`:
+Inject `IPublisher<TMessage>` and call `PublishAsync`:
 
 ```csharp
 app.MapPost("/order", async (IPublisher<OrderCreatedMessage> publisher) =>
 {
     var order = new OrderCreatedMessage(Guid.NewGuid(), "Jean Dupont", 42.50m);
-    await publisher.SendAsync(order);
+    await publisher.PublishAsync(order);
     return Results.Accepted();
 });
 ```
@@ -239,16 +249,16 @@ Here are the different ways to configure your consumers, from the simplest to th
 The recommended way. Any class implementing `IConsumer<T>`.
 
 ```csharp
-// Queue name: "OrderConsumer"
-// Automatically bound to "OrderCreatedMessage" fanout exchange
+// Queue name: "q.order-consumer"
+// Automatically bound to "x.pub.order-created" fanout exchange
 public class OrderConsumer : IConsumer<OrderCreatedMessage> { ... }
 ```
 
 ### 2. Custom Binding Only
-Use `[Binding]` if you want to use the default queue name (the class name) but bind it to a specific exchange.
+Use `[Binding]` if you want to use the default queue name but bind it to a specific exchange.
 
 ```csharp
-// Queue name: "SpecialConsumer"
+// Queue name: "q.special-consumer"
 // Bound to "custom-exchange" with "routing.key"
 [Binding("custom-exchange", "routing.key")]
 public class SpecialConsumer : IConsumer<Message> { ... }
