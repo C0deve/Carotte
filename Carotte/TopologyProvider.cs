@@ -6,30 +6,37 @@ internal static class TopologyProvider
 {
     extension(ConsumerScanResult scan)
     {
-        private ConsumerInfo ToConsumerInfo(string? clientName) => new(
+        private ConsumerInfo ToConsumerInfo(string? clientName, ushort defaultPrefetchCount) => new(
             scan.ConsumerType,
             [..scan.MessageTypes],
             scan.QueueAttr?.Broker ?? string.Empty,
-            scan.ToConsumerTopology(clientName)
+            scan.ToConsumerTopology(clientName, defaultPrefetchCount)
         );
 
-        private IConsumerTopology ToConsumerTopology(string? clientName) => scan.QueueAttr == null
-            ? new ConsumerConventionTopology(
-                Broker: scan.QueueAttr?.Broker ?? string.Empty,
-                Queue: scan.ConsumerType.Name.ToConsumerQueueName(clientName),
-                ConsumerExchangeName: scan.ConsumerType.Name.ToConsumerExchangeName(clientName),
-                MessageExchangeNames: scan.MessageTypes
-                    .Select(m => m.Name.ToMessageExchangeName())
-                    .ToList()
-                    .AsReadOnly())
-            : new ConsumerAttributeTopology(
-                Broker: scan.QueueAttr?.Broker ?? string.Empty,
-                Queue: scan.QueueAttr?.Name ?? scan.ConsumerType.Name.ToDefaultQueueName(),
-                Bindings: scan.BindingAttrs
-                    .Select(b => new BindingInfo(b.Exchange, b.RoutingKey))
-                    .Union([new BindingInfo(scan.QueueAttr!.Exchange ?? "", scan.QueueAttr.RoutingKey)])
-                    .ToList()
-                    .AsReadOnly());
+        private IConsumerTopology ToConsumerTopology(string? clientName, ushort defaultPrefetchCount)
+        {
+            var prefetchCount = scan.QueueAttr?.PrefetchCount ?? defaultPrefetchCount;
+
+            return scan.QueueAttr == null
+                ? new ConsumerConventionTopology(
+                    Broker: scan.QueueAttr?.Broker ?? string.Empty,
+                    Queue: scan.ConsumerType.Name.ToConsumerQueueName(clientName),
+                    ConsumerExchangeName: scan.ConsumerType.Name.ToConsumerExchangeName(clientName),
+                    MessageExchangeNames: scan.MessageTypes
+                        .Select(m => m.Name.ToMessageExchangeName())
+                        .ToList()
+                        .AsReadOnly(),
+                    PrefetchCount: prefetchCount)
+                : new ConsumerAttributeTopology(
+                    Broker: scan.QueueAttr?.Broker ?? string.Empty,
+                    Queue: scan.QueueAttr?.Name ?? scan.ConsumerType.Name.ToDefaultQueueName(),
+                    Bindings: scan.BindingAttrs
+                        .Select(b => new BindingInfo(b.Exchange, b.RoutingKey))
+                        .Union([new BindingInfo(scan.QueueAttr!.Exchange ?? "", scan.QueueAttr.RoutingKey)])
+                        .ToList()
+                        .AsReadOnly(),
+                    PrefetchCount: prefetchCount);
+        }
     }
 
     private static ProducerInfo ToProducerInfo(this PublisherScanResult scan) =>
@@ -52,10 +59,12 @@ internal static class TopologyProvider
 
         var consumers =
             consumerScanResults
-                .Select(sc => sc.ToConsumerInfo(clientName))
-                .Select(info => string.IsNullOrEmpty(info.Broker)
-                    ? info with { Broker = firstBrokerName }
-                    : info)
+                .Select(sc =>
+                {
+                    var brokerName = sc.QueueAttr?.Broker ?? firstBrokerName;
+                    var prefetchCount = brokers.GetValueOrDefault(brokerName)?.DefaultPrefetchCount ?? 1;
+                    return sc.ToConsumerInfo(clientName, prefetchCount) with { Broker = brokerName };
+                })
                 .ToList()
                 .AsReadOnly();
 

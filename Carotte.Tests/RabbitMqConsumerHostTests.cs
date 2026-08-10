@@ -51,6 +51,76 @@ public class RabbitMqConsumerHostTests
     }
 
     [Fact]
+    public async Task StartAsync_ShouldSetupDefaultQos()
+    {
+        // Arrange
+        var serviceProvider = new Mock<IServiceProvider>();
+        var rabbitMqClient = new Mock<IRabbitMqClient>();
+        var serializer = new Mock<ISerializer>();
+        const string broker = "test-broker";
+        IConsumerTopology topology = new ConsumerAttributeTopology(
+            Broker: broker,
+            Queue: "test-queue",
+            Bindings: [],
+            PrefetchCount: 1); // Default is now 1
+
+        var mediator = new ConsumerMediator(serviceProvider.Object);
+        var loggerMock = new Mock<ILogger<RabbitMqConsumerHost<TestConsumer>>>();
+        loggerMock.Setup(x => x.IsEnabled(It.IsAny<LogLevel>())).Returns(true);
+
+        var host = new RabbitMqConsumerHost<TestConsumer>(
+            mediator,
+            rabbitMqClient.Object,
+            serializer.Object,
+            loggerMock.Object,
+            broker,
+            topology);
+
+        // Act
+        await host.StartAsync(CancellationToken.None);
+
+        // Assert
+        rabbitMqClient.Verify(c => c.BasicQosAsync(0, 1, false, It.IsAny<CancellationToken>()), Times.Once);
+
+        await host.StopAsync(CancellationToken.None);
+    }
+
+    [Fact]
+    public async Task StartAsync_ShouldSetupQos()
+    {
+        // Arrange
+        var serviceProvider = new Mock<IServiceProvider>();
+        var rabbitMqClient = new Mock<IRabbitMqClient>();
+        var serializer = new Mock<ISerializer>();
+        const string broker = "test-broker";
+        IConsumerTopology topology = new ConsumerAttributeTopology(
+            Broker: broker,
+            Queue: "test-queue",
+            Bindings: [],
+            PrefetchCount: 15);
+
+        var mediator = new ConsumerMediator(serviceProvider.Object);
+        var loggerMock = new Mock<ILogger<RabbitMqConsumerHost<TestConsumer>>>();
+        loggerMock.Setup(x => x.IsEnabled(It.IsAny<LogLevel>())).Returns(true);
+
+        var host = new RabbitMqConsumerHost<TestConsumer>(
+            mediator,
+            rabbitMqClient.Object,
+            serializer.Object,
+            loggerMock.Object,
+            broker,
+            topology);
+
+        // Act
+        await host.StartAsync(CancellationToken.None);
+
+        // Assert
+        rabbitMqClient.Verify(c => c.BasicQosAsync(0, 15, false, It.IsAny<CancellationToken>()), Times.Once);
+
+        await host.StopAsync(CancellationToken.None);
+    }
+
+    [Fact]
     public async Task StartAsync_ShouldSetupMultipleQueueAttributes()
     {
         // Arrange

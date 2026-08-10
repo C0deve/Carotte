@@ -147,4 +147,10 @@ public sealed class RabbitMqClient(IConnectionManager connectionManager, ILogger
         if (_channel == null) throw new InvalidOperationException("Client not initialized.");
         await _channel.BasicNackAsync(deliveryTag, multiple, requeue, cancellationToken);
     }
+
+    public async Task BasicQosAsync(uint prefetchSize, ushort prefetchCount, bool global, CancellationToken cancellationToken = default)
+    {
+        if (_channel == null) throw new InvalidOperationException("Client not initialized.");
+        await _channel.BasicQosAsync(prefetchSize, prefetchCount, global, cancellationToken);
+    }
 }

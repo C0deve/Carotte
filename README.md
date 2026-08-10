@@ -46,6 +46,7 @@ builder.Services.AddCarotte(carotte =>
         options.Host = "localhost";
         options.UserName = "guest";
         options.Password = "guest";
+        options.DefaultPrefetchCount = 10; // Optional: Default is 1
     });
 
     // Optional: Set a client name for prefixing queues and exchanges
@@ -88,6 +89,7 @@ Carotte favors **Convention over Configuration**. By default, any class implemen
 #### Configuration Rules
 - **Automatic Registration**: All classes implementing `IConsumer<T>` are automatically picked up via `AddAssemblies`.
 - **Default Queue Name**: The queue name defaults to the consumer's class name in kebab-case, formatted as `q.class-name` (or `q.client-name.class-name` if `ClientName` is set).
+- **Parallelism & Ordering**: By default, the `PrefetchCount` is set to **1**. This ensures strict message ordering (FIFO) and avoids concurrent processing of multiple messages by the same consumer instance.
 - **Automatic Topology**: Carotte creates the necessary exchanges and bindings based on the message type.
 - **Broker Assignment**: Consumers and publishers are assigned to the default broker unless specified otherwise via attributes.
 - **Multi-Message Support**: A single class can implement multiple `IConsumer<TMessage>` interfaces to handle different message types from the same queue.
@@ -103,7 +105,7 @@ If validation fails, a `CarotteConfigurationException` is thrown with details ab
 
 #### Advanced Configuration
 For advanced scenarios, you can customize your consumers and messages using attributes:
-- `[Queue("name", broker: "name")]`: Specifies the queue name and the broker to use for a consumer.
+- `[Queue("name", broker: "name", prefetchCount: 10)]`: Specifies the queue name, the broker, and the parallelism limit (QoS).
 - `[Binding("exchange", "routingKey")]`: Adds additional bindings to the consumer's queue.
 - `[Publisher(broker: "name", exchange: "name")]`: Customizes the broker or exchange used when publishing a message type.
 

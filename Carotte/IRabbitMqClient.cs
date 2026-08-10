@@ -64,4 +64,5 @@ public interface IRabbitMqClient : IAsyncDisposable
 
     Task BasicAckAsync(ulong deliveryTag, bool multiple, CancellationToken cancellationToken = default);
     Task BasicNackAsync(ulong deliveryTag, bool multiple, bool requeue, CancellationToken cancellationToken = default);
+    Task BasicQosAsync(uint prefetchSize, ushort prefetchCount, bool global, CancellationToken cancellationToken = default);
 }

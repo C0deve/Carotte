@@ -33,6 +33,9 @@ public sealed class RabbitMqConsumerHost<TConsumer>(
         BuildPipeline();
 
         await rabbitMqClient.ConnectAsync(topology.Broker, cancellationToken);
+        
+        await rabbitMqClient.BasicQosAsync(0, topology.PrefetchCount, false, cancellationToken);
+
         rabbitMqClient.ReceivedAsync += (_, ea) => HandleMessageAsync(ea, CancellationToken.None);
         
         await SetupTopologyAsync(cancellationToken);

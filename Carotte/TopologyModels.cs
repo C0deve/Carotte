@@ -7,18 +7,21 @@ public interface IConsumerTopology
 {
     string Queue { get; }
     string Broker { get; }
+    ushort PrefetchCount { get; }
 }
 
 public record ConsumerConventionTopology(
     string Broker,
     string Queue,
     string ConsumerExchangeName,
-    ReadOnlyCollection<string> MessageExchangeNames) : IConsumerTopology;
+    ReadOnlyCollection<string> MessageExchangeNames,
+    ushort PrefetchCount = 1) : IConsumerTopology;
 
 public record ConsumerAttributeTopology(
     string Broker,
     string Queue,
-    ReadOnlyCollection<BindingInfo> Bindings) : IConsumerTopology;
+    ReadOnlyCollection<BindingInfo> Bindings,
+    ushort PrefetchCount = 1) : IConsumerTopology;
 
 public readonly record struct ConsumerInfo(
     Type ConsumerType,
