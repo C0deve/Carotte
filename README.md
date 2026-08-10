@@ -20,12 +20,43 @@ Carotte is a high-level RabbitMQ client wrapper for .NET 10, designed for seamle
 - **SDK**: .NET 10.0+
 - **Broker**: RabbitMQ (standard installations or Docker)
 
+## Compatibility & Integration Status
+
+Carotte is currently a **Proof of Concept**. It is useful for experiments, prototypes, and early feedback, but it should not be considered production-ready yet.
+
+Before integrating Carotte into an existing service, check these constraints:
+
+- **.NET target**: Carotte targets .NET 10. Existing .NET 8 LTS or .NET 9 applications must be upgraded before they can reference it.
+- **RabbitMQ topology ownership**: Carotte declares queues, exchanges, and bindings automatically. This is convenient for greenfield services, but it must be reviewed carefully when connecting to an existing RabbitMQ topology.
+- **Serialization contract**: messages are serialized as JSON using `System.Text.Json`.
+- **Dependency Injection lifetime**: consumers are registered as singleton services. Avoid injecting scoped services such as `DbContext` directly into a consumer until scoped consumer execution is supported.
+- **Package availability**: package names are listed below, but check the current NuGet/feed publication status before relying on them in another project.
+
 ## 📦 Installation
 
 Carotte is available as a set of NuGet packages:
 
 - `Carotte`: Core library.
 - `Carotte.TestKit`: Testing utilities.
+
+Install the runtime package in an application project:
+
+```bash
+dotnet add package Carotte
+```
+
+Install the test package in a test project:
+
+```bash
+dotnet add package Carotte.TestKit
+```
+
+If the packages are not published to nuget.org yet, reference the projects directly from this repository while evaluating the library:
+
+```bash
+dotnet add reference ../Carotte/Carotte.csproj
+dotnet add reference ../Carotte.TestKit/Carotte.TestKit.csproj
+```
 
 ## 🏁 Quick Start
 
@@ -105,9 +136,19 @@ If validation fails, a `CarotteConfigurationException` is thrown with details ab
 
 #### Advanced Configuration
 For advanced scenarios, you can customize your consumers and messages using attributes:
-- `[Queue("name", broker: "name", prefetchCount: 10)]`: Specifies the queue name, the broker, and the parallelism limit (QoS).
-- `[Binding("exchange", "routingKey")]`: Adds additional bindings to the consumer's queue.
+- `[Queue("name", broker: "name", exchange: "exchange", routingKey: "key", prefetchCount: 10)]`: Specifies the queue name, broker, source exchange, routing key, and parallelism limit (QoS).
+- `[Binding("exchange", "routingKey")]`: Adds additional bindings to an explicitly configured consumer queue.
 - `[Publisher(broker: "name", exchange: "name")]`: Customizes the broker or exchange used when publishing a message type.
+
+> [!NOTE]
+> In the current implementation, applying `[Queue]` switches the consumer to attribute-based topology. If you want the default E2E convention (`x.pub.*` -> `x.sub.*` -> `q.*`), do not add `[Queue]` to the consumer.
+
+`[Publisher]` is applied to the **message type**, not to the consumer:
+
+```csharp
+[Publisher(broker: "my-broker", exchange: "orders-exchange")]
+public record OrderCreatedMessage(Guid OrderId);
+```
 
 (See **Configuration Examples** at the bottom for more details.)
 
@@ -136,12 +177,42 @@ Carotte automatically creates a two-level mesh:
 **Example of generated topology (without ClientName):**
 `[Exchange: x.pub.order-created]` --(E2E)--> `[Exchange: x.sub.order-consumer]` --(Binding)--> `[Queue: q.order-consumer]`
 
+#### Naming Reference
+
+| Input | Generated name |
+| :--- | :--- |
+| Message `OrderCreatedMessage` | `x.pub.order-created` |
+| Message `OrderCreatedEvent` | `x.pub.order-created` |
+| Message `CreateOrderCommand` | `x.pub.create-order` |
+| Consumer `OrderConsumer` | `x.sub.order-consumer` |
+| Consumer `OrderConsumer` with `ClientName = "order-service"` | `x.sub.order-service.order-consumer` |
+| Queue for `OrderConsumer` | `q.order-consumer` |
+| Queue for `OrderConsumer` with `ClientName = "order-service"` | `q.order-service.order-consumer` |
+
+#### RabbitMQ Declaration Defaults
+
+With convention-based topology, Carotte declares:
+
+| Resource | Type/settings |
+| :--- | :--- |
+| Message exchange | `fanout`, durable, not auto-delete |
+| Consumer exchange | `fanout`, durable, not auto-delete |
+| Queue | durable, non-exclusive, not auto-delete |
+| Message exchange -> consumer exchange binding | routing key `""` |
+| Consumer exchange -> queue binding | routing key `""` |
+
+With attribute-based topology, Carotte declares the queue with the same queue defaults and binds it to the exchanges you specify. It does not currently expose every RabbitMQ declaration flag in the public API.
+
+> [!IMPORTANT]
+> RabbitMQ requires an existing exchange declaration to match its original type and flags. If an existing exchange named `orders-exchange` is already declared as `topic`, do not let Carotte redeclare it as `fanout`. Use explicit attributes and verify the generated topology before connecting Carotte to shared infrastructure.
+
 #### Simplified Example
 Thanks to conventions, configuration is minimal:
 
 ```csharp
-// Consumer with just the queue name
-[Queue("order-processing-queue", broker: "my-broker")]
+// Queue name: q.order-consumer
+// Message exchange: x.pub.order-created
+// Consumer exchange: x.sub.order-consumer
 public class OrderConsumer : IConsumer<OrderCreatedMessage> { ... }
 ```
 
@@ -158,6 +229,63 @@ app.MapPost("/order", async (IPublisher<OrderCreatedMessage> publisher) =>
 });
 ```
 
+## Integrating with an Existing RabbitMQ Topology
+
+Carotte is easiest to integrate when it owns the topology for a service. In an existing RabbitMQ setup, prefer explicit configuration and validate the generated declarations before deploying.
+
+### Consume from an existing exchange
+
+Use `[Queue]` when you already know the queue, exchange, broker, and routing key:
+
+```csharp
+[Queue(
+    "order-processing-queue",
+    broker: "my-broker",
+    exchange: "orders-exchange",
+    routingKey: "order.created",
+    prefetchCount: 10)]
+public class OrderConsumer : IConsumer<OrderCreatedMessage>
+{
+    public Task HandleAsync(OrderCreatedMessage message, CancellationToken cancellationToken)
+    {
+        return Task.CompletedTask;
+    }
+}
+```
+
+Use additional `[Binding]` attributes when the same queue must receive messages from multiple exchanges:
+
+```csharp
+[Queue("order-processing-queue", broker: "my-broker", exchange: "orders-exchange", routingKey: "order.created")]
+[Binding("notifications-exchange", "notification.created")]
+public class MultiMessageConsumer :
+    IConsumer<OrderCreatedMessage>,
+    IConsumer<NotificationMessage>
+{
+    public Task HandleAsync(OrderCreatedMessage message, CancellationToken cancellationToken) => Task.CompletedTask;
+    public Task HandleAsync(NotificationMessage message, CancellationToken cancellationToken) => Task.CompletedTask;
+}
+```
+
+### Publish to an existing exchange
+
+Apply `[Publisher]` to the message type:
+
+```csharp
+[Publisher(broker: "my-broker", exchange: "orders-exchange")]
+public record OrderCreatedMessage(Guid OrderId, string CustomerName, decimal Amount);
+```
+
+Then inject `IPublisher<OrderCreatedMessage>` as usual.
+
+### Existing-topology checklist
+
+- Confirm the target project can run on .NET 10.
+- Confirm the RabbitMQ exchange names, queue names, routing keys, exchange types, and declaration flags.
+- Prefer `[Queue]`, `[Binding]`, and `[Publisher]` over conventions when connecting to shared RabbitMQ resources.
+- Confirm that the message `Type` property is populated consistently when one consumer handles multiple message types.
+- Confirm JSON compatibility with existing producers and consumers.
+
 ## 🏗️ Architecture (Consumers & BackgroundServices)
 
 In the **Carotte** project, the relationship between `consumers` and `BackgroundServices` is a **host-to-guest** relationship.
@@ -165,7 +293,9 @@ In the **Carotte** project, the relationship between `consumers` and `Background
 ### 1. The Consumer (`IConsumer<TMessage>`): Business Logic
 The `Consumer` is a simple class that implements the `IConsumer<TMessage>` interface. Its sole role is to process a message once it has been received and deserialized.
 - It is **passive**: it doesn't know where the message comes from or how it was retrieved.
-- It is registered as a standard service in the dependency injection (DI) container.
+- It is registered as a singleton service in the dependency injection (DI) container.
+
+Because consumers are singletons, do not inject scoped dependencies directly into them. If your handler needs per-message scoped services, create a scope inside the handler or adapt the library before using it in production workflows.
 
 ### 2. The BackgroundService (`RabbitMqConsumerHost<TConsumer>`): The Engine
 For each registered `Consumer`, Carotte automatically creates a **`RabbitMqConsumerHost<TConsumer>`**. This class inherits from `BackgroundService` (a .NET base class for background tasks).
@@ -211,7 +341,47 @@ When a consumer starts, the `RabbitMqConsumerHost` ensures that:
 2. The queue (`Queue`) exists.
 3. The binding (`Binding`) between the two is correctly configured.
 
-This ensures that no messages are lost due to a missing configuration on the RabbitMQ server.
+This reduces startup failures caused by missing RabbitMQ resources. It does not replace broker-level durability, dead-lettering, retry, or deployment-order decisions.
+
+## Message Contract
+
+### Serialization
+
+Carotte serializes messages with `System.Text.Json`.
+
+Default behavior:
+
+- payload format: UTF-8 JSON
+- deserialization is case-insensitive for property names
+- no custom naming policy is configured by default
+- the default serializer is registered as `ISerializer`
+
+You can replace the serializer before Carotte creates publishers and consumers by registering your own `ISerializer` implementation in DI:
+
+```csharp
+builder.Services.AddSingleton<ISerializer, MySerializer>();
+
+builder.Services.AddCarotte(carotte =>
+{
+    carotte.AddBroker("my-broker", options => { ... });
+    carotte.AddAssemblies(typeof(Program).Assembly);
+});
+```
+
+When integrating with existing producers or consumers, verify that both sides agree on JSON shape, property names, enum handling, date handling, and nullability.
+
+### Message Type Resolution
+
+When a consumer handles a single message type, Carotte can infer the target type.
+
+When a consumer handles multiple message types, Carotte uses `BasicProperties.Type` from the RabbitMQ message properties. The expected value is the short CLR type name, for example:
+
+| Message type | Expected `BasicProperties.Type` |
+| :--- | :--- |
+| `OrderCreatedMessage` | `OrderCreatedMessage` |
+| `NotificationMessage` | `NotificationMessage` |
+
+Carotte publishers set this property automatically. External publishers must set it explicitly when publishing to a queue consumed by a multi-message consumer.
 
 ## 🧪 Testing
 
@@ -256,21 +426,22 @@ The recommended way. Any class implementing `IConsumer<T>`.
 public class OrderConsumer : IConsumer<OrderCreatedMessage> { ... }
 ```
 
-### 2. Custom Binding Only
-Use `[Binding]` if you want to use the default queue name but bind it to a specific exchange.
+### 2. Explicit Queue and Binding
+Use `[Queue]` when you want to bind a named queue to a specific exchange and routing key.
 
 ```csharp
-// Queue name: "q.special-consumer"
+// Queue name: "special-consumer-queue"
 // Bound to "custom-exchange" with "routing.key"
-[Binding("custom-exchange", "routing.key")]
+[Queue("special-consumer-queue", broker: "my-broker", exchange: "custom-exchange", routingKey: "routing.key")]
 public class SpecialConsumer : IConsumer<Message> { ... }
 ```
 
-### 3. Full Customization
-Use `[Queue]` for full control over the queue name, broker, and bindings.
+### 3. Multiple Explicit Bindings
+Use `[Binding]` together with `[Queue]` when the same queue must receive messages from more than one exchange or routing key.
 
 ```csharp
 [Queue("my-custom-queue", broker: "secondary-broker", exchange: "orders", routingKey: "created")]
+[Binding("orders-priority", "created.priority")]
 public class CustomConsumer : IConsumer<OrderMessage> { ... }
 ```
 
