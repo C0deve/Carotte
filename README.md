@@ -83,7 +83,7 @@ builder.Services.AddCarotte(carotte =>
     // Optional: Set a client name for prefixing queues and exchanges
     carotte.SetClientName("order-service");
 
-    // Register Consumers & Publishers (Automatic scan in this assembly)
+    // Register consumers and [Publisher] message types from this assembly
     carotte.AddAssemblies(typeof(Program).Assembly);
 
     // Optional: Filter by namespace
@@ -97,15 +97,15 @@ var app = builder.Build();
 app.Run();
 ```
 
-### 2. Define a Message and a Consumer
+### 2. Define a Consumed Message and a Consumer
 
 ```csharp
-public record OrderCreatedMessage(Guid OrderId, string CustomerName, decimal Amount);
+public record OrderCreatedEvent(Guid OrderId, string CustomerName, decimal Amount);
 
 // Convention-based consumer: queue named after the class, automatically bound to message exchange
-public class OrderConsumer(ILogger<OrderConsumer> logger) : IConsumer<OrderCreatedMessage>
+public class OrderConsumer(ILogger<OrderConsumer> logger) : IConsumer<OrderCreatedEvent>
 {
-    public Task HandleAsync(OrderCreatedMessage message, CancellationToken cancellationToken)
+    public Task HandleAsync(OrderCreatedEvent message, CancellationToken cancellationToken)
     {
         logger.LogInformation("Order received: {OrderId} for {CustomerName}", message.OrderId, message.CustomerName);
         return Task.CompletedTask;
@@ -113,12 +113,24 @@ public class OrderConsumer(ILogger<OrderConsumer> logger) : IConsumer<OrderCreat
 }
 ```
 
-### 3. Consumer Configuration & Validation
+### 3. Define a Produced Message
+
+Carotte registers `IPublisher<TMessage>` only for message types marked with `[Publisher]`.
+
+```csharp
+[Publisher]
+public record CreateOrderCommand(Guid OrderId, string CustomerName, decimal Amount);
+```
+
+If a message type is only consumed by the service, do not annotate it with `[Publisher]`.
+
+### 4. Consumer and Publisher Configuration
 
 Carotte favors **Convention over Configuration**. By default, any class implementing `IConsumer<T>` is automatically registered and configured using top-level conventions.
 
 #### Configuration Rules
 - **Automatic Registration**: All classes implementing `IConsumer<T>` are automatically picked up via `AddAssemblies`.
+- **Explicit Producer Registration**: A message type is publishable only when it is annotated with `[Publisher]`. Consuming `TMessage` does not register `IPublisher<TMessage>`.
 - **Default Queue Name**: The queue name defaults to the consumer's class name in kebab-case, formatted as `q.class-name` (or `q.client-name.class-name` if `ClientName` is set).
 - **Parallelism & Ordering**: By default, the `PrefetchCount` is set to **1**. This ensures strict message ordering (FIFO) and avoids concurrent processing of multiple messages by the same consumer instance.
 - **Automatic Topology**: Carotte creates the necessary exchanges and bindings based on the message type.
@@ -147,12 +159,12 @@ For advanced scenarios, you can customize your consumers and messages using attr
 
 ```csharp
 [Publisher(broker: "my-broker", exchange: "orders-exchange")]
-public record OrderCreatedMessage(Guid OrderId);
+public record CreateOrderCommand(Guid OrderId);
 ```
 
 (See **Configuration Examples** at the bottom for more details.)
 
-### 4. Topology Conventions (E2E Binding)
+### 5. Topology Conventions (E2E Binding)
 
 Carotte uses a **"Convention over Configuration"** approach to simplify RabbitMQ setup. If you don't specify an exchange or routing key, Carotte automatically applies the following rules based on **Exchange-to-Exchange (E2E)** binding.
 
@@ -162,9 +174,9 @@ Carotte uses a **"Convention over Configuration"** approach to simplify RabbitMQ
 - **Simplicity**: Fewer attributes to write.
 
 #### Publisher Side (Publication)
-By default, a publisher publishes to a `fanout` exchange whose name is derived from the message class name (kebab-case) with an `x.pub.` prefix. Common suffixes like `Message`, `Event`, or `Command` are automatically removed.
-- **Message**: `OrderCreatedMessage`
-- **Exchange**: `x.pub.order-created`
+For a message type annotated with `[Publisher]`, Carotte registers `IPublisher<TMessage>`. By default, the publisher publishes to a `fanout` exchange whose name is derived from the message class name (kebab-case) with an `x.pub.` prefix. Common suffixes like `Message`, `Event`, or `Command` are automatically removed.
+- **Message**: `CreateOrderCommand`
+- **Exchange**: `x.pub.create-order`
 - **Routing Key**: Empty (since it's a `fanout`).
 
 #### Consumer Side (Reception)
@@ -213,18 +225,18 @@ Thanks to conventions, configuration is minimal:
 // Queue name: q.order-consumer
 // Message exchange: x.pub.order-created
 // Consumer exchange: x.sub.order-consumer
-public class OrderConsumer : IConsumer<OrderCreatedMessage> { ... }
+public class OrderConsumer : IConsumer<OrderCreatedEvent> { ... }
 ```
 
-### 5. Send a Message
+### 6. Send a Message
 
 Inject `IPublisher<TMessage>` and call `PublishAsync`:
 
 ```csharp
-app.MapPost("/order", async (IPublisher<OrderCreatedMessage> publisher) =>
+app.MapPost("/order", async (IPublisher<CreateOrderCommand> publisher) =>
 {
-    var order = new OrderCreatedMessage(Guid.NewGuid(), "Jean Dupont", 42.50m);
-    await publisher.PublishAsync(order);
+    var command = new CreateOrderCommand(Guid.NewGuid(), "Jean Dupont", 42.50m);
+    await publisher.PublishAsync(command);
     return Results.Accepted();
 });
 ```
@@ -415,18 +427,18 @@ var sentMessages = testKit.GetSentMessages<OrderCreatedMessage>();
 
 ## 🛠️ Configuration Examples
 
-Here are the different ways to configure your consumers, from the simplest to the most customized.
+Here are the different ways to configure consumers and publishers, from the simplest to the most customized.
 
-### 1. Zero Configuration (Convention)
+### 1. Consumer by Convention
 The recommended way. Any class implementing `IConsumer<T>`.
 
 ```csharp
 // Queue name: "q.order-consumer"
 // Automatically bound to "x.pub.order-created" fanout exchange
-public class OrderConsumer : IConsumer<OrderCreatedMessage> { ... }
+public class OrderConsumer : IConsumer<OrderCreatedEvent> { ... }
 ```
 
-### 2. Explicit Queue and Binding
+### 2. Explicit Consumer Queue and Binding
 Use `[Queue]` when you want to bind a named queue to a specific exchange and routing key.
 
 ```csharp
@@ -436,13 +448,31 @@ Use `[Queue]` when you want to bind a named queue to a specific exchange and rou
 public class SpecialConsumer : IConsumer<Message> { ... }
 ```
 
-### 3. Multiple Explicit Bindings
+### 3. Multiple Consumer Bindings
 Use `[Binding]` together with `[Queue]` when the same queue must receive messages from more than one exchange or routing key.
 
 ```csharp
 [Queue("my-custom-queue", broker: "secondary-broker", exchange: "orders", routingKey: "created")]
 [Binding("orders-priority", "created.priority")]
 public class CustomConsumer : IConsumer<OrderMessage> { ... }
+```
+
+### 4. Publisher by Attribute
+Use `[Publisher]` on every message type produced by the service.
+
+```csharp
+// Publisher registered as IPublisher<CreateOrderCommand>
+// Exchange: "x.pub.create-order"
+[Publisher]
+public record CreateOrderCommand(Guid OrderId, string CustomerName, decimal Amount);
+```
+
+### 5. Publisher with Explicit Broker or Exchange
+Use `[Publisher]` parameters when a produced message must target a specific broker or exchange.
+
+```csharp
+[Publisher(broker: "orders-broker", exchange: "orders-exchange")]
+public record CreateOrderCommand(Guid OrderId, string CustomerName, decimal Amount);
 ```
 
 ## 📄 License

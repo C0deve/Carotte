@@ -7,6 +7,13 @@ public class PublisherScanTests
     [Publisher(broker: "test-broker", exchange: "scanned-exchange")]
     public class ScannedMessage;
 
+    public class ConsumedOnlyMessage;
+
+    [Queue("consumed-only-queue", broker: "test-broker")]
+    public class ConsumedOnlyConsumer : IConsumer<ConsumedOnlyMessage>
+    {
+        public Task HandleAsync(ConsumedOnlyMessage message, CancellationToken cancellationToken) => Task.CompletedTask;
+    }
 
     [Fact]
     public void AddAssemblies_ShouldRegisterMessagesWithAttribute()
@@ -22,6 +29,21 @@ public class PublisherScanTests
         // Assert
         var publisher = serviceProvider.GetService<IPublisher<ScannedMessage>>();
         Assert.NotNull(publisher);
+    }
+
+    [Fact]
+    public void AddAssemblies_ShouldNotRegisterPublisherForConsumedMessageWithoutPublisherAttribute()
+    {
+        // Act
+        var serviceProvider = new ServiceCollection()
+            .AddCarotte(carotte => carotte
+                .AddBroker("test-broker", _ => { })
+                .AddAssemblies(typeof(PublisherScanTests).Assembly))
+            .BuildServiceProvider();
+
+        // Assert
+        var publisher = serviceProvider.GetService<IPublisher<ConsumedOnlyMessage>>();
+        Assert.Null(publisher);
     }
 
     [Publisher]
