@@ -36,9 +36,9 @@ public sealed class ConsumerMediator(IServiceProvider serviceProvider)
             return _handlerMethods.Keys.FirstOrDefault(k => k.Name == ea.BasicProperties.Type);
         }
 
-        return _handlerMethods.Count == 1 
-            ? _handlerMethods.Keys.First() 
-            : _handlerMethods.Keys.FirstOrDefault();
+        return _handlerMethods.Count == 1
+            ? _handlerMethods.Keys.First()
+            : null;
     }
 
     public async Task InvokeAsync(Type messageType, object message, CancellationToken cancellationToken)

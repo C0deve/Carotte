@@ -1,5 +1,7 @@
 ﻿using Microsoft.Extensions.Logging;
 using Moq;
+using RabbitMQ.Client;
+using RabbitMQ.Client.Events;
 
 namespace Carotte.Tests;
 
@@ -196,10 +198,49 @@ public class RabbitMqConsumerHostTests
         rabbitMqClient.Verify(c => c.DisposeAsync(), Times.Once);
     }
 
+    [Fact]
+    public async Task HandleMessageAsync_ShouldNackWithoutRequeue_WhenMessageTypeCannotBeResolved()
+    {
+        // Arrange
+        var serviceProvider = new Mock<IServiceProvider>();
+        var rabbitMqClient = new Mock<IRabbitMqClient>();
+        var serializer = new Mock<ISerializer>();
+        const string broker = "test-broker";
+        const ulong deliveryTag = 42;
+
+        var mediator = new ConsumerMediator(serviceProvider.Object);
+        mediator.Initialize<MultiMessageConsumer>();
+
+        var loggerMock = new Mock<ILogger<RabbitMqConsumerHost<MultiMessageConsumer>>>();
+        var host = new RabbitMqConsumerHost<MultiMessageConsumer>(
+            mediator,
+            rabbitMqClient.Object,
+            serializer.Object,
+            loggerMock.Object,
+            broker,
+            new ConsumerAttributeTopology(Broker: broker, Queue: "test-queue", Bindings: []));
+
+        var deliveryArgs = CreateDeliveryArgs(deliveryTag, type: null);
+
+        // Act
+        await InvokeHandleMessageAsync(host, deliveryArgs);
+
+        // Assert
+        rabbitMqClient.Verify(c => c.BasicNackAsync(deliveryTag, false, false, It.IsAny<CancellationToken>()), Times.Once);
+        rabbitMqClient.Verify(c => c.BasicAckAsync(It.IsAny<ulong>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
     [Queue("test-queue")]
     public class TestConsumer : IConsumer<TestMessage>
     {
         public Task HandleAsync(TestMessage message, CancellationToken cancellationToken) => Task.CompletedTask;
+    }
+
+    public class MultiMessageConsumer : IConsumer<TestMessage>, IConsumer<OtherTestMessage>
+    {
+        public Task HandleAsync(TestMessage message, CancellationToken cancellationToken) => Task.CompletedTask;
+
+        public Task HandleAsync(OtherTestMessage message, CancellationToken cancellationToken) => Task.CompletedTask;
     }
 
     private static void VerifyLog<T>(Mock<ILogger<T>> loggerMock, LogLevel level, string message)
@@ -215,4 +256,39 @@ public class RabbitMqConsumerHostTests
     }
 
     public class TestMessage;
+
+    public class OtherTestMessage;
+
+    private static BasicDeliverEventArgs CreateDeliveryArgs(ulong deliveryTag, string? type)
+    {
+        var properties = new BasicProperties
+        {
+            Type = type
+        };
+
+        return new BasicDeliverEventArgs(
+            consumerTag: "tag",
+            deliveryTag: deliveryTag,
+            redelivered: false,
+            exchange: "exchange",
+            routingKey: "routing-key",
+            properties: properties,
+            body: ReadOnlyMemory<byte>.Empty,
+            cancellationToken: CancellationToken.None);
+    }
+
+    private static async Task InvokeHandleMessageAsync<TConsumer>(
+        RabbitMqConsumerHost<TConsumer> host,
+        BasicDeliverEventArgs deliveryArgs)
+        where TConsumer : class
+    {
+        var method = typeof(RabbitMqConsumerHost<TConsumer>).GetMethod(
+            "HandleMessageAsync",
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+
+        Assert.NotNull(method);
+        var task = (Task?)method.Invoke(host, [deliveryArgs, CancellationToken.None]);
+        Assert.NotNull(task);
+        await task;
+    }
 }

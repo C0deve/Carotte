@@ -106,7 +106,17 @@ public sealed class RabbitMqConsumerHost<TConsumer>(
     private async Task HandleMessageAsync(BasicDeliverEventArgs ea, CancellationToken stoppingToken)
     {
         var targetMessageType = mediator.ResolveMessageType(ea);
-        if (targetMessageType == null) return;
+        if (targetMessageType == null)
+        {
+            logger.LogWarning(
+                "Unable to resolve message type for consumer {ConsumerType}. RabbitMQ Type property: {MessageType}. DeliveryTag: {DeliveryTag}. Nacking without requeue.",
+                typeof(TConsumer).Name,
+                ea.BasicProperties.Type,
+                ea.DeliveryTag);
+
+            await rabbitMqClient.BasicNackAsync(ea.DeliveryTag, false, false, cancellationToken: stoppingToken);
+            return;
+        }
 
         var context = new ConsumerContext(ea, stoppingToken)
         {
