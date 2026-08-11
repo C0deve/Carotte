@@ -29,11 +29,14 @@ internal static class ConsumerTopologyBuilder
             autoDelete: false,
             cancellationToken: cancellationToken);
 
+        await SetupDeadLetterExchangeAsync(rabbitMqClient, topology.ErrorStrategy, cancellationToken);
+
         await rabbitMqClient.QueueDeclareAsync(
             queue: topology.Queue,
             durable: true,
             exclusive: false,
             autoDelete: false,
+            arguments: CreateQueueArguments(topology.ErrorStrategy),
             cancellationToken: cancellationToken);
 
         await rabbitMqClient.QueueBindAsync(
@@ -72,12 +75,14 @@ internal static class ConsumerTopologyBuilder
         ConsumerAttributeTopology topology,
         CancellationToken cancellationToken)
     {
+        await SetupDeadLetterExchangeAsync(rabbitMqClient, topology.ErrorStrategy, cancellationToken);
+
         await rabbitMqClient.QueueDeclareAsync(
             queue: topology.Queue,
             durable: true,
             exclusive: false,
             autoDelete: false,
-            arguments: null,
+            arguments: CreateQueueArguments(topology.ErrorStrategy),
             passive: false,
             noWait: false,
             cancellationToken: cancellationToken);
@@ -92,5 +97,46 @@ internal static class ConsumerTopologyBuilder
                 noWait: false,
                 cancellationToken: cancellationToken);
         }
+    }
+
+    private static async Task SetupDeadLetterExchangeAsync(
+        IRabbitMqClient rabbitMqClient,
+        ConsumerErrorStrategy errorStrategy,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(errorStrategy.DeadLetterExchange))
+        {
+            return;
+        }
+
+        await rabbitMqClient.ExchangeDeclareAsync(
+            exchange: errorStrategy.DeadLetterExchange,
+            type: "fanout",
+            durable: true,
+            autoDelete: false,
+            arguments: null,
+            passive: false,
+            noWait: false,
+            cancellationToken: cancellationToken);
+    }
+
+    private static IDictionary<string, object?>? CreateQueueArguments(ConsumerErrorStrategy errorStrategy)
+    {
+        if (string.IsNullOrWhiteSpace(errorStrategy.DeadLetterExchange))
+        {
+            return null;
+        }
+
+        var arguments = new Dictionary<string, object?>
+        {
+            ["x-dead-letter-exchange"] = errorStrategy.DeadLetterExchange
+        };
+
+        if (!string.IsNullOrWhiteSpace(errorStrategy.DeadLetterRoutingKey))
+        {
+            arguments["x-dead-letter-routing-key"] = errorStrategy.DeadLetterRoutingKey;
+        }
+
+        return arguments;
     }
 }

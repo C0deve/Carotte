@@ -16,6 +16,13 @@ internal static class TopologyProvider
         private IConsumerTopology ToConsumerTopology(string? clientName, ushort defaultPrefetchCount)
         {
             var prefetchCount = scan.QueueAttr?.PrefetchCount ?? defaultPrefetchCount;
+            var errorStrategy = scan.QueueAttr == null
+                ? default
+                : new ConsumerErrorStrategy(
+                    scan.QueueAttr.MaxRetryAttempts,
+                    scan.QueueAttr.FailureAction,
+                    scan.QueueAttr.DeadLetterExchange,
+                    scan.QueueAttr.DeadLetterRoutingKey);
 
             return scan.QueueAttr == null
                 ? new ConsumerConventionTopology(
@@ -26,7 +33,8 @@ internal static class TopologyProvider
                         .Select(m => m.Name.ToMessageExchangeName())
                         .ToList()
                         .AsReadOnly(),
-                    PrefetchCount: prefetchCount)
+                    PrefetchCount: prefetchCount,
+                    ErrorStrategy: errorStrategy)
                 : new ConsumerAttributeTopology(
                     Broker: scan.QueueAttr?.Broker ?? string.Empty,
                     Queue: scan.QueueAttr?.Name ?? scan.ConsumerType.Name.ToDefaultQueueName(),
@@ -35,7 +43,8 @@ internal static class TopologyProvider
                         .Union([new BindingInfo(scan.QueueAttr!.Exchange ?? "", scan.QueueAttr.RoutingKey)])
                         .ToList()
                         .AsReadOnly(),
-                    PrefetchCount: prefetchCount);
+                    PrefetchCount: prefetchCount,
+                    ErrorStrategy: errorStrategy);
         }
     }
 

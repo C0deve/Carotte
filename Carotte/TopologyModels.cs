@@ -8,6 +8,16 @@ public interface IConsumerTopology
     string Queue { get; }
     string Broker { get; }
     ushort PrefetchCount { get; }
+    ConsumerErrorStrategy ErrorStrategy { get; }
+}
+
+public readonly record struct ConsumerErrorStrategy(
+    int MaxRetryAttempts = 0,
+    ConsumerFailureAction FailureAction = ConsumerFailureAction.DeadLetter,
+    string? DeadLetterExchange = null,
+    string? DeadLetterRoutingKey = null)
+{
+    public bool RequeueOnFailure => FailureAction == ConsumerFailureAction.Requeue;
 }
 
 public record ConsumerConventionTopology(
@@ -15,13 +25,15 @@ public record ConsumerConventionTopology(
     string Queue,
     string ConsumerExchangeName,
     ReadOnlyCollection<string> MessageExchangeNames,
-    ushort PrefetchCount = 1) : IConsumerTopology;
+    ushort PrefetchCount = 1,
+    ConsumerErrorStrategy ErrorStrategy = default) : IConsumerTopology;
 
 public record ConsumerAttributeTopology(
     string Broker,
     string Queue,
     ReadOnlyCollection<BindingInfo> Bindings,
-    ushort PrefetchCount = 1) : IConsumerTopology;
+    ushort PrefetchCount = 1,
+    ConsumerErrorStrategy ErrorStrategy = default) : IConsumerTopology;
 
 public readonly record struct ConsumerInfo(
     Type ConsumerType,

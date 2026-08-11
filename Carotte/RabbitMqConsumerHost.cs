@@ -125,16 +125,52 @@ public sealed class RabbitMqConsumerHost<TConsumer>(
 
         try
         {
-            if (_pipeline != null)
-            {
-                await _pipeline.ExecuteAsync(context);
-            }
-
+            await ExecutePipelineWithRetryAsync(context);
             await rabbitMqClient.BasicAckAsync(ea.DeliveryTag, false, cancellationToken: stoppingToken);
         }
-        catch (Exception)
+        catch (Exception ex)
         {
-            await rabbitMqClient.BasicNackAsync(ea.DeliveryTag, false, false, cancellationToken: stoppingToken);
+            logger.LogError(
+                ex,
+                "Message processing failed for consumer {ConsumerType}. DeliveryTag: {DeliveryTag}. Nacking with requeue={Requeue}.",
+                typeof(TConsumer).Name,
+                ea.DeliveryTag,
+                topology.ErrorStrategy.RequeueOnFailure);
+
+            await rabbitMqClient.BasicNackAsync(
+                ea.DeliveryTag,
+                false,
+                topology.ErrorStrategy.RequeueOnFailure,
+                cancellationToken: stoppingToken);
+        }
+    }
+
+    private async Task ExecutePipelineWithRetryAsync(ConsumerContext context)
+    {
+        var maxRetryAttempts = Math.Max(0, topology.ErrorStrategy.MaxRetryAttempts);
+        var attempt = 0;
+
+        while (true)
+        {
+            try
+            {
+                if (_pipeline != null)
+                {
+                    await _pipeline.ExecuteAsync(context);
+                }
+
+                return;
+            }
+            catch (Exception ex) when (attempt < maxRetryAttempts)
+            {
+                attempt++;
+                logger.LogWarning(
+                    ex,
+                    "Message processing failed for consumer {ConsumerType}. Retrying attempt {RetryAttempt}/{MaxRetryAttempts}.",
+                    typeof(TConsumer).Name,
+                    attempt,
+                    maxRetryAttempts);
+            }
         }
     }
 }

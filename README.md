@@ -164,6 +164,36 @@ public record CreateOrderCommand(Guid OrderId);
 
 (See **Configuration Examples** at the bottom for more details.)
 
+#### Consumer Error Strategy
+
+By default, Carotte does not retry failed message handling and nacks failed messages with `requeue: false`.
+
+You can configure the error strategy on `[Queue]`:
+
+```csharp
+[Queue(
+    "order-processing-queue",
+    broker: "my-broker",
+    exchange: "orders-exchange",
+    routingKey: "order.created",
+    maxRetryAttempts: 2,
+    deadLetterExchange: "orders.dlx",
+    deadLetterRoutingKey: "order.failed")]
+public class OrderConsumer : IConsumer<OrderCreatedEvent> { ... }
+```
+
+Error strategy options:
+
+| Option | Default | Behavior |
+| :--- | :--- | :--- |
+| `maxRetryAttempts` | `0` | Number of in-process retries after the first failed attempt. `2` means up to 3 total attempts. |
+| `failureAction` | `ConsumerFailureAction.DeadLetter` | Uses `BasicNack(..., requeue: false)` after retries are exhausted. If a DLX is configured on the queue, RabbitMQ dead-letters the message. |
+| `ConsumerFailureAction.Requeue` | n/a | Uses `BasicNack(..., requeue: true)` after retries are exhausted. Use carefully because poison messages can loop forever. |
+| `deadLetterExchange` | `null` | When set, Carotte declares this exchange as durable `fanout` and configures the queue with `x-dead-letter-exchange`. |
+| `deadLetterRoutingKey` | `null` | Optional queue argument `x-dead-letter-routing-key`. |
+
+Unknown message types for multi-message consumers are never retried. Carotte nacks them with `requeue: false` so they can be dead-lettered if the queue has a DLX.
+
 ### 5. Topology Conventions (E2E Binding)
 
 Carotte uses a **"Convention over Configuration"** approach to simplify RabbitMQ setup. If you don't specify an exchange or routing key, Carotte automatically applies the following rules based on **Exchange-to-Exchange (E2E)** binding.
