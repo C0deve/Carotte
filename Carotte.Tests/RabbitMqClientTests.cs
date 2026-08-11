@@ -41,6 +41,28 @@ public class RabbitMqClientTests
     }
 
     [Fact]
+    public async Task ConnectAsync_ShouldNotRegisterHostAgain_WhenChannelIsOpen()
+    {
+        // Act
+        await _client.ConnectAsync("test-broker");
+        await _client.ConnectAsync("test-broker");
+
+        // Assert
+        _connectionManagerMock.Verify(m => m.RegisterHostAsync("test-broker"), Times.Once);
+        _connectionMock.Verify(c => c.CreateChannelAsync(It.IsAny<CreateChannelOptions>(), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task ConnectAsync_ShouldThrow_WhenAlreadyConnectedToAnotherBroker()
+    {
+        // Act
+        await _client.ConnectAsync("test-broker");
+
+        // Assert
+        await Assert.ThrowsAsync<InvalidOperationException>(() => _client.ConnectAsync("other-broker"));
+    }
+
+    [Fact]
     public async Task CloseAsync_ShouldUnregisterHost()
     {
         // Arrange
@@ -51,6 +73,57 @@ public class RabbitMqClientTests
 
         // Assert
         _connectionManagerMock.Verify(m => m.UnregisterHostAsync("test-broker"), Times.Once);
+    }
+
+    [Fact]
+    public async Task CloseAsync_ShouldClearStateAndAllowReconnect()
+    {
+        // Arrange
+        var firstChannel = new Mock<IChannel>();
+        var secondChannel = new Mock<IChannel>();
+        firstChannel.Setup(c => c.IsOpen).Returns(true);
+        secondChannel.Setup(c => c.IsOpen).Returns(true);
+        _connectionMock
+            .SetupSequence(c => c.CreateChannelAsync(It.IsAny<CreateChannelOptions>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(firstChannel.Object)
+            .ReturnsAsync(secondChannel.Object);
+
+        await _client.ConnectAsync("test-broker");
+
+        // Act
+        await _client.CloseAsync();
+        await _client.ConnectAsync("test-broker");
+
+        // Assert
+        firstChannel.Verify(c => c.DisposeAsync(), Times.Once);
+        _connectionManagerMock.Verify(m => m.RegisterHostAsync("test-broker"), Times.Exactly(2));
+        _connectionManagerMock.Verify(m => m.UnregisterHostAsync("test-broker"), Times.Once);
+        _connectionMock.Verify(c => c.CreateChannelAsync(It.IsAny<CreateChannelOptions>(), It.IsAny<CancellationToken>()), Times.Exactly(2));
+    }
+
+    [Fact]
+    public async Task QueueDeclareAsync_ShouldRecreateChannel_WhenExistingChannelIsClosed()
+    {
+        // Arrange
+        var closedChannel = new Mock<IChannel>();
+        var openChannel = new Mock<IChannel>();
+        closedChannel.Setup(c => c.IsOpen).Returns(false);
+        openChannel.Setup(c => c.IsOpen).Returns(true);
+        _connectionMock
+            .SetupSequence(c => c.CreateChannelAsync(It.IsAny<CreateChannelOptions>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(closedChannel.Object)
+            .ReturnsAsync(openChannel.Object);
+
+        await _client.ConnectAsync("test-broker");
+
+        // Act
+        await _client.QueueDeclareAsync("test-queue");
+
+        // Assert
+        closedChannel.Verify(c => c.DisposeAsync(), Times.Once);
+        openChannel.Verify(c => c.QueueDeclareAsync("test-queue", true, false, false, null, false, false, It.IsAny<CancellationToken>()), Times.Once);
+        _connectionManagerMock.Verify(m => m.RegisterHostAsync("test-broker"), Times.Once);
+        _connectionMock.Verify(c => c.CreateChannelAsync(It.IsAny<CreateChannelOptions>(), It.IsAny<CancellationToken>()), Times.Exactly(2));
     }
 
     [Fact]

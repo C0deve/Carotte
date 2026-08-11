@@ -17,7 +17,7 @@ public class ConnectionManager(IDictionary<string, RabbitMqOptions> options) : I
 
     public async ValueTask<IConnection> GetConnectionAsync(string brokerName)
     {
-        if (_connections.TryGetValue(brokerName, out var connection))
+        if (_connections.TryGetValue(brokerName, out var connection) && connection.IsOpen)
         {
             return connection;
         }
@@ -27,7 +27,13 @@ public class ConnectionManager(IDictionary<string, RabbitMqOptions> options) : I
         {
             if (_connections.TryGetValue(brokerName, out connection))
             {
-                return connection;
+                if (connection.IsOpen)
+                {
+                    return connection;
+                }
+
+                connection.Dispose();
+                _connections.Remove(brokerName);
             }
 
             if (!options.TryGetValue(brokerName, out var opt))

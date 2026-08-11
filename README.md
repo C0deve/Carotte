@@ -389,7 +389,8 @@ The `ConnectionManager` acts as a registry of persistent connections.
 ### 2. Channels (Performance Optimization)
 Channels (`IChannel`) are created on top of connections by the `RabbitMqClient`.
 - **Caching**: Carotte maintains one open channel per broker for common operations (publication, acknowledgment). This avoids the high cost of creating/closing channels for each message.
-- **Auto-repair**: If a channel is detected as closed (`IsOpen == false`), Carotte automatically recreates one during the next operation.
+- **Auto-repair**: If a channel is detected as closed (`IsOpen == false`), Carotte disposes it and recreates a new channel during the next operation without registering a duplicate host.
+- **Clean shutdown**: `CloseAsync` closes/disposes the current channel, unregisters the host from the connection manager, and clears local client state so the client can reconnect cleanly later.
 
 ### 3. Topology Declaration
 When a consumer starts, the `RabbitMqConsumerHost` ensures that:
