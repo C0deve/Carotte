@@ -13,18 +13,20 @@ public class QueueAttribute(
     string? exchange = null,
     string? routingKey = "",
     ushort prefetchCount = 1,
-    int maxRetryAttempts = 0,
+    int maxRetryAttempts = -1,
     ConsumerFailureAction failureAction = ConsumerFailureAction.DeadLetter,
     string? deadLetterExchange = null,
-    string? deadLetterRoutingKey = null) : Attribute
+    string? deadLetterRoutingKey = null,
+    string? deadLetterQueue = null) : Attribute
 {
     public string Name { get; } = name;
     public string? Broker { get; } = broker;
     public string? Exchange { get; } = exchange;
     public string RoutingKey { get; } = routingKey ?? string.Empty;
     public ushort PrefetchCount { get; } = prefetchCount;
-    public int MaxRetryAttempts { get; } = maxRetryAttempts;
+    public int? MaxRetryAttempts { get; } = maxRetryAttempts < 0 ? null : maxRetryAttempts;
     public ConsumerFailureAction FailureAction { get; } = failureAction;
     public string? DeadLetterExchange { get; } = deadLetterExchange;
     public string? DeadLetterRoutingKey { get; } = deadLetterRoutingKey;
+    public string? DeadLetterQueue { get; } = deadLetterQueue;
 }

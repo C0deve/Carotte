@@ -16,18 +16,20 @@ internal static class TopologyProvider
         private IConsumerTopology ToConsumerTopology(string? clientName, ushort defaultPrefetchCount)
         {
             var prefetchCount = scan.QueueAttr?.PrefetchCount ?? defaultPrefetchCount;
+            var queueName = scan.QueueAttr?.Name ?? scan.ConsumerType.Name.ToConsumerQueueName(clientName);
             var errorStrategy = scan.QueueAttr == null
-                ? default
+                ? ConsumerErrorStrategy.ByConvention(queueName)
                 : new ConsumerErrorStrategy(
                     scan.QueueAttr.MaxRetryAttempts,
                     scan.QueueAttr.FailureAction,
                     scan.QueueAttr.DeadLetterExchange,
-                    scan.QueueAttr.DeadLetterRoutingKey);
+                    scan.QueueAttr.DeadLetterRoutingKey,
+                    scan.QueueAttr.DeadLetterQueue).WithConventionDefaults(queueName);
 
             return scan.QueueAttr == null
                 ? new ConsumerConventionTopology(
                     Broker: scan.QueueAttr?.Broker ?? string.Empty,
-                    Queue: scan.ConsumerType.Name.ToConsumerQueueName(clientName),
+                    Queue: queueName,
                     ConsumerExchangeName: scan.ConsumerType.Name.ToConsumerExchangeName(clientName),
                     MessageExchangeNames: scan.MessageTypes
                         .Select(m => m.Name.ToMessageExchangeName())
@@ -37,7 +39,7 @@ internal static class TopologyProvider
                     ErrorStrategy: errorStrategy)
                 : new ConsumerAttributeTopology(
                     Broker: scan.QueueAttr?.Broker ?? string.Empty,
-                    Queue: scan.QueueAttr?.Name ?? scan.ConsumerType.Name.ToDefaultQueueName(),
+                    Queue: queueName,
                     Bindings: scan.BindingAttrs
                         .Select(b => new BindingInfo(b.Exchange, b.RoutingKey))
                         .Union([new BindingInfo(scan.QueueAttr!.Exchange ?? "", scan.QueueAttr.RoutingKey)])

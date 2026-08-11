@@ -12,12 +12,38 @@ public interface IConsumerTopology
 }
 
 public readonly record struct ConsumerErrorStrategy(
-    int MaxRetryAttempts = 0,
+    int? MaxRetryAttempts = null,
     ConsumerFailureAction FailureAction = ConsumerFailureAction.DeadLetter,
     string? DeadLetterExchange = null,
-    string? DeadLetterRoutingKey = null)
+    string? DeadLetterRoutingKey = null,
+    string? DeadLetterQueue = null)
 {
+    private const int DefaultMaxRetryAttempts = 3;
+
     public bool RequeueOnFailure => FailureAction == ConsumerFailureAction.Requeue;
+
+    public int EffectiveMaxRetryAttempts => MaxRetryAttempts ?? DefaultMaxRetryAttempts;
+
+    public static ConsumerErrorStrategy ByConvention(string queueName) => new(
+        MaxRetryAttempts: DefaultMaxRetryAttempts,
+        FailureAction: ConsumerFailureAction.DeadLetter,
+        DeadLetterExchange: queueName.ToDeadLetterExchangeName(),
+        DeadLetterRoutingKey: queueName,
+        DeadLetterQueue: queueName.ToDeadLetterQueueName());
+
+    public ConsumerErrorStrategy WithConventionDefaults(string queueName) => this with
+    {
+        MaxRetryAttempts = MaxRetryAttempts ?? DefaultMaxRetryAttempts,
+        DeadLetterExchange = string.IsNullOrWhiteSpace(DeadLetterExchange)
+            ? queueName.ToDeadLetterExchangeName()
+            : DeadLetterExchange,
+        DeadLetterRoutingKey = string.IsNullOrWhiteSpace(DeadLetterRoutingKey)
+            ? queueName
+            : DeadLetterRoutingKey,
+        DeadLetterQueue = string.IsNullOrWhiteSpace(DeadLetterQueue)
+            ? queueName.ToDeadLetterQueueName()
+            : DeadLetterQueue
+    };
 }
 
 public record ConsumerConventionTopology(

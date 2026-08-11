@@ -232,6 +232,74 @@ public class RabbitMqConsumerHostTests
     }
 
     [Fact]
+    public async Task StartAsync_ShouldApplyDefaultErrorStrategyConvention_WhenNoStrategyIsProvided()
+    {
+        // Arrange
+        var serviceProvider = new Mock<IServiceProvider>();
+        var rabbitMqClient = new Mock<IRabbitMqClient>();
+        var serializer = new Mock<ISerializer>();
+        const string broker = "test-broker";
+        const string queue = "test-queue";
+        const string expectedDeadLetterExchange = "x.dlx.test-queue";
+        const string expectedDeadLetterQueue = "q.dlq.test-queue";
+
+        var mediator = new ConsumerMediator(serviceProvider.Object);
+        var host = new RabbitMqConsumerHost<TestConsumer>(
+            mediator,
+            rabbitMqClient.Object,
+            serializer.Object,
+            new Mock<ILogger<RabbitMqConsumerHost<TestConsumer>>>().Object,
+            broker,
+            new ConsumerAttributeTopology(Broker: broker, Queue: queue, Bindings: []));
+
+        // Act
+        await host.StartAsync(CancellationToken.None);
+
+        // Assert
+        rabbitMqClient.Verify(c => c.ExchangeDeclareAsync(
+            expectedDeadLetterExchange,
+            "fanout",
+            true,
+            false,
+            null,
+            false,
+            false,
+            It.IsAny<CancellationToken>()), Times.Once);
+
+        rabbitMqClient.Verify(c => c.QueueDeclareAsync(
+            expectedDeadLetterQueue,
+            true,
+            false,
+            false,
+            null,
+            false,
+            false,
+            It.IsAny<CancellationToken>()), Times.Once);
+
+        rabbitMqClient.Verify(c => c.QueueBindAsync(
+            expectedDeadLetterQueue,
+            expectedDeadLetterExchange,
+            queue,
+            null,
+            false,
+            It.IsAny<CancellationToken>()), Times.Once);
+
+        rabbitMqClient.Verify(c => c.QueueDeclareAsync(
+            queue,
+            true,
+            false,
+            false,
+            It.Is<IDictionary<string, object?>>(args =>
+                (string)args["x-dead-letter-exchange"]! == expectedDeadLetterExchange &&
+                (string)args["x-dead-letter-routing-key"]! == queue),
+            false,
+            false,
+            It.IsAny<CancellationToken>()), Times.Once);
+
+        await host.StopAsync(CancellationToken.None);
+    }
+
+    [Fact]
     public async Task StopAsync_ShouldCloseAndDisposeRabbitMqClient()
     {
         // Arrange
@@ -366,6 +434,44 @@ public class RabbitMqConsumerHostTests
         // Assert
         consumer.Attempts.ShouldBe(2);
         rabbitMqClient.Verify(c => c.BasicNackAsync(deliveryTag, false, true, It.IsAny<CancellationToken>()), Times.Once);
+        rabbitMqClient.Verify(c => c.BasicAckAsync(It.IsAny<ulong>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task HandleMessageAsync_ShouldNotRetry_WhenMaxRetryAttemptsIsExplicitlyZero()
+    {
+        // Arrange
+        var consumer = new RetryConsumer(failuresBeforeSuccess: int.MaxValue);
+        var serviceProvider = new ServiceCollection()
+            .AddSingleton(consumer)
+            .BuildServiceProvider();
+        var rabbitMqClient = new Mock<IRabbitMqClient>();
+        const string broker = "test-broker";
+        const ulong deliveryTag = 45;
+
+        var mediator = new ConsumerMediator(serviceProvider);
+        mediator.Initialize<RetryConsumer>();
+
+        var host = new RabbitMqConsumerHost<RetryConsumer>(
+            mediator,
+            rabbitMqClient.Object,
+            new ActivatorSerializer(),
+            new Mock<ILogger<RabbitMqConsumerHost<RetryConsumer>>>().Object,
+            broker,
+            new ConsumerAttributeTopology(
+                Broker: broker,
+                Queue: "test-queue",
+                Bindings: [],
+                ErrorStrategy: new ConsumerErrorStrategy(MaxRetryAttempts: 0)));
+
+        InvokeBuildPipeline(host);
+
+        // Act
+        await InvokeHandleMessageAsync(host, CreateDeliveryArgs(deliveryTag, nameof(TestMessage)));
+
+        // Assert
+        consumer.Attempts.ShouldBe(1);
+        rabbitMqClient.Verify(c => c.BasicNackAsync(deliveryTag, false, false, It.IsAny<CancellationToken>()), Times.Once);
         rabbitMqClient.Verify(c => c.BasicAckAsync(It.IsAny<ulong>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 

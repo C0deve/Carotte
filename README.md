@@ -166,7 +166,20 @@ public record CreateOrderCommand(Guid OrderId);
 
 #### Consumer Error Strategy
 
-By default, Carotte does not retry failed message handling and nacks failed messages with `requeue: false`.
+By default, Carotte applies a production-oriented error strategy by convention:
+
+- retries failed message handling up to 3 times in-process;
+- nacks with `requeue: false` after retries are exhausted;
+- declares a durable dead-letter exchange and queue;
+- configures the consumer queue with RabbitMQ dead-letter arguments.
+
+For a queue named `q.order-consumer`, the convention creates:
+
+| Resource | Generated name |
+| :--- | :--- |
+| Dead-letter exchange | `x.dlx.order-consumer` |
+| Dead-letter queue | `q.dlq.order-consumer` |
+| Dead-letter routing key | `q.order-consumer` |
 
 You can configure the error strategy on `[Queue]`:
 
@@ -186,11 +199,12 @@ Error strategy options:
 
 | Option | Default | Behavior |
 | :--- | :--- | :--- |
-| `maxRetryAttempts` | `0` | Number of in-process retries after the first failed attempt. `2` means up to 3 total attempts. |
-| `failureAction` | `ConsumerFailureAction.DeadLetter` | Uses `BasicNack(..., requeue: false)` after retries are exhausted. If a DLX is configured on the queue, RabbitMQ dead-letters the message. |
+| `maxRetryAttempts` | `3` | Number of in-process retries after the first failed attempt. `2` means up to 3 total attempts. Use `0` to disable retries. |
+| `failureAction` | `ConsumerFailureAction.DeadLetter` | Uses `BasicNack(..., requeue: false)` after retries are exhausted. The convention configures a DLX/DLQ so RabbitMQ dead-letters the message. |
 | `ConsumerFailureAction.Requeue` | n/a | Uses `BasicNack(..., requeue: true)` after retries are exhausted. Use carefully because poison messages can loop forever. |
-| `deadLetterExchange` | `null` | When set, Carotte declares this exchange as durable `fanout` and configures the queue with `x-dead-letter-exchange`. |
-| `deadLetterRoutingKey` | `null` | Optional queue argument `x-dead-letter-routing-key`. |
+| `deadLetterExchange` | `x.dlx.{queue-name}` | Carotte declares this exchange as durable `fanout` and configures the queue with `x-dead-letter-exchange`. |
+| `deadLetterRoutingKey` | consumer queue name | Queue argument `x-dead-letter-routing-key` and binding key for the DLQ. |
+| `deadLetterQueue` | `q.dlq.{queue-name}` | Carotte declares this queue as durable and binds it to the DLX. |
 
 Unknown message types for multi-message consumers are never retried. Carotte nacks them with `requeue: false` so they can be dead-lettered if the queue has a DLX.
 

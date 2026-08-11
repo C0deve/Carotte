@@ -55,6 +55,26 @@ public static partial class StringExtensions
         public string ToDefaultQueueName() => name.ToConsumerQueueName();
 
         public string ToDefaultExchangeName() => name.ToMessageExchangeName();
+
+        public string ToDeadLetterExchangeName()
+        {
+            var normalizedQueueName = name.NormalizeQueueNameForDeadLetter();
+            return $"x.dlx.{normalizedQueueName}";
+        }
+
+        public string ToDeadLetterQueueName()
+        {
+            var normalizedQueueName = name.NormalizeQueueNameForDeadLetter();
+            return $"q.dlq.{normalizedQueueName}";
+        }
+
+        private string NormalizeQueueNameForDeadLetter()
+        {
+            var kebabName = name.ToKebabCase();
+            return kebabName.StartsWith("q.", StringComparison.OrdinalIgnoreCase)
+                ? kebabName[2..]
+                : kebabName;
+        }
     }
 
     [GeneratedRegex("([a-z0-9])([A-Z])")]

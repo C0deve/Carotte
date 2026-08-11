@@ -52,6 +52,7 @@ public class ClientNameTests
         // Assert
         var expectedExchange = "x.sub.order-api.client-name-test-consumer";
         var expectedQueue = "q.order-api.client-name-test-consumer";
+        var expectedDeadLetterExchange = "x.dlx.order-api.client-name-test-consumer";
         
         // Verify exchange declaration
         rabbitMqClient.Verify(c => c.ExchangeDeclareAsync(
@@ -70,7 +71,9 @@ public class ClientNameTests
             true,
             false,
             false,
-            null,
+            It.Is<IDictionary<string, object?>>(args =>
+                (string)args["x-dead-letter-exchange"]! == expectedDeadLetterExchange &&
+                (string)args["x-dead-letter-routing-key"]! == expectedQueue),
             false,
             false,
             It.IsAny<CancellationToken>()), Times.AtLeastOnce);

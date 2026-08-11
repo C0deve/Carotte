@@ -22,6 +22,8 @@ internal static class ConsumerTopologyBuilder
         ConsumerConventionTopology topology,
         CancellationToken cancellationToken)
     {
+        var errorStrategy = topology.ErrorStrategy.WithConventionDefaults(topology.Queue);
+
         await rabbitMqClient.ExchangeDeclareAsync(
             exchange: topology.ConsumerExchangeName,
             type: "fanout",
@@ -29,14 +31,14 @@ internal static class ConsumerTopologyBuilder
             autoDelete: false,
             cancellationToken: cancellationToken);
 
-        await SetupDeadLetterExchangeAsync(rabbitMqClient, topology.ErrorStrategy, cancellationToken);
+        await SetupDeadLetterExchangeAsync(rabbitMqClient, errorStrategy, cancellationToken);
 
         await rabbitMqClient.QueueDeclareAsync(
             queue: topology.Queue,
             durable: true,
             exclusive: false,
             autoDelete: false,
-            arguments: CreateQueueArguments(topology.ErrorStrategy),
+            arguments: CreateQueueArguments(errorStrategy),
             cancellationToken: cancellationToken);
 
         await rabbitMqClient.QueueBindAsync(
@@ -75,14 +77,16 @@ internal static class ConsumerTopologyBuilder
         ConsumerAttributeTopology topology,
         CancellationToken cancellationToken)
     {
-        await SetupDeadLetterExchangeAsync(rabbitMqClient, topology.ErrorStrategy, cancellationToken);
+        var errorStrategy = topology.ErrorStrategy.WithConventionDefaults(topology.Queue);
+
+        await SetupDeadLetterExchangeAsync(rabbitMqClient, errorStrategy, cancellationToken);
 
         await rabbitMqClient.QueueDeclareAsync(
             queue: topology.Queue,
             durable: true,
             exclusive: false,
             autoDelete: false,
-            arguments: CreateQueueArguments(topology.ErrorStrategy),
+            arguments: CreateQueueArguments(errorStrategy),
             passive: false,
             noWait: false,
             cancellationToken: cancellationToken);
@@ -104,7 +108,8 @@ internal static class ConsumerTopologyBuilder
         ConsumerErrorStrategy errorStrategy,
         CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(errorStrategy.DeadLetterExchange))
+        if (string.IsNullOrWhiteSpace(errorStrategy.DeadLetterExchange) ||
+            string.IsNullOrWhiteSpace(errorStrategy.DeadLetterQueue))
         {
             return;
         }
@@ -116,6 +121,24 @@ internal static class ConsumerTopologyBuilder
             autoDelete: false,
             arguments: null,
             passive: false,
+            noWait: false,
+            cancellationToken: cancellationToken);
+
+        await rabbitMqClient.QueueDeclareAsync(
+            queue: errorStrategy.DeadLetterQueue,
+            durable: true,
+            exclusive: false,
+            autoDelete: false,
+            arguments: null,
+            passive: false,
+            noWait: false,
+            cancellationToken: cancellationToken);
+
+        await rabbitMqClient.QueueBindAsync(
+            queue: errorStrategy.DeadLetterQueue,
+            exchange: errorStrategy.DeadLetterExchange,
+            routingKey: errorStrategy.DeadLetterRoutingKey ?? string.Empty,
+            arguments: null,
             noWait: false,
             cancellationToken: cancellationToken);
     }

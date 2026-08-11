@@ -105,6 +105,7 @@ public sealed class RabbitMqConsumerHost<TConsumer>(
 
     private async Task HandleMessageAsync(BasicDeliverEventArgs ea, CancellationToken stoppingToken)
     {
+        var errorStrategy = topology.ErrorStrategy.WithConventionDefaults(topology.Queue);
         var targetMessageType = mediator.ResolveMessageType(ea);
         if (targetMessageType == null)
         {
@@ -135,19 +136,19 @@ public sealed class RabbitMqConsumerHost<TConsumer>(
                 "Message processing failed for consumer {ConsumerType}. DeliveryTag: {DeliveryTag}. Nacking with requeue={Requeue}.",
                 typeof(TConsumer).Name,
                 ea.DeliveryTag,
-                topology.ErrorStrategy.RequeueOnFailure);
+                errorStrategy.RequeueOnFailure);
 
             await rabbitMqClient.BasicNackAsync(
                 ea.DeliveryTag,
                 false,
-                topology.ErrorStrategy.RequeueOnFailure,
+                errorStrategy.RequeueOnFailure,
                 cancellationToken: stoppingToken);
         }
     }
 
     private async Task ExecutePipelineWithRetryAsync(ConsumerContext context)
     {
-        var maxRetryAttempts = Math.Max(0, topology.ErrorStrategy.MaxRetryAttempts);
+        var maxRetryAttempts = Math.Max(0, topology.ErrorStrategy.WithConventionDefaults(topology.Queue).EffectiveMaxRetryAttempts);
         var attempt = 0;
 
         while (true)
