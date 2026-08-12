@@ -29,7 +29,7 @@ Before integrating Carotte into an existing service, check these constraints:
 - **.NET target**: Carotte targets .NET 10. Existing .NET 8 LTS or .NET 9 applications must be upgraded before they can reference it.
 - **RabbitMQ topology ownership**: Carotte declares queues, exchanges, and bindings automatically. This is convenient for greenfield services, but it must be reviewed carefully when connecting to an existing RabbitMQ topology.
 - **Serialization contract**: messages are serialized as JSON using `System.Text.Json`.
-- **Dependency Injection lifetime**: consumers are registered as singleton services. Avoid injecting scoped services such as `DbContext` directly into a consumer until scoped consumer execution is supported.
+- **Dependency Injection lifetime**: consumers are scoped. Carotte creates one dependency injection scope per received message, so scoped services such as `DbContext` can be injected directly into a consumer.
 - **Package availability**: package names are listed below, but check the current NuGet/feed publication status before relying on them in another project.
 
 ## 📦 Installation
@@ -349,9 +349,9 @@ In the **Carotte** project, the relationship between `consumers` and `Background
 ### 1. The Consumer (`IConsumer<TMessage>`): Business Logic
 The `Consumer` is a simple class that implements the `IConsumer<TMessage>` interface. Its sole role is to process a message once it has been received and deserialized.
 - It is **passive**: it doesn't know where the message comes from or how it was retrieved.
-- It is registered as a singleton service in the dependency injection (DI) container.
+- It is registered as a scoped service in the dependency injection (DI) container.
 
-Because consumers are singletons, do not inject scoped dependencies directly into them. If your handler needs per-message scoped services, create a scope inside the handler or adapt the library before using it in production workflows.
+Carotte creates a new scope for every received message and disposes it after acknowledgment or rejection. All retry attempts for that message share the same scope and the same scoped consumer instance.
 
 ### 2. The BackgroundService (`RabbitMqConsumerHost<TConsumer>`): The Engine
 For each registered `Consumer`, Carotte automatically creates a **`RabbitMqConsumerHost<TConsumer>`**. This class inherits from `BackgroundService` (a .NET base class for background tasks).

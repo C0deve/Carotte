@@ -77,7 +77,7 @@ namespace Carotte;
         {
             foreach (var consumer in messageBrokerSettings.Consumers)
             {
-                services.AddSingleton(consumer.ConsumerType);
+                services.AddScoped(consumer.ConsumerType);
                 services.AddTransient<ConsumerMediator>();
                 
                 services.AddSingleton(typeof(IHostedService), sp =>

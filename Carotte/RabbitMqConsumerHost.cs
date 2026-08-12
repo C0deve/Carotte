@@ -119,7 +119,8 @@ public sealed class RabbitMqConsumerHost<TConsumer>(
             return;
         }
 
-        var context = new ConsumerContext(ea, stoppingToken)
+        await using var messageScope = mediator.CreateMessageScope();
+        var context = new ConsumerContext(ea, messageScope.ServiceProvider, CancellationToken: stoppingToken)
         {
             MessageType = targetMessageType
         };

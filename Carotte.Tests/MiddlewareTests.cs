@@ -23,7 +23,7 @@ public class MiddlewareTests
             properties: new Mock<IReadOnlyBasicProperties>().Object,
             body: ReadOnlyMemory<byte>.Empty,
             cancellationToken: CancellationToken.None);
-        var context = new ConsumerContext(ea, CancellationToken.None);
+        var context = new ConsumerContext(ea, Mock.Of<IServiceProvider>(), CancellationToken: CancellationToken.None);
 
         List<string> executionOrder = [];
 

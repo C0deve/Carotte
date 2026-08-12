@@ -25,6 +25,29 @@ public class CarotteTestKitTests
         public Task HandleAsync(TestMessage message, CancellationToken cancellationToken) => Task.CompletedTask;
     }
 
+    public sealed class ScopeTracker
+    {
+        public List<Guid> ConsumerScopeIds { get; } = [];
+        public int DisposedScopes { get; set; }
+    }
+
+    public sealed class ScopedDependency(ScopeTracker tracker) : IDisposable
+    {
+        public Guid Id { get; } = Guid.NewGuid();
+
+        public void Dispose() => tracker.DisposedScopes++;
+    }
+
+    [Queue("scoped-consumer-queue", broker: "test-broker")]
+    public class ScopedConsumer(ScopedDependency dependency, ScopeTracker tracker) : IConsumer<TestMessage>
+    {
+        public Task HandleAsync(TestMessage message, CancellationToken cancellationToken)
+        {
+            tracker.ConsumerScopeIds.Add(dependency.Id);
+            return Task.CompletedTask;
+        }
+    }
+
     [Fact]
     public async Task SimulateReceive_ShouldInvokeConsumer_AndStoreSentMessages()
     {
@@ -69,5 +92,28 @@ public class CarotteTestKitTests
 
         // Assert
         mockPublisher.Verify(p => p.PublishAsync(It.Is<ResponseMessage>(r => r.Content == "Received: Mock Me"), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task SimulateReceive_ShouldCreateAndDisposeOneScopePerMessage()
+    {
+        var services = new ServiceCollection();
+        services.AddSingleton<ScopeTracker>();
+        services.AddScoped<ScopedDependency>();
+        services.AddCarotte(c => c
+            .AddBroker("test-broker", _ => { })
+            .AddAssemblies(typeof(ScopedConsumer).Assembly));
+        services.AddCarotteTestKit();
+
+        await using var serviceProvider = services.BuildServiceProvider();
+        var testKit = serviceProvider.GetRequiredService<CarotteTestKit>();
+
+        await testKit.SimulateReceiveAsync<ScopedConsumer, TestMessage>(new TestMessage("first"));
+        await testKit.SimulateReceiveAsync<ScopedConsumer, TestMessage>(new TestMessage("second"));
+
+        var tracker = serviceProvider.GetRequiredService<ScopeTracker>();
+        tracker.ConsumerScopeIds.Count.ShouldBe(2);
+        tracker.ConsumerScopeIds.Distinct().Count().ShouldBe(2);
+        tracker.DisposedScopes.ShouldBe(2);
     }
 }

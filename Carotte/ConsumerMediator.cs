@@ -41,11 +41,23 @@ public sealed class ConsumerMediator(IServiceProvider serviceProvider)
             : null;
     }
 
+    internal AsyncServiceScope CreateMessageScope() => serviceProvider.CreateAsyncScope();
+
     public async Task InvokeAsync(Type messageType, object message, CancellationToken cancellationToken)
+    {
+        await using var messageScope = CreateMessageScope();
+        await InvokeAsync(messageScope.ServiceProvider, messageType, message, cancellationToken);
+    }
+
+    internal async Task InvokeAsync(
+        IServiceProvider messageServiceProvider,
+        Type messageType,
+        object message,
+        CancellationToken cancellationToken)
     {
         if (_consumerType != null && _handlerMethods.TryGetValue(messageType, out var method))
         {
-            var handler = serviceProvider.GetRequiredService(_consumerType);
+            var handler = messageServiceProvider.GetRequiredService(_consumerType);
             var task = (Task?)method.Invoke(handler, [message, cancellationToken]);
             if (task != null) await task;
         }

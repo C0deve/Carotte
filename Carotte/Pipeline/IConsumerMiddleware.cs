@@ -1,16 +1,8 @@
-﻿using RabbitMQ.Client.Events;
+﻿namespace Carotte.pipeline;
 
-namespace Carotte.pipeline;
+internal delegate Task ConsumerDelegate(ConsumerContext context);
 
-public record ConsumerContext(
-    BasicDeliverEventArgs DeliveryArgs,
-    CancellationToken CancellationToken = default,
-    object? Message = null,
-    Type? MessageType = null);
-
-public delegate Task ConsumerDelegate(ConsumerContext context);
-
-public interface IConsumerMiddleware
+internal interface IConsumerMiddleware
 {
     Task InvokeAsync(ConsumerContext context, ConsumerDelegate next);
 }
