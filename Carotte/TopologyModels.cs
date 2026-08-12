@@ -59,7 +59,10 @@ public record ConsumerAttributeTopology(
     string Queue,
     ReadOnlyCollection<BindingInfo> Bindings,
     ushort PrefetchCount = 1,
-    ConsumerErrorStrategy ErrorStrategy = default) : IConsumerTopology;
+    ConsumerErrorStrategy ErrorStrategy = default,
+    bool QueueDurable = true,
+    bool QueueExclusive = false,
+    bool QueueAutoDelete = false) : IConsumerTopology;
 
 public readonly record struct ConsumerInfo(
     Type ConsumerType,
@@ -74,10 +77,18 @@ public readonly record struct BrokerInfos(string Host, int Port, string UserName
 
 public readonly record struct BindingInfo(
     string ExchangeSource,
-    string RoutingKey);
+    string RoutingKey,
+    ExchangeType ExchangeType = ExchangeType.Direct,
+    bool DeclareExchange = false,
+    bool Durable = true,
+    bool AutoDelete = false);
 
 internal readonly record struct ProducerInfo(
     Type MessageType,
     string Broker,
-    string ExchangePublication);
-
+    string ExchangePublication,
+    string RoutingKey,
+    ExchangeType ExchangeType,
+    bool DeclareExchange,
+    bool Durable,
+    bool AutoDelete);

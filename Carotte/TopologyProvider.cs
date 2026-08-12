@@ -41,19 +41,46 @@ internal static class TopologyProvider
                     Broker: scan.QueueAttr?.Broker ?? string.Empty,
                     Queue: queueName,
                     Bindings: scan.BindingAttrs
-                        .Select(b => new BindingInfo(b.Exchange, b.RoutingKey))
-                        .Union([new BindingInfo(scan.QueueAttr!.Exchange ?? "", scan.QueueAttr.RoutingKey)])
+                        .Select(b => new BindingInfo(
+                            b.Exchange,
+                            b.RoutingKey,
+                            b.ExchangeType,
+                            b.DeclareExchange,
+                            b.Durable,
+                            b.AutoDelete))
+                        .Union([new BindingInfo(
+                            scan.QueueAttr!.Exchange ?? "",
+                            scan.QueueAttr.RoutingKey,
+                            scan.QueueAttr.ExchangeType,
+                            scan.QueueAttr.DeclareExchange,
+                            scan.QueueAttr.ExchangeDurable,
+                            scan.QueueAttr.ExchangeAutoDelete)])
                         .ToList()
                         .AsReadOnly(),
                     PrefetchCount: prefetchCount,
-                    ErrorStrategy: errorStrategy);
+                    ErrorStrategy: errorStrategy,
+                    QueueDurable: scan.QueueAttr.Durable,
+                    QueueExclusive: scan.QueueAttr.Exclusive,
+                    QueueAutoDelete: scan.QueueAttr.AutoDelete);
         }
     }
 
-    private static ProducerInfo ToProducerInfo(this PublisherScanResult scan) =>
-        new(scan.MessageType,
+    private static ProducerInfo ToProducerInfo(this PublisherScanResult scan)
+    {
+        var usesConvention = string.IsNullOrWhiteSpace(scan.PublisherAttribute.Exchange);
+
+        return new ProducerInfo(
+            scan.MessageType,
             scan.PublisherAttribute.Broker ?? string.Empty,
-            scan.PublisherAttribute.Exchange ?? scan.MessageType.Name.ToDefaultExchangeName());
+            usesConvention
+                ? scan.MessageType.Name.ToDefaultExchangeName()
+                : scan.PublisherAttribute.Exchange!,
+            scan.PublisherAttribute.RoutingKey ?? (usesConvention ? string.Empty : scan.MessageType.Name),
+            usesConvention ? ExchangeType.Fanout : scan.PublisherAttribute.ExchangeType,
+            usesConvention || scan.PublisherAttribute.DeclareExchange,
+            scan.PublisherAttribute.Durable,
+            scan.PublisherAttribute.AutoDelete);
+    }
 
     public static MessageBrokerSettings CreateSettings(
         Dictionary<string, RabbitMqOptions> brokers,

@@ -127,6 +127,42 @@ public class RabbitMqPublisherTests
             It.IsAny<CancellationToken>()), Times.Once);
     }
 
+    [Fact]
+    public async Task PublishAsync_ShouldUseConfiguredTopology()
+    {
+        var rabbitMqClient = new Mock<IRabbitMqClient>();
+        var publisher = new RabbitMqPublisher<TestMessage>(
+            rabbitMqClient.Object,
+            Mock.Of<ISerializer>(),
+            Mock.Of<ILogger<RabbitMqPublisher<TestMessage>>>(),
+            "test-broker",
+            "orders",
+            "order.created",
+            ExchangeType.Topic,
+            declareExchange: true,
+            durable: false,
+            autoDelete: true);
+
+        await publisher.PublishAsync(new TestMessage());
+
+        rabbitMqClient.Verify(client => client.ExchangeDeclareAsync(
+            "orders",
+            "topic",
+            false,
+            true,
+            null,
+            false,
+            false,
+            It.IsAny<CancellationToken>()), Times.Once);
+        rabbitMqClient.Verify(client => client.BasicPublishAsync<TestMessage>(
+            "orders",
+            "order.created",
+            It.IsAny<byte[]>(),
+            It.IsAny<BasicProperties>(),
+            true,
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+
     private static void VerifyLog<T>(Mock<ILogger<T>> loggerMock, LogLevel level, string message)
     {
         loggerMock.Verify(

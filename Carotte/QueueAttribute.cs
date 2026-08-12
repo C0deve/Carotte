@@ -17,7 +17,14 @@ public class QueueAttribute(
     ConsumerFailureAction failureAction = ConsumerFailureAction.DeadLetter,
     string? deadLetterExchange = null,
     string? deadLetterRoutingKey = null,
-    string? deadLetterQueue = null) : Attribute
+    string? deadLetterQueue = null,
+    bool durable = true,
+    bool exclusive = false,
+    bool autoDelete = false,
+    ExchangeType exchangeType = ExchangeType.Direct,
+    bool declareExchange = false,
+    bool exchangeDurable = true,
+    bool exchangeAutoDelete = false) : Attribute
 {
     public string Name { get; } = name;
     public string? Broker { get; } = broker;
@@ -29,4 +36,11 @@ public class QueueAttribute(
     public string? DeadLetterExchange { get; } = deadLetterExchange;
     public string? DeadLetterRoutingKey { get; } = deadLetterRoutingKey;
     public string? DeadLetterQueue { get; } = deadLetterQueue;
+    public bool Durable { get; } = durable;
+    public bool Exclusive { get; } = exclusive;
+    public bool AutoDelete { get; } = autoDelete;
+    public ExchangeType ExchangeType { get; } = exchangeType;
+    public bool DeclareExchange { get; } = declareExchange;
+    public bool ExchangeDurable { get; } = exchangeDurable;
+    public bool ExchangeAutoDelete { get; } = exchangeAutoDelete;
 }

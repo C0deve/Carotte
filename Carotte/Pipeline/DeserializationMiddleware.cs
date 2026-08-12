@@ -1,6 +1,6 @@
 ﻿namespace Carotte.pipeline;
 
-public class DeserializationMiddleware(ISerializer serializer) : IConsumerMiddleware
+internal class DeserializationMiddleware(ISerializer serializer) : IConsumerMiddleware
 {
     public async Task InvokeAsync(ConsumerContext context, ConsumerDelegate next)
     {

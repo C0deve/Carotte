@@ -148,9 +148,11 @@ If validation fails, a `CarotteConfigurationException` is thrown with details ab
 
 #### Advanced Configuration
 For advanced scenarios, you can customize your consumers and messages using attributes:
-- `[Queue("name", broker: "name", exchange: "exchange", routingKey: "key", prefetchCount: 10)]`: Specifies the queue name, broker, source exchange, routing key, and parallelism limit (QoS).
-- `[Binding("exchange", "routingKey")]`: Adds additional bindings to an explicitly configured consumer queue.
-- `[Publisher(broker: "name", exchange: "name")]`: Customizes the broker or exchange used when publishing a message type.
+- `[Queue("name", ...)]`: Configures the queue, its primary binding, QoS, and the queue declaration flags `durable`, `exclusive`, and `autoDelete`.
+- `[Binding("exchange", "routingKey", ...)]`: Adds a binding and can optionally declare its source exchange.
+- `[Publisher(...)]`: Configures the broker, exchange, publication routing key, exchange type, and exchange declaration flags.
+
+Explicit exchanges are assumed to exist by default. Set `declareExchange: true` when Carotte owns their declaration. The available exchange flags are `exchangeType`, `durable`, and `autoDelete`; queue flags are `durable`, `exclusive`, and `autoDelete`.
 
 > [!NOTE]
 > In the current implementation, applying `[Queue]` switches the consumer to attribute-based topology. If you want the default E2E convention (`x.pub.*` -> `x.sub.*` -> `q.*`), do not add `[Queue]` to the consumer.
@@ -159,6 +161,18 @@ For advanced scenarios, you can customize your consumers and messages using attr
 
 ```csharp
 [Publisher(broker: "my-broker", exchange: "orders-exchange")]
+public record CreateOrderCommand(Guid OrderId);
+```
+
+For a Carotte-owned topic exchange and an explicit publication key:
+
+```csharp
+[Publisher(
+    broker: "my-broker",
+    exchange: "orders-exchange",
+    routingKey: "order.created",
+    exchangeType: ExchangeType.Topic,
+    declareExchange: true)]
 public record CreateOrderCommand(Guid OrderId);
 ```
 
@@ -257,7 +271,7 @@ With convention-based topology, Carotte declares:
 | Message exchange -> consumer exchange binding | routing key `""` |
 | Consumer exchange -> queue binding | routing key `""` |
 
-With attribute-based topology, Carotte declares the queue with the same queue defaults and binds it to the exchanges you specify. It does not currently expose every RabbitMQ declaration flag in the public API.
+With attribute-based topology, queue flags can be configured on `[Queue]`. Source exchanges are not redeclared unless `declareExchange: true` is set on `[Queue]` or `[Binding]`.
 
 > [!IMPORTANT]
 > RabbitMQ requires an existing exchange declaration to match its original type and flags. If an existing exchange named `orders-exchange` is already declared as `topic`, do not let Carotte redeclare it as `fanout`. Use explicit attributes and verify the generated topology before connecting Carotte to shared infrastructure.
@@ -333,6 +347,8 @@ public record OrderCreatedMessage(Guid OrderId, string CustomerName, decimal Amo
 ```
 
 Then inject `IPublisher<OrderCreatedMessage>` as usual.
+
+With an explicit exchange, the default publication routing key remains the short CLR message type name. Set `routingKey` on `[Publisher]` to override it. Convention-based fanout publication uses an empty routing key.
 
 ### Existing-topology checklist
 

@@ -27,42 +27,31 @@ public class MiddlewareTests
 
         List<string> executionOrder = [];
 
-        var middleware1 = new Mock<IConsumerMiddleware>();
-        middleware1.Setup(m => m.InvokeAsync(It.IsAny<ConsumerContext>(), It.IsAny<ConsumerDelegate>()))
-            .Returns(async (ConsumerContext ctx, ConsumerDelegate next) =>
-            {
-                executionOrder.Add("m1-start");
-                await next(ctx);
-                executionOrder.Add("m1-end");
-            });
-
-        var middleware2 = new Mock<IConsumerMiddleware>();
-        middleware2.Setup(m => m.InvokeAsync(It.IsAny<ConsumerContext>(), It.IsAny<ConsumerDelegate>()))
-            .Returns(async (ConsumerContext ctx, ConsumerDelegate next) =>
-            {
-                executionOrder.Add("m2-start");
-                await next(ctx);
-                executionOrder.Add("m2-end");
-            });
-
-        var targetMiddleware = new Mock<IConsumerMiddleware>();
-        targetMiddleware.Setup(m => m.InvokeAsync(It.IsAny<ConsumerContext>(), It.IsAny<ConsumerDelegate>()))
-            .Returns(async (ConsumerContext ctx, ConsumerDelegate next) =>
-            {
-                executionOrder.Add("target");
-                await next(ctx);
-            });
+        var middleware1 = new RecordingMiddleware(executionOrder, "m1-start", "m1-end");
+        var middleware2 = new RecordingMiddleware(executionOrder, "m2-start", "m2-end");
+        var targetMiddleware = new RecordingMiddleware(executionOrder, "target");
 
         // Act
         var pipeline = new ConsumerPipelineBuilder()
-            .Use(middleware1.Object)
-            .Use(middleware2.Object)
-            .Use(targetMiddleware.Object)
+            .Use(middleware1)
+            .Use(middleware2)
+            .Use(targetMiddleware)
             .Build();
 
         await pipeline.ExecuteAsync(context);
 
         // Assert
         executionOrder.ShouldBe(expected);
+    }
+
+    private sealed class RecordingMiddleware(List<string> executionOrder, string start, string? end = null)
+        : IConsumerMiddleware
+    {
+        public async Task InvokeAsync(ConsumerContext context, ConsumerDelegate next)
+        {
+            executionOrder.Add(start);
+            await next(context);
+            if (end is not null) executionOrder.Add(end);
+        }
     }
 }

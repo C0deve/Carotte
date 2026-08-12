@@ -96,8 +96,16 @@ namespace Carotte;
                 {
                     var implementationType = typeof(RabbitMqPublisher<>).MakeGenericType(producer.MessageType);
 
-                    var exchange = producer.ExchangePublication;
-                    return ActivatorUtilities.CreateInstance(sp, implementationType, producer.Broker, exchange);
+                    return ActivatorUtilities.CreateInstance(
+                        sp,
+                        implementationType,
+                        producer.Broker,
+                        producer.ExchangePublication,
+                        producer.RoutingKey,
+                        producer.ExchangeType,
+                        producer.DeclareExchange,
+                        producer.Durable,
+                        producer.AutoDelete);
                 });
             }
         }

@@ -28,3 +28,6 @@ public record BrokerNotFoundForConsumer(string BrokerName, string ConsumerName)
 
 public record BrokerNotFoundForPublisher(string BrokerName, string MessageName) 
     : ConfigurationError($"No broker registered with name '{BrokerName}' for publisher of message '{MessageName}'");
+
+public record ConflictingExchangeDeclaration(string BrokerName, string ExchangeName)
+    : ConfigurationError($"Conflicting declarations for exchange '{ExchangeName}' on broker '{BrokerName}'");

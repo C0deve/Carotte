@@ -81,11 +81,26 @@ internal static class ConsumerTopologyBuilder
 
         await SetupDeadLetterExchangeAsync(rabbitMqClient, errorStrategy, cancellationToken);
 
+        foreach (var exchange in topology.Bindings
+                     .Where(binding => binding.DeclareExchange && !string.IsNullOrWhiteSpace(binding.ExchangeSource))
+                     .DistinctBy(binding => binding.ExchangeSource))
+        {
+            await rabbitMqClient.ExchangeDeclareAsync(
+                exchange: exchange.ExchangeSource,
+                type: exchange.ExchangeType.ToString().ToLowerInvariant(),
+                durable: exchange.Durable,
+                autoDelete: exchange.AutoDelete,
+                arguments: null,
+                passive: false,
+                noWait: false,
+                cancellationToken: cancellationToken);
+        }
+
         await rabbitMqClient.QueueDeclareAsync(
             queue: topology.Queue,
-            durable: true,
-            exclusive: false,
-            autoDelete: false,
+            durable: topology.QueueDurable,
+            exclusive: topology.QueueExclusive,
+            autoDelete: topology.QueueAutoDelete,
             arguments: CreateQueueArguments(errorStrategy),
             passive: false,
             noWait: false,

@@ -3,7 +3,7 @@ using System.Text;
 
 namespace Carotte.pipeline;
 
-public class TracingMiddleware : IConsumerMiddleware
+internal class TracingMiddleware : IConsumerMiddleware
 {
     public async Task InvokeAsync(ConsumerContext context, ConsumerDelegate next)
     {

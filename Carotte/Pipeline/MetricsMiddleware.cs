@@ -2,7 +2,7 @@
 
 namespace Carotte.pipeline;
 
-public class MetricsMiddleware : IConsumerMiddleware
+internal class MetricsMiddleware : IConsumerMiddleware
 {
     public async Task InvokeAsync(ConsumerContext context, ConsumerDelegate next)
     {

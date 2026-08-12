@@ -1,6 +1,6 @@
 ﻿namespace Carotte.pipeline;
 
-public class ConsumerPipelineBuilder
+internal class ConsumerPipelineBuilder
 {
     private readonly List<IConsumerMiddleware> _middlewares = [];
 
