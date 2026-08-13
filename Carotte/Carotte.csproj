@@ -12,7 +12,8 @@
       <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" />
       <PackageReference Include="OpenTelemetry.Extensions.Hosting" />
       <PackageReference Include="RabbitMQ.Client" />
-      <PackageReference Include="System.Diagnostics.DiagnosticSource" />
     </ItemGroup>
-
+    <ItemGroup>
+        <InternalsVisibleTo Include="Carotte.TestKit" />
+    </ItemGroup>
 </Project>
