@@ -21,7 +21,9 @@ public class PublisherPipelineTests
         var message = new TestMessage("Hello");
 
         connectionManagerMock.Setup(m => m.GetConnectionAsync(broker)).ReturnsAsync(connectionMock.Object);
-        connectionMock.Setup(c => c.CreateChannelAsync(It.IsAny<CreateChannelOptions?>(), It.IsAny<CancellationToken>())).ReturnsAsync(channelMock.Object);
+        connectionMock.Setup(c => c.CreateChannelAsync(It.IsAny<CreateChannelOptions?>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(channelMock.Object);
         channelMock.Setup(c => c.IsOpen).Returns(true);
         serializerMock.Setup(s => s.Serialize(message)).Returns([1, 2, 3]);
 

@@ -1,6 +1,6 @@
 ﻿namespace Carotte.pipeline;
 
-public class PublisherPipelineBuilder<TMessage> where TMessage : class
+internal class PublisherPipelineBuilder<TMessage> where TMessage : class
 {
     private readonly List<IPublisherMiddleware<TMessage>> _middlewares = [];
 

@@ -3,7 +3,7 @@ using Microsoft.Extensions.Logging;
 
 namespace Carotte;
 
-public class RabbitMqPublisher<TMessage>(
+internal sealed class RabbitMqPublisher<TMessage>(
     IRabbitMqClient rabbitMqClient,
     ISerializer serializer,
     ILogger<RabbitMqPublisher<TMessage>> logger,
@@ -85,6 +85,5 @@ public class RabbitMqPublisher<TMessage>(
     {
         await rabbitMqClient.DisposeAsync();
         _semaphore.Dispose();
-        GC.SuppressFinalize(this);
     }
 }

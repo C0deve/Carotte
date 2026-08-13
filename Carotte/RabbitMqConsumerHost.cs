@@ -5,7 +5,7 @@ using Carotte.pipeline;
 
 namespace Carotte;
 
-public sealed class RabbitMqConsumerHost<TConsumer>(
+internal sealed class RabbitMqConsumerHost<TConsumer>(
     ConsumerMediator mediator,
     IRabbitMqClient rabbitMqClient,
     ISerializer serializer,

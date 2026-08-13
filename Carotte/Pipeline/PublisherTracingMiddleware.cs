@@ -5,7 +5,7 @@ using RabbitMQ.Client;
 
 namespace Carotte.pipeline;
 
-public class PublisherTracingMiddleware<TMessage> : IPublisherMiddleware<TMessage> where TMessage : class
+internal class PublisherTracingMiddleware<TMessage> : IPublisherMiddleware<TMessage> where TMessage : class
 {
     public async Task InvokeAsync(PublisherContext<TMessage> context, PublisherDelegate<TMessage> next)
     {

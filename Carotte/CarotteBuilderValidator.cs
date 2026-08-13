@@ -48,19 +48,18 @@ internal static class CarotteBuilderValidator
 
     private static ValidationResult ValidateExchangeDeclarations(MessageBrokerSettings settings)
     {
-        var declarations = new List<ExchangeDeclaration>();
-
-        foreach (var producer in settings.Producers.Where(producer => producer.DeclareExchange))
-        {
-            declarations.Add(new ExchangeDeclaration(
+        var (_, consumers, producers) = settings;
+        var declarations = producers
+            .Where(producer => producer.DeclareExchange)
+            .Select(producer => new ExchangeDeclaration(
                 producer.Broker,
                 producer.ExchangePublication,
                 producer.ExchangeType,
                 producer.Durable,
-                producer.AutoDelete));
-        }
+                producer.AutoDelete))
+            .ToList();
 
-        foreach (var consumer in settings.Consumers)
+        foreach (var consumer in consumers)
         {
             switch (consumer.Topology)
             {

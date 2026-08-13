@@ -4,7 +4,7 @@ using RabbitMQ.Client.Events;
 
 namespace Carotte;
 
-public sealed class RabbitMqClient(IConnectionManager connectionManager, ILogger<RabbitMqClient> logger) : IRabbitMqClient
+internal sealed class RabbitMqClient(IConnectionManager connectionManager, ILogger<RabbitMqClient> logger) : IRabbitMqClient
 {
     private IChannel? _channel;
     private AsyncEventingBasicConsumer? _consumer;

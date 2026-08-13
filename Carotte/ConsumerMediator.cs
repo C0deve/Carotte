@@ -4,7 +4,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Carotte;
 
-public sealed class ConsumerMediator(IServiceProvider serviceProvider)
+internal sealed class ConsumerMediator(IServiceProvider serviceProvider)
 {
     private Type? _consumerType;
     private readonly Dictionary<Type, MethodInfo> _handlerMethods = [];

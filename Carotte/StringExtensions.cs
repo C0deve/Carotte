@@ -2,7 +2,7 @@
 
 namespace Carotte;
 
-public static partial class StringExtensions
+internal static partial class StringExtensions
 {
     extension(string name)
     {

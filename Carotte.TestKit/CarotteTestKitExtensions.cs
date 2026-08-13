@@ -3,6 +3,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Moq;
 using RabbitMQ.Client;
 
+// ReSharper disable once CheckNamespace
 namespace Carotte;
 
 public static class CarotteTestKitExtensions
@@ -35,26 +36,25 @@ public static class CarotteTestKitExtensions
             // Register a PostConfigure action to replace publishers
             // We need to find the CarotteBuilder in the services to know which publishers to replace
             var builderDescriptor = services.FirstOrDefault(d => d.ServiceType == typeof(CarotteBuilder));
-            if (builderDescriptor?.ImplementationInstance is CarotteBuilder builder)
+            if (builderDescriptor?.ImplementationInstance is not CarotteBuilder) return services;
+            
+            // Note: We don't have access to PublisherConfigs anymore,
+            // so we rely on the fact that IPublisher<T> are registered as singletons.
+            // We'll replace them if they are of type RabbitMqPublisher<T>
+            var publishers = services.Where(d => d.ServiceType.IsGenericType && 
+                                                 d.ServiceType.GetGenericTypeDefinition() == typeof(IPublisher<>))
+                .ToList();
+
+            foreach (var pub in publishers)
             {
-                // Note: We don't have access to PublisherConfigs anymore,
-                // so we rely on the fact that IPublisher<T> are registered as singletons.
-                // We'll replace them if they are of type RabbitMqPublisher<T>
-                var publishers = services.Where(d => d.ServiceType.IsGenericType && 
-                                                   d.ServiceType.GetGenericTypeDefinition() == typeof(IPublisher<>))
-                                        .ToList();
+                var messageType = pub.ServiceType.GetGenericArguments()[0];
+                var implementationType = typeof(InMemoryPublisher<>).MakeGenericType(messageType);
 
-                foreach (var pub in publishers)
+                services.Replace(ServiceDescriptor.Singleton(pub.ServiceType, sp =>
                 {
-                    var messageType = pub.ServiceType.GetGenericArguments()[0];
-                    var implementationType = typeof(InMemoryPublisher<>).MakeGenericType(messageType);
-
-                    services.Replace(ServiceDescriptor.Singleton(pub.ServiceType, sp =>
-                    {
-                        var store = sp.GetRequiredService<MessageTestStore>();
-                        return Activator.CreateInstance(implementationType, store)!;
-                    }));
-                }
+                    var store = sp.GetRequiredService<MessageTestStore>();
+                    return Activator.CreateInstance(implementationType, store)!;
+                }));
             }
 
             return services;
