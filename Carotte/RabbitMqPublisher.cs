@@ -3,19 +3,26 @@ using Microsoft.Extensions.Logging;
 
 namespace Carotte;
 
-public class RabbitMqPublisher<TMessage> : IPublisher<TMessage>, IAsyncDisposable
+public class RabbitMqPublisher<TMessage>(
+    IRabbitMqClient rabbitMqClient,
+    ISerializer serializer,
+    ILogger<RabbitMqPublisher<TMessage>> logger,
+    string broker,
+    string exchange,
+    string routingKey,
+    ExchangeType exchangeType,
+    bool declareExchange,
+    bool durable,
+    bool autoDelete)
+    : IPublisher<TMessage>, IAsyncDisposable
     where TMessage : class
 {
-    private readonly IRabbitMqClient _rabbitMqClient;
-    private readonly ILogger<RabbitMqPublisher<TMessage>> _logger;
-    private readonly string broker;
-    private readonly string _exchange;
-    private readonly string _routingKey;
-    private readonly ExchangeType _exchangeType;
-    private readonly bool _declareExchange;
-    private readonly bool _durable;
-    private readonly bool _autoDelete;
-    private readonly PublisherPipeline<TMessage> _pipeline;
+    private readonly PublisherPipeline<TMessage> _pipeline = new PublisherPipelineBuilder<TMessage>()
+        .Use(new PublisherMetricsMiddleware<TMessage>())
+        .Use(new PublisherTracingMiddleware<TMessage>())
+        .Use(new SerializationMiddleware<TMessage>(serializer))
+        .Use(new RabbitMqPublishMiddleware<TMessage>(rabbitMqClient))
+        .Build();
     private readonly SemaphoreSlim _semaphore = new(1, 1);
     private bool _initialized;
 
@@ -39,35 +46,6 @@ public class RabbitMqPublisher<TMessage> : IPublisher<TMessage>, IAsyncDisposabl
     {
     }
 
-    public RabbitMqPublisher(
-        IRabbitMqClient rabbitMqClient,
-        ISerializer serializer,
-        ILogger<RabbitMqPublisher<TMessage>> logger,
-        string broker,
-        string exchange,
-        string routingKey,
-        ExchangeType exchangeType,
-        bool declareExchange,
-        bool durable,
-        bool autoDelete)
-    {
-        _rabbitMqClient = rabbitMqClient;
-        _logger = logger;
-        this.broker = broker;
-        _exchange = exchange;
-        _routingKey = routingKey;
-        _exchangeType = exchangeType;
-        _declareExchange = declareExchange;
-        _durable = durable;
-        _autoDelete = autoDelete;
-        _pipeline = new PublisherPipelineBuilder<TMessage>()
-            .Use(new PublisherMetricsMiddleware<TMessage>())
-            .Use(new PublisherTracingMiddleware<TMessage>())
-            .Use(new SerializationMiddleware<TMessage>(serializer))
-            .Use(new RabbitMqPublishMiddleware<TMessage>(rabbitMqClient, broker))
-            .Build();
-    }
-
     public async Task PublishAsync(TMessage message, CancellationToken cancellationToken = default)
     {
         if (!_initialized)
@@ -77,20 +55,20 @@ public class RabbitMqPublisher<TMessage> : IPublisher<TMessage>, IAsyncDisposabl
             {
                 if (!_initialized)
                 {
-                    await _rabbitMqClient.ConnectAsync(broker, cancellationToken);
+                    await rabbitMqClient.ConnectAsync(broker, cancellationToken);
 
-                    if (_declareExchange)
+                    if (declareExchange)
                     {
-                        await _rabbitMqClient.ExchangeDeclareAsync(
-                            exchange: _exchange,
-                            type: _exchangeType.ToString().ToLowerInvariant(),
-                            durable: _durable,
-                            autoDelete: _autoDelete,
+                        await rabbitMqClient.ExchangeDeclareAsync(
+                            exchange: exchange,
+                            type: exchangeType.ToString().ToLowerInvariant(),
+                            durable: durable,
+                            autoDelete: autoDelete,
                             cancellationToken: cancellationToken);
                     }
 
                     _initialized = true;
-                    _logger.LogStartingRabbitmqPublisher(typeof(TMessage).Name, broker, _exchange);
+                    logger.LogStartingRabbitmqPublisher(typeof(TMessage).Name, broker, exchange);
                 }
             }
             finally
@@ -99,13 +77,13 @@ public class RabbitMqPublisher<TMessage> : IPublisher<TMessage>, IAsyncDisposabl
             }
         }
 
-        var context = new PublisherContext<TMessage>(message, _exchange, _routingKey, cancellationToken);
+        var context = new PublisherContext<TMessage>(message, exchange, routingKey, cancellationToken);
         await _pipeline.ExecuteAsync(context);
     }
 
     public async ValueTask DisposeAsync()
     {
-        await _rabbitMqClient.DisposeAsync();
+        await rabbitMqClient.DisposeAsync();
         _semaphore.Dispose();
         GC.SuppressFinalize(this);
     }

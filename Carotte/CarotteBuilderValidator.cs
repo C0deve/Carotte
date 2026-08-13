@@ -1,13 +1,11 @@
-﻿using System.Collections.ObjectModel;
-
-namespace Carotte;
+﻿namespace Carotte;
 
 internal static class CarotteBuilderValidator
 {
     public static ValidationResult Validate(MessageBrokerSettings settings)
     {
         if (settings.Brokers.Count == 0) return ValidationResult.Failure(new NoBrokerRegistered());
-        
+
         var consumerValidation = ValidateConsumers(settings);
         if (!consumerValidation.IsSuccess) return consumerValidation;
 
@@ -16,34 +14,36 @@ internal static class CarotteBuilderValidator
 
         var topologyValidation = ValidateExchangeDeclarations(settings);
         if (!topologyValidation.IsSuccess) return topologyValidation;
-        
+
         return ValidationResult.Success();
     }
 
     private static ValidationResult ValidateProducers(MessageBrokerSettings settings)
     {
-        var errors = new List<ConfigurationError>();
-        foreach (var producer in settings.Producers)
-        {
-            if (!settings.Brokers.ContainsKey(producer.Broker))
-            {
-                errors.Add(new BrokerNotFoundForPublisher(producer.Broker, producer.MessageType.Name));
-            }
-        }
-        return errors.Count == 0 ? ValidationResult.Success() : ValidationResult.Failure(errors);
+        var errors = (
+                from producer in settings.Producers
+                where !settings.Brokers.ContainsKey(producer.Broker)
+                select new BrokerNotFoundForPublisher(producer.Broker, producer.MessageType.Name))
+            .Cast<ConfigurationError>()
+            .ToList();
+        
+        return errors.Count == 0
+            ? ValidationResult.Success()
+            : ValidationResult.Failure(errors);
     }
 
     private static ValidationResult ValidateConsumers(MessageBrokerSettings settings)
-    {   
-        var errors = new List<ConfigurationError>();
-        foreach (var consumer in settings.Consumers)
-        {
-            if (!settings.Brokers.ContainsKey(consumer.Broker))
-            {
-                errors.Add(new BrokerNotFoundForConsumer(consumer.Broker, consumer.ConsumerType.Name));
-            }
-        }
-        return errors.Count == 0 ? ValidationResult.Success() : ValidationResult.Failure(errors);
+    {
+        var errors =
+            (from consumer in settings.Consumers
+                where !settings.Brokers.ContainsKey(consumer.Broker)
+                select new BrokerNotFoundForConsumer(consumer.Broker, consumer.ConsumerType.Name))
+            .Cast<ConfigurationError>()
+            .ToList();
+
+        return errors.Count == 0 
+            ? ValidationResult.Success() 
+            : ValidationResult.Failure(errors);
     }
 
     private static ValidationResult ValidateExchangeDeclarations(MessageBrokerSettings settings)

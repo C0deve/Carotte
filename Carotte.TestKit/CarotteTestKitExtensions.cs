@@ -31,11 +31,7 @@ public static class CarotteTestKitExtensions
             // Replace IRabbitMqClient to avoid any RabbitMQ calls
             var mockRabbitMqClient = new Mock<IRabbitMqClient>();
             services.Replace(ServiceDescriptor.Singleton(mockRabbitMqClient.Object));
-
-            // Replace ITopologyManager to avoid topology declarations
-            var mockTopologyManager = new Mock<ITopologyManager>();
-            services.Replace(ServiceDescriptor.Singleton(mockTopologyManager.Object));
-
+            
             // Register a PostConfigure action to replace publishers
             // We need to find the CarotteBuilder in the services to know which publishers to replace
             var builderDescriptor = services.FirstOrDefault(d => d.ServiceType == typeof(CarotteBuilder));

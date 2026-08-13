@@ -8,7 +8,7 @@ public static class CarotteDiagnostics
 {
     public const string ServiceName = "Carotte";
     public static readonly ActivitySource ActivitySource = new(ServiceName);
-    public static readonly Meter Meter = new(ServiceName);
+    private static readonly Meter Meter = new(ServiceName);
     public static readonly TextMapPropagator Propagator = Propagators.DefaultTextMapPropagator;
 
     public static readonly Counter<long> MessagesConsumedCounter = Meter.CreateCounter<long>("carotte_messages_consumed", description: "Number of messages consumed");

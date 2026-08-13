@@ -52,8 +52,6 @@ public static partial class StringExtensions
                 : $"q.{clientName.ToKebabCase()}.{kebabName}";
         }
 
-        public string ToDefaultQueueName() => name.ToConsumerQueueName();
-
         public string ToDefaultExchangeName() => name.ToMessageExchangeName();
 
         public string ToDeadLetterExchangeName()

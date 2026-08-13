@@ -76,6 +76,10 @@ internal static class CarotteScanner
     }
 }
 
-internal readonly record struct ConsumerScanResult(Type ConsumerType, ReadOnlyCollection<Type> MessageTypes, QueueAttribute? QueueAttr, ReadOnlyCollection<BindingAttribute> BindingAttrs);
+internal readonly record struct ConsumerScanResult(
+    Type ConsumerType,
+    ReadOnlyCollection<Type> MessageTypes,
+    QueueAttribute? QueueAttr,
+    ReadOnlyCollection<BindingAttribute> BindingAttrs);
 
 internal readonly record struct PublisherScanResult(Type MessageType, PublisherAttribute PublisherAttribute);

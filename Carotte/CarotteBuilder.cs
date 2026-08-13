@@ -34,12 +34,11 @@ namespace Carotte;
             services.AddLogging();
             services.TryAddSingleton<IConnectionManager>(_ => new ConnectionManager(builder.Brokers));
             services.TryAddTransient<IRabbitMqClient, RabbitMqClient>();
-            services.TryAddSingleton<ITopologyManager, TopologyManager>();
             services.TryAddSingleton<ISerializer, JsonSerializerImpl>();
 
             AddOpenTelemetrySupport(services, builder);
-            AddConsumers(services, builder, messageBrokerSettings);
-            AddPublishers(services, builder, messageBrokerSettings);
+            AddConsumers(services, messageBrokerSettings);
+            AddPublishers(services, messageBrokerSettings);
 
             foreach (var action in builder.PostConfigureActions)
             {
@@ -73,7 +72,7 @@ namespace Carotte;
                 });
         }
 
-        private static void AddConsumers(IServiceCollection services, CarotteBuilder builder, MessageBrokerSettings messageBrokerSettings)
+        private static void AddConsumers(IServiceCollection services, MessageBrokerSettings messageBrokerSettings)
         {
             foreach (var consumer in messageBrokerSettings.Consumers)
             {
@@ -87,7 +86,7 @@ namespace Carotte;
             }
         }
 
-        private static void AddPublishers(IServiceCollection services, CarotteBuilder builder, MessageBrokerSettings messageBrokerSettings)
+        private static void AddPublishers(IServiceCollection services, MessageBrokerSettings messageBrokerSettings)
         {
             foreach (var producer in messageBrokerSettings.Producers)
             {

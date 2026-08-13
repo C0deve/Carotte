@@ -38,17 +38,40 @@ public class RabbitMqConsumerHostTests
         await host.StartAsync(CancellationToken.None);
 
         // Assert
-        VerifyLog(loggerMock, LogLevel.Information, "Starting RabbitMqConsumerHost for TestConsumer on broker test-broker. Queue: test-queue, Exchanges: test-exchange, Messages: 'TestMessage'");
+        VerifyLog(loggerMock,
+            LogLevel.Information,
+            "Starting RabbitMqConsumerHost for TestConsumer on broker test-broker. Queue: test-queue, Exchanges: test-exchange, Messages: 'TestMessage'");
         VerifyLog(loggerMock, LogLevel.Information, "Setting up topology for TestConsumer");
 
         rabbitMqClient.Verify(c => c.ConnectAsync(broker, It.IsAny<CancellationToken>()), Times.Once);
 
         // Check topology setup
-        rabbitMqClient.Verify(c => c.QueueDeclareAsync("test-queue", true, false, false, It.IsAny<IDictionary<string, object?>>(), false, false, It.IsAny<CancellationToken>()), Times.Once);
-        rabbitMqClient.Verify(c => c.QueueBindAsync("test-queue", "test-exchange", "test-key", It.IsAny<IDictionary<string, object?>>(), false, It.IsAny<CancellationToken>()), Times.Once);
+        rabbitMqClient.Verify(c => c.QueueDeclareAsync("test-queue",
+                true,
+                false,
+                false,
+                It.IsAny<IDictionary<string, object?>>(),
+                false,
+                false,
+                It.IsAny<CancellationToken>()),
+            Times.Once);
+        rabbitMqClient.Verify(c => c.QueueBindAsync("test-queue",
+                "test-exchange",
+                "test-key",
+                It.IsAny<IDictionary<string, object?>>(),
+                false,
+                It.IsAny<CancellationToken>()),
+            Times.Once);
 
         // Check consumer setup
-        rabbitMqClient.Verify(c => c.BasicConsumeAsync("test-queue", false, string.Empty, false, false, It.IsAny<IDictionary<string, object>?>(), It.IsAny<CancellationToken>()), Times.Once);
+        rabbitMqClient.Verify(c => c.BasicConsumeAsync("test-queue",
+                false,
+                string.Empty,
+                false,
+                false,
+                It.IsAny<IDictionary<string, object?>?>(),
+                It.IsAny<CancellationToken>()),
+            Times.Once);
 
         await host.StopAsync(CancellationToken.None);
         rabbitMqClient.Verify(c => c.DisposeAsync(), Times.Once);
@@ -161,13 +184,40 @@ public class RabbitMqConsumerHostTests
         VerifyLog(loggerMock, LogLevel.Information, "Starting RabbitMqConsumerHost for TestConsumer on broker test-broker. Queue: test-queue, Exchanges: test-exchange, Messages: 'TestMessage'");
         VerifyLog(loggerMock, LogLevel.Information, "Setting up topology for TestConsumer");
 
-        rabbitMqClient.Verify(c => c.QueueDeclareAsync(testQueue, true, false, false, It.IsAny<IDictionary<string, object?>>(), false, false, It.IsAny<CancellationToken>()), Times.Once);
+        rabbitMqClient.Verify(c => c.QueueDeclareAsync(testQueue,
+                true,
+                false,
+                false,
+                It.IsAny<IDictionary<string, object?>>(),
+                false,
+                false,
+                It.IsAny<CancellationToken>()),
+            Times.Once);
 
-        rabbitMqClient.Verify(c => c.QueueBindAsync(testQueue, testExchange, "key1", It.IsAny<IDictionary<string, object?>>(), false, It.IsAny<CancellationToken>()), Times.Once);
-        rabbitMqClient.Verify(c => c.QueueBindAsync(testQueue, testExchange, "key2", It.IsAny<IDictionary<string, object?>>(), false, It.IsAny<CancellationToken>()), Times.Once);
+        rabbitMqClient.Verify(c => c.QueueBindAsync(testQueue,
+                testExchange,
+                "key1",
+                It.IsAny<IDictionary<string, object?>>(),
+                false,
+                It.IsAny<CancellationToken>()),
+            Times.Once);
+        rabbitMqClient.Verify(c => c.QueueBindAsync(testQueue,
+                testExchange,
+                "key2",
+                It.IsAny<IDictionary<string, object?>>(),
+                false,
+                It.IsAny<CancellationToken>()),
+            Times.Once);
 
         // Should consume only once from "test-queue"
-        rabbitMqClient.Verify(c => c.BasicConsumeAsync(testQueue, false, string.Empty, false, false, It.IsAny<IDictionary<string, object?>>(), It.IsAny<CancellationToken>()), Times.Once);
+        rabbitMqClient.Verify(c => c.BasicConsumeAsync(testQueue,
+                false,
+                string.Empty,
+                false,
+                false,
+                It.IsAny<IDictionary<string, object?>>(),
+                It.IsAny<CancellationToken>()),
+            Times.Once);
 
         await host.StopAsync(CancellationToken.None);
     }
@@ -495,12 +545,9 @@ public class RabbitMqConsumerHostTests
         public Task HandleAsync(TestMessage message, CancellationToken cancellationToken)
         {
             Attempts++;
-            if (Attempts <= failuresBeforeSuccess)
-            {
-                throw new InvalidOperationException("Simulated processing failure.");
-            }
-
-            return Task.CompletedTask;
+            return Attempts <= failuresBeforeSuccess 
+                ? throw new InvalidOperationException("Simulated processing failure.") 
+                : Task.CompletedTask;
         }
     }
 
@@ -508,7 +555,7 @@ public class RabbitMqConsumerHostTests
     {
         public byte[] Serialize<T>(T message) => [];
 
-        public T? Deserialize<T>(byte[] data) => Activator.CreateInstance<T>();
+        public T Deserialize<T>(byte[] data) => Activator.CreateInstance<T>();
     }
 
     private static void VerifyLog<T>(Mock<ILogger<T>> loggerMock, LogLevel level, string message)

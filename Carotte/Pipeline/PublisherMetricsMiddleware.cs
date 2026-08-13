@@ -5,6 +5,8 @@ public class PublisherMetricsMiddleware<TMessage> : IPublisherMiddleware<TMessag
     public async Task InvokeAsync(PublisherContext<TMessage> context, PublisherDelegate<TMessage> next)
     {
         await next(context);
-        CarotteDiagnostics.MessagesPublishedCounter.Add(1, new KeyValuePair<string, object?>("exchange", context.Exchange));
+        CarotteDiagnostics.MessagesPublishedCounter.Add(
+            1,
+            new KeyValuePair<string, object?>("exchange", context.Exchange));
     }
 }
