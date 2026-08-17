@@ -31,9 +31,9 @@ var app = builder.Build();
 app.MapGet("/", () => "Carotte Sample API is running. Use POST /order to simulate a message.");
 
 // Endpoint to simulate sending a message
-app.MapPost("/order", async (IPublisher<OrderCreatedMessage> publisher) =>
+app.MapPost("/order", async (IPublisher<OrderCreated> publisher) =>
 {
-    var order = new OrderCreatedMessage(Guid.NewGuid(), "Jean Dupont", 42.50m);
+    var order = new OrderCreated(Guid.NewGuid(), "Jean Dupont", 42.50m);
     await publisher.PublishAsync(order);
     return Results.Accepted(value: order);
 });

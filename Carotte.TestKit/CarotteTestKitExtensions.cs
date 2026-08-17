@@ -33,29 +33,18 @@ public static class CarotteTestKitExtensions
             var mockRabbitMqClient = new Mock<IRabbitMqClient>();
             services.Replace(ServiceDescriptor.Singleton(mockRabbitMqClient.Object));
             
-            // Register a PostConfigure action to replace publishers
-            // We need to find the CarotteBuilder in the services to know which publishers to replace
-            var builderDescriptor = services.FirstOrDefault(d => d.ServiceType == typeof(CarotteBuilder));
-            if (builderDescriptor?.ImplementationInstance is not CarotteBuilder) return services;
-            
-            // Note: We don't have access to PublisherConfigs anymore,
-            // so we rely on the fact that IPublisher<T> are registered as singletons.
-            // We'll replace them if they are of type RabbitMqPublisher<T>
+            // Remove any previously registered closed generic IPublisher<> descriptors
             var publishers = services.Where(d => d.ServiceType.IsGenericType && 
                                                  d.ServiceType.GetGenericTypeDefinition() == typeof(IPublisher<>))
                 .ToList();
 
             foreach (var pub in publishers)
             {
-                var messageType = pub.ServiceType.GetGenericArguments()[0];
-                var implementationType = typeof(InMemoryPublisher<>).MakeGenericType(messageType);
-
-                services.Replace(ServiceDescriptor.Singleton(pub.ServiceType, sp =>
-                {
-                    var store = sp.GetRequiredService<MessageTestStore>();
-                    return Activator.CreateInstance(implementationType, store)!;
-                }));
+                services.Remove(pub);
             }
+
+            // Register open generic InMemoryPublisher
+            services.AddSingleton(typeof(IPublisher<>), typeof(InMemoryPublisher<>));
 
             return services;
         }

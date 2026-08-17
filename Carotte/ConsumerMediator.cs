@@ -58,8 +58,15 @@ internal sealed class ConsumerMediator(IServiceProvider serviceProvider)
         if (_consumerType != null && _handlerMethods.TryGetValue(messageType, out var method))
         {
             var handler = messageServiceProvider.GetRequiredService(_consumerType);
-            var task = (Task?)method.Invoke(handler, [message, cancellationToken]);
-            if (task != null) await task;
+            try
+            {
+                var task = (Task?)method.Invoke(handler, [message, cancellationToken]);
+                if (task != null) await task;
+            }
+            catch (TargetInvocationException ex) when (ex.InnerException != null)
+            {
+                System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(ex.InnerException).Throw();
+            }
         }
     }
 }

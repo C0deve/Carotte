@@ -1,6 +1,6 @@
 ﻿namespace Carotte;
 
-internal class InMemoryPublisher<TMessage>(MessageTestStore store) : IPublisher<TMessage> where TMessage : class
+public class InMemoryPublisher<TMessage>(MessageTestStore store) : IPublisher<TMessage> where TMessage : class
 {
     public Task PublishAsync(TMessage message, CancellationToken cancellationToken = default)
     {

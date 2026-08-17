@@ -1,4 +1,5 @@
-﻿using Microsoft.Extensions.DependencyInjection;
+﻿using System.Diagnostics;
+using Microsoft.Extensions.DependencyInjection;
 using Moq;
 using Shouldly;
 
@@ -10,6 +11,8 @@ public class CarotteTestKitTests
 
     [Publisher]
     public record ResponseMessage(string Content);
+
+    public record UnregisteredMessage(string Info);
 
     [Queue("test-queue", broker: "test-broker")]
     public class TestConsumer(IPublisher<ResponseMessage> publisher) : IConsumer<TestMessage>
@@ -45,6 +48,44 @@ public class CarotteTestKitTests
         {
             tracker.ConsumerScopeIds.Add(dependency.Id);
             return Task.CompletedTask;
+        }
+    }
+
+    [Queue("retry-consumer-queue", broker: "test-broker", maxRetryAttempts: 2)]
+    public class RetryConsumer : IConsumer<TestMessage>
+    {
+        public static int Attempts { get; set; }
+
+        public Task HandleAsync(TestMessage message, CancellationToken cancellationToken)
+        {
+            Attempts++;
+            if (Attempts < 2)
+            {
+                throw new InvalidOperationException("Transient failure");
+            }
+
+            return Task.CompletedTask;
+        }
+    }
+
+    [Queue("failing-consumer-queue", broker: "test-broker", maxRetryAttempts: 2)]
+    public class AlwaysFailingConsumer : IConsumer<TestMessage>
+    {
+        public static int Attempts { get; set; }
+
+        public Task HandleAsync(TestMessage message, CancellationToken cancellationToken)
+        {
+            Attempts++;
+            throw new InvalidOperationException("Permanent failure");
+        }
+    }
+
+    [Queue("arbitrary-publisher-queue", broker: "test-broker")]
+    public class ArbitraryPublisherConsumer(IPublisher<UnregisteredMessage> publisher) : IConsumer<TestMessage>
+    {
+        public async Task HandleAsync(TestMessage message, CancellationToken cancellationToken)
+        {
+            await publisher.PublishAsync(new UnregisteredMessage(message.Content), cancellationToken);
         }
     }
 
@@ -115,5 +156,88 @@ public class CarotteTestKitTests
         tracker.ConsumerScopeIds.Count.ShouldBe(2);
         tracker.ConsumerScopeIds.Distinct().Count().ShouldBe(2);
         tracker.DisposedScopes.ShouldBe(2);
+    }
+
+    [Fact]
+    public async Task OpenGenericPublisher_ShouldWorkForAnyUnregisteredMessageType()
+    {
+        var services = new ServiceCollection();
+        services.AddCarotte(c => c
+            .AddBroker("test-broker", _ => { })
+            .AddAssemblies(typeof(ArbitraryPublisherConsumer).Assembly));
+        services.AddCarotteTestKit();
+
+        await using var serviceProvider = services.BuildServiceProvider();
+        var testKit = serviceProvider.GetRequiredService<CarotteTestKit>();
+
+        await testKit.SimulateReceiveAsync<ArbitraryPublisherConsumer, TestMessage>(new TestMessage("custom payload"));
+
+        var messages = testKit.GetSentMessages<UnregisteredMessage>();
+        messages.Count.ShouldBe(1);
+        messages[0].Info.ShouldBe("custom payload");
+    }
+
+    [Fact]
+    public async Task SimulateReceive_ShouldRetryAndSucceed_WhenTransientFailureOccurs()
+    {
+        RetryConsumer.Attempts = 0;
+        var services = new ServiceCollection();
+        services.AddCarotte(c => c
+            .AddBroker("test-broker", _ => { })
+            .AddAssemblies(typeof(RetryConsumer).Assembly));
+        services.AddCarotteTestKit();
+
+        await using var serviceProvider = services.BuildServiceProvider();
+        var testKit = serviceProvider.GetRequiredService<CarotteTestKit>();
+
+        await testKit.SimulateReceiveAsync<RetryConsumer, TestMessage>(new TestMessage("retry"));
+
+        RetryConsumer.Attempts.ShouldBe(2);
+    }
+
+    [Fact]
+    public async Task SimulateReceive_ShouldThrow_WhenMaxRetryAttemptsExceeded()
+    {
+        AlwaysFailingConsumer.Attempts = 0;
+        var services = new ServiceCollection();
+        services.AddCarotte(c => c
+            .AddBroker("test-broker", _ => { })
+            .AddAssemblies(typeof(AlwaysFailingConsumer).Assembly));
+        services.AddCarotteTestKit();
+
+        await using var serviceProvider = services.BuildServiceProvider();
+        var testKit = serviceProvider.GetRequiredService<CarotteTestKit>();
+
+        await Should.ThrowAsync<InvalidOperationException>(() =>
+            testKit.SimulateReceiveAsync<AlwaysFailingConsumer, TestMessage>(new TestMessage("fail")));
+
+        AlwaysFailingConsumer.Attempts.ShouldBe(3); // Initial attempt (0) + 2 retries (attempt 1, 2)
+    }
+
+    [Fact]
+    public async Task SimulateReceive_ShouldExecuteTracingMiddleware()
+    {
+        var activities = new List<Activity>();
+        using var listener = new ActivityListener
+        {
+            ShouldListenTo = source => source.Name == CarotteDiagnostics.ServiceName,
+            Sample = (ref _) => ActivitySamplingResult.AllData,
+            ActivityStopped = act => activities.Add(act)
+        };
+        ActivitySource.AddActivityListener(listener);
+
+        var services = new ServiceCollection();
+        services.AddCarotte(c => c
+            .AddBroker("test-broker", _ => { })
+            .AddAssemblies(typeof(TestConsumer).Assembly));
+        services.AddCarotteTestKit();
+
+        await using var serviceProvider = services.BuildServiceProvider();
+        var testKit = serviceProvider.GetRequiredService<CarotteTestKit>();
+
+        await testKit.SimulateReceiveAsync<TestConsumer, TestMessage>(new TestMessage("tracing test"));
+
+        var activity = activities.FirstOrDefault(a => a.OperationName == "Consume TestMessage");
+        activity.ShouldNotBeNull();
     }
 }

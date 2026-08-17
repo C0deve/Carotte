@@ -4,9 +4,9 @@
 public record NotificationMessage(Guid OrderId, string Message, string RecipientEmail);
 
 [Queue("order-processing-queue", broker: "my-broker", exchange: "orders-exchange", routingKey: "order.created")]
-public partial class MultiMessageConsumer(ILogger<MultiMessageConsumer> logger) : IConsumer<OrderCreatedMessage>, IConsumer<NotificationMessage>
+public partial class MultiMessageConsumer(ILogger<MultiMessageConsumer> logger) : IConsumer<OrderCreated>, IConsumer<NotificationMessage>
 {
-    public Task HandleAsync(OrderCreatedMessage message, CancellationToken cancellationToken)
+    public Task HandleAsync(OrderCreated message, CancellationToken cancellationToken)
     {
         LogOrderReceived(logger, message.OrderId, message.CustomerName);
         return Task.CompletedTask;
