@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Reflection;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -10,14 +11,14 @@ namespace Carotte;
 
 public class CarotteTestKit(IServiceProvider serviceProvider)
 {
-    public Task SimulateReceiveAsync<TConsumer, TMessage>(TMessage message, CancellationToken cancellationToken = default) 
+    public Task<TestDeliveryResult> SimulateReceiveAsync<TConsumer, TMessage>(TMessage message, CancellationToken cancellationToken = default) 
         where TConsumer : class, IConsumer<TMessage>
     {
         ArgumentNullException.ThrowIfNull(message);
         return SimulateReceiveInternalAsync(typeof(TConsumer), typeof(TMessage), message, cancellationToken);
     }
 
-    public Task SimulateReceiveAsync<TConsumer>(object message, CancellationToken cancellationToken = default) 
+    public Task<TestDeliveryResult> SimulateReceiveAsync<TConsumer>(object message, CancellationToken cancellationToken = default) 
         where TConsumer : class
     {
         ArgumentNullException.ThrowIfNull(message);
@@ -32,7 +33,7 @@ public class CarotteTestKit(IServiceProvider serviceProvider)
         return SimulateReceiveInternalAsync(typeof(TConsumer), messageType, message, cancellationToken);
     }
 
-    public async Task SimulateReceiveAsync(object message, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<TestDeliveryResult>> SimulateReceiveAsync(object message, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(message);
 
@@ -44,13 +45,17 @@ public class CarotteTestKit(IServiceProvider serviceProvider)
             throw new InvalidOperationException($"No consumer found implementing IConsumer<{messageType.FullName}>.");
         }
 
+        var results = new List<TestDeliveryResult>();
         foreach (var consumerType in consumerTypes)
         {
-            await SimulateReceiveInternalAsync(consumerType, messageType, message, cancellationToken);
+            var result = await SimulateReceiveInternalAsync(consumerType, messageType, message, cancellationToken);
+            results.Add(result);
         }
+
+        return results;
     }
 
-    private async Task SimulateReceiveInternalAsync(
+    private async Task<TestDeliveryResult> SimulateReceiveInternalAsync(
         Type consumerType,
         Type messageType,
         object message,
@@ -93,25 +98,42 @@ public class CarotteTestKit(IServiceProvider serviceProvider)
         var context = new ConsumerContext(ea, scope.ServiceProvider, Message: message, MessageType: messageType, CancellationToken: cancellationToken);
 
         var maxRetryAttempts = Math.Max(0, queueAttr?.MaxRetryAttempts ?? 3);
+        var requeueOnFailure = queueAttr?.FailureAction == ConsumerFailureAction.Requeue;
         var logger = scope.ServiceProvider.GetService<ILogger<CarotteTestKit>>();
         var attempt = 0;
 
+        var stopwatch = Stopwatch.StartNew();
         while (true)
         {
             try
             {
                 await pipeline.ExecuteAsync(context);
-                return;
+                stopwatch.Stop();
+                return TestDeliveryResult.Ack(stopwatch.Elapsed);
             }
-            catch (Exception ex) when (attempt < maxRetryAttempts)
+            catch (Exception ex)
             {
-                attempt++;
-                logger?.LogWarning(
-                    ex,
-                    "Message processing failed for consumer {ConsumerType}. Retrying attempt {RetryAttempt}/{MaxRetryAttempts}.",
-                    consumerType.Name,
-                    attempt,
-                    maxRetryAttempts);
+                if (attempt < maxRetryAttempts)
+                {
+                    attempt++;
+                    logger?.LogWarning(
+                        ex,
+                        "Message processing failed for consumer {ConsumerType}. Retrying attempt {RetryAttempt}/{MaxRetryAttempts}.",
+                        consumerType.Name,
+                        attempt,
+                        maxRetryAttempts);
+                }
+                else
+                {
+                    stopwatch.Stop();
+                    logger?.LogError(
+                        ex,
+                        "Message processing failed for consumer {ConsumerType}. Nacking with requeue={Requeue}.",
+                        consumerType.Name,
+                        requeueOnFailure);
+
+                    return TestDeliveryResult.Nack(ex, stopwatch.Elapsed, requeueOnFailure);
+                }
             }
         }
     }

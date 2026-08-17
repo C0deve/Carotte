@@ -80,6 +80,15 @@ public class CarotteTestKitTests
         }
     }
 
+    [Queue("requeue-failing-consumer-queue", broker: "test-broker", maxRetryAttempts: 1, failureAction: ConsumerFailureAction.Requeue)]
+    public class RequeueFailingConsumer : IConsumer<TestMessage>
+    {
+        public Task HandleAsync(TestMessage message, CancellationToken cancellationToken)
+        {
+            throw new InvalidOperationException("Permanent failure with requeue");
+        }
+    }
+
     [Queue("arbitrary-publisher-queue", broker: "test-broker")]
     public class ArbitraryPublisherConsumer(IPublisher<UnregisteredMessage> publisher) : IConsumer<TestMessage>
     {
@@ -232,7 +241,7 @@ public class CarotteTestKitTests
     }
 
     [Fact]
-    public async Task SimulateReceive_ShouldThrow_WhenMaxRetryAttemptsExceeded()
+    public async Task SimulateReceive_ShouldReturnNackResult_WhenMaxRetryAttemptsExceeded()
     {
         AlwaysFailingConsumer.Attempts = 0;
         var services = new ServiceCollection();
@@ -244,10 +253,111 @@ public class CarotteTestKitTests
         await using var serviceProvider = services.BuildServiceProvider();
         var testKit = serviceProvider.GetRequiredService<CarotteTestKit>();
 
-        await Should.ThrowAsync<InvalidOperationException>(() =>
-            testKit.SimulateReceiveAsync<AlwaysFailingConsumer, TestMessage>(new TestMessage("fail")));
+        var result = await testKit.SimulateReceiveAsync<AlwaysFailingConsumer, TestMessage>(new TestMessage("fail"));
 
-        AlwaysFailingConsumer.Attempts.ShouldBe(3); // Initial attempt (0) + 2 retries (attempt 1, 2)
+        result.IsNacked.ShouldBeTrue();
+    }
+
+    [Fact]
+    public async Task SimulateReceive_ShouldReturnAckResult_WhenMessageProcessedSuccessfully()
+    {
+        var services = new ServiceCollection();
+        services.AddCarotte(c => c
+            .AddBroker("test-broker", _ => { })
+            .AddAssemblies(typeof(TestConsumer).Assembly));
+        services.AddCarotteTestKit();
+
+        await using var serviceProvider = services.BuildServiceProvider();
+        var testKit = serviceProvider.GetRequiredService<CarotteTestKit>();
+
+        var result = await testKit.SimulateReceiveAsync<TestConsumer, TestMessage>(new TestMessage("hello"));
+
+        result.IsAcked.ShouldBeTrue();
+    }
+
+    [Fact]
+    public async Task SimulateReceive_ShouldMeasureElapsedTime_WhenMessageProcessed()
+    {
+        var services = new ServiceCollection();
+        services.AddCarotte(c => c
+            .AddBroker("test-broker", _ => { })
+            .AddAssemblies(typeof(TestConsumer).Assembly));
+        services.AddCarotteTestKit();
+
+        await using var serviceProvider = services.BuildServiceProvider();
+        var testKit = serviceProvider.GetRequiredService<CarotteTestKit>();
+
+        var result = await testKit.SimulateReceiveAsync<TestConsumer, TestMessage>(new TestMessage("hello"));
+
+        result.ElapsedTime.ShouldBeGreaterThan(TimeSpan.Zero);
+    }
+
+    [Fact]
+    public async Task SimulateReceive_ShouldContainException_WhenConsumerFails()
+    {
+        var services = new ServiceCollection();
+        services.AddCarotte(c => c
+            .AddBroker("test-broker", _ => { })
+            .AddAssemblies(typeof(AlwaysFailingConsumer).Assembly));
+        services.AddCarotteTestKit();
+
+        await using var serviceProvider = services.BuildServiceProvider();
+        var testKit = serviceProvider.GetRequiredService<CarotteTestKit>();
+
+        var result = await testKit.SimulateReceiveAsync<AlwaysFailingConsumer, TestMessage>(new TestMessage("fail"));
+
+        result.Exception.ShouldBeOfType<InvalidOperationException>();
+    }
+
+    [Fact]
+    public async Task SimulateReceive_ShouldSetRequeuedFalse_WhenDefaultFailureActionIsDeadLetter()
+    {
+        var services = new ServiceCollection();
+        services.AddCarotte(c => c
+            .AddBroker("test-broker", _ => { })
+            .AddAssemblies(typeof(AlwaysFailingConsumer).Assembly));
+        services.AddCarotteTestKit();
+
+        await using var serviceProvider = services.BuildServiceProvider();
+        var testKit = serviceProvider.GetRequiredService<CarotteTestKit>();
+
+        var result = await testKit.SimulateReceiveAsync<AlwaysFailingConsumer, TestMessage>(new TestMessage("fail"));
+
+        result.Requeued.ShouldBeFalse();
+    }
+
+    [Fact]
+    public async Task SimulateReceive_ShouldSetRequeuedTrue_WhenFailureActionIsRequeue()
+    {
+        var services = new ServiceCollection();
+        services.AddCarotte(c => c
+            .AddBroker("test-broker", _ => { })
+            .AddAssemblies(typeof(RequeueFailingConsumer).Assembly));
+        services.AddCarotteTestKit();
+
+        await using var serviceProvider = services.BuildServiceProvider();
+        var testKit = serviceProvider.GetRequiredService<CarotteTestKit>();
+
+        var result = await testKit.SimulateReceiveAsync<RequeueFailingConsumer, TestMessage>(new TestMessage("fail"));
+
+        result.Requeued.ShouldBeTrue();
+    }
+
+    [Fact]
+    public async Task SimulateReceive_NonGeneric_ShouldReturnListOfResults_ForBroadcastMessage()
+    {
+        var services = new ServiceCollection();
+        services.AddCarotte(c => c
+            .AddBroker("test-broker", _ => { })
+            .AddAssemblies(typeof(FirstBroadcastConsumer).Assembly));
+        services.AddCarotteTestKit();
+
+        await using var serviceProvider = services.BuildServiceProvider();
+        var testKit = serviceProvider.GetRequiredService<CarotteTestKit>();
+
+        var results = await testKit.SimulateReceiveAsync(new BroadcastMessage("hello"));
+
+        results.Count.ShouldBe(2);
     }
 
     [Fact]
