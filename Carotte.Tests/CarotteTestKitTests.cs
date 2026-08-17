@@ -89,6 +89,42 @@ public class CarotteTestKitTests
         }
     }
 
+    public record AutoDispatchMessage(string Content);
+
+    [Queue("auto-dispatch-queue", broker: "test-broker")]
+    public class AutoDispatchConsumer(IPublisher<ResponseMessage> publisher) : IConsumer<AutoDispatchMessage>
+    {
+        public async Task HandleAsync(AutoDispatchMessage message, CancellationToken cancellationToken)
+        {
+            await publisher.PublishAsync(new ResponseMessage($"Auto: {message.Content}"), cancellationToken);
+        }
+    }
+
+    public record BroadcastMessage(string Text);
+
+    [Queue("broadcast-one-queue", broker: "test-broker")]
+    public class FirstBroadcastConsumer(IPublisher<ResponseMessage> publisher) : IConsumer<BroadcastMessage>
+    {
+        public async Task HandleAsync(BroadcastMessage message, CancellationToken cancellationToken)
+        {
+            await publisher.PublishAsync(new ResponseMessage($"First: {message.Text}"), cancellationToken);
+        }
+    }
+
+    [Queue("broadcast-two-queue", broker: "test-broker")]
+    public class SecondBroadcastConsumer(IPublisher<ResponseMessage> publisher) : IConsumer<BroadcastMessage>
+    {
+        public async Task HandleAsync(BroadcastMessage message, CancellationToken cancellationToken)
+        {
+            await publisher.PublishAsync(new ResponseMessage($"Second: {message.Text}"), cancellationToken);
+        }
+    }
+
+    public class IncompatibleConsumer : IConsumer<ResponseMessage>
+    {
+        public Task HandleAsync(ResponseMessage message, CancellationToken cancellationToken) => Task.CompletedTask;
+    }
+
     [Fact]
     public async Task SimulateReceive_ShouldInvokeConsumer_AndStoreSentMessages()
     {
@@ -239,5 +275,92 @@ public class CarotteTestKitTests
 
         var activity = activities.FirstOrDefault(a => a.OperationName == "Consume TestMessage");
         activity.ShouldNotBeNull();
+    }
+
+    [Fact]
+    public async Task SimulateReceive_SingleGenericType_ShouldInvokeConsumer()
+    {
+        var services = new ServiceCollection();
+        services.AddCarotte(c => c
+            .AddBroker("test-broker", _ => { })
+            .AddAssemblies(typeof(TestConsumer).Assembly));
+        services.AddCarotteTestKit();
+
+        await using var serviceProvider = services.BuildServiceProvider();
+        var testKit = serviceProvider.GetRequiredService<CarotteTestKit>();
+
+        await testKit.SimulateReceiveAsync<TestConsumer>(new TestMessage("inferred-message"));
+
+        var messages = testKit.GetSentMessages<ResponseMessage>();
+        messages.Count.ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task SimulateReceive_SingleGenericType_ShouldThrow_WhenConsumerDoesNotHandleMessageType()
+    {
+        var services = new ServiceCollection();
+        services.AddCarotte(c => c
+            .AddBroker("test-broker", _ => { })
+            .AddAssemblies(typeof(IncompatibleConsumer).Assembly));
+        services.AddCarotteTestKit();
+
+        await using var serviceProvider = services.BuildServiceProvider();
+        var testKit = serviceProvider.GetRequiredService<CarotteTestKit>();
+
+        await Should.ThrowAsync<InvalidOperationException>(() =>
+            testKit.SimulateReceiveAsync<IncompatibleConsumer>(new TestMessage("incompatible")));
+    }
+
+    [Fact]
+    public async Task SimulateReceive_NonGeneric_ShouldAutoDispatchByMessageType()
+    {
+        var services = new ServiceCollection();
+        services.AddCarotte(c => c
+            .AddBroker("test-broker", _ => { })
+            .AddAssemblies(typeof(AutoDispatchConsumer).Assembly));
+        services.AddCarotteTestKit();
+
+        await using var serviceProvider = services.BuildServiceProvider();
+        var testKit = serviceProvider.GetRequiredService<CarotteTestKit>();
+
+        await testKit.SimulateReceiveAsync(new AutoDispatchMessage("auto-dispatched"));
+
+        var messages = testKit.GetSentMessages<ResponseMessage>();
+        messages.Count.ShouldBe(1);
+        messages[0].Content.ShouldBe("Auto: auto-dispatched");
+    }
+
+    [Fact]
+    public async Task SimulateReceive_NonGeneric_ShouldDispatchToAllMatchingConsumers()
+    {
+        var services = new ServiceCollection();
+        services.AddCarotte(c => c
+            .AddBroker("test-broker", _ => { })
+            .AddAssemblies(typeof(FirstBroadcastConsumer).Assembly));
+        services.AddCarotteTestKit();
+
+        await using var serviceProvider = services.BuildServiceProvider();
+        var testKit = serviceProvider.GetRequiredService<CarotteTestKit>();
+
+        await testKit.SimulateReceiveAsync(new BroadcastMessage("hello broadcast"));
+
+        var messages = testKit.GetSentMessages<ResponseMessage>();
+        messages.Count.ShouldBe(2);
+    }
+
+    [Fact]
+    public async Task SimulateReceive_NonGeneric_ShouldThrow_WhenNoConsumerFound()
+    {
+        var services = new ServiceCollection();
+        services.AddCarotte(c => c
+            .AddBroker("test-broker", _ => { })
+            .AddAssemblies(typeof(TestConsumer).Assembly));
+        services.AddCarotteTestKit();
+
+        await using var serviceProvider = services.BuildServiceProvider();
+        var testKit = serviceProvider.GetRequiredService<CarotteTestKit>();
+
+        await Should.ThrowAsync<InvalidOperationException>(() =>
+            testKit.SimulateReceiveAsync(new UnregisteredMessage("unhandled")));
     }
 }

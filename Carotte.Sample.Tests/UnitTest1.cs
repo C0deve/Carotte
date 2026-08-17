@@ -24,7 +24,7 @@ public class Tests
             100);
 
         // Act
-        await testKit.SimulateReceiveAsync<OrderConsumer, OrderCreated>(testMessage);
+        await testKit.SimulateReceiveAsync<OrderConsumer>(testMessage);
 
         // Assert
         var sentMessages = testKit.GetSentMessages<NotificationMessage>();

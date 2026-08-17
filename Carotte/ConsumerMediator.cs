@@ -9,9 +9,9 @@ internal sealed class ConsumerMediator(IServiceProvider serviceProvider)
     private Type? _consumerType;
     private readonly Dictionary<Type, MethodInfo> _handlerMethods = [];
 
-    public void Initialize<TConsumer>() where TConsumer : class
+    public void Initialize(Type consumerType)
     {
-        _consumerType = typeof(TConsumer);
+        _consumerType = consumerType;
         var consumerInterfaces = _consumerType.GetInterfaces()
             .Where(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(IConsumer<>))
             .ToList();
@@ -26,6 +26,8 @@ internal sealed class ConsumerMediator(IServiceProvider serviceProvider)
             }
         }
     }
+
+    public void Initialize<TConsumer>() where TConsumer : class => Initialize(typeof(TConsumer));
 
     public IEnumerable<Type> GetHandledMessageTypes() => _handlerMethods.Keys;
 
