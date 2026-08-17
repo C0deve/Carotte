@@ -363,4 +363,215 @@ public class CarotteTestKitTests
         await Should.ThrowAsync<InvalidOperationException>(() =>
             testKit.SimulateReceiveAsync(new UnregisteredMessage("unhandled")));
     }
+
+    [Fact]
+    public async Task ShouldHavePublished_WithoutPredicate_ShouldReturnMessage_WhenMessageExists()
+    {
+        var services = new ServiceCollection();
+        services.AddCarotte(c => c
+            .AddBroker("test-broker", _ => { })
+            .AddAssemblies(typeof(TestConsumer).Assembly));
+        services.AddCarotteTestKit();
+
+        await using var serviceProvider = services.BuildServiceProvider();
+        var testKit = serviceProvider.GetRequiredService<CarotteTestKit>();
+
+        await testKit.SimulateReceiveAsync<TestConsumer>(new TestMessage("hello"));
+
+        var published = testKit.ShouldHavePublished<ResponseMessage>();
+        published.Content.ShouldBe("Received: hello");
+    }
+
+    [Fact]
+    public async Task ShouldHavePublished_WithoutPredicate_ShouldThrow_WhenNoMessagePublished()
+    {
+        var services = new ServiceCollection();
+        services.AddCarotte(c => c.AddBroker("test-broker", _ => { }));
+        services.AddCarotteTestKit();
+
+        await using var serviceProvider = services.BuildServiceProvider();
+        var testKit = serviceProvider.GetRequiredService<CarotteTestKit>();
+
+        Should.Throw<InvalidOperationException>(() =>
+            testKit.ShouldHavePublished<ResponseMessage>());
+    }
+
+    [Fact]
+    public async Task ShouldHavePublished_WithPredicate_ShouldReturnMatchingMessage_WhenMatchingMessageExists()
+    {
+        var services = new ServiceCollection();
+        services.AddCarotte(c => c
+            .AddBroker("test-broker", _ => { })
+            .AddAssemblies(typeof(TestConsumer).Assembly));
+        services.AddCarotteTestKit();
+
+        await using var serviceProvider = services.BuildServiceProvider();
+        var testKit = serviceProvider.GetRequiredService<CarotteTestKit>();
+
+        await testKit.SimulateReceiveAsync<TestConsumer>(new TestMessage("target-msg"));
+
+        var published = testKit.ShouldHavePublished<ResponseMessage>(m => m.Content.Contains("target-msg"));
+        published.ShouldNotBeNull();
+    }
+
+    [Fact]
+    public async Task ShouldHavePublished_WithPredicate_ShouldThrow_WhenNoMatchingMessage()
+    {
+        var services = new ServiceCollection();
+        services.AddCarotte(c => c
+            .AddBroker("test-broker", _ => { })
+            .AddAssemblies(typeof(TestConsumer).Assembly));
+        services.AddCarotteTestKit();
+
+        await using var serviceProvider = services.BuildServiceProvider();
+        var testKit = serviceProvider.GetRequiredService<CarotteTestKit>();
+
+        await testKit.SimulateReceiveAsync<TestConsumer>(new TestMessage("hello"));
+
+        Should.Throw<InvalidOperationException>(() =>
+            testKit.ShouldHavePublished<ResponseMessage>(m => m.Content == "non-existent"));
+    }
+
+    [Fact]
+    public async Task ShouldNotHavePublished_WithoutPredicate_ShouldSucceed_WhenNoMessagePublished()
+    {
+        var services = new ServiceCollection();
+        services.AddCarotte(c => c.AddBroker("test-broker", _ => { }));
+        services.AddCarotteTestKit();
+
+        await using var serviceProvider = services.BuildServiceProvider();
+        var testKit = serviceProvider.GetRequiredService<CarotteTestKit>();
+
+        testKit.ShouldNotHavePublished<ResponseMessage>();
+    }
+
+    [Fact]
+    public async Task ShouldNotHavePublished_WithoutPredicate_ShouldThrow_WhenMessagePublished()
+    {
+        var services = new ServiceCollection();
+        services.AddCarotte(c => c
+            .AddBroker("test-broker", _ => { })
+            .AddAssemblies(typeof(TestConsumer).Assembly));
+        services.AddCarotteTestKit();
+
+        await using var serviceProvider = services.BuildServiceProvider();
+        var testKit = serviceProvider.GetRequiredService<CarotteTestKit>();
+
+        await testKit.SimulateReceiveAsync<TestConsumer>(new TestMessage("hello"));
+
+        Should.Throw<InvalidOperationException>(() =>
+            testKit.ShouldNotHavePublished<ResponseMessage>());
+    }
+
+    [Fact]
+    public async Task ShouldNotHavePublished_WithPredicate_ShouldSucceed_WhenNoMatchingMessagePublished()
+    {
+        var services = new ServiceCollection();
+        services.AddCarotte(c => c
+            .AddBroker("test-broker", _ => { })
+            .AddAssemblies(typeof(TestConsumer).Assembly));
+        services.AddCarotteTestKit();
+
+        await using var serviceProvider = services.BuildServiceProvider();
+        var testKit = serviceProvider.GetRequiredService<CarotteTestKit>();
+
+        await testKit.SimulateReceiveAsync<TestConsumer>(new TestMessage("hello"));
+
+        testKit.ShouldNotHavePublished<ResponseMessage>(m => m.Content == "different-content");
+    }
+
+    [Fact]
+    public async Task ShouldNotHavePublished_WithPredicate_ShouldThrow_WhenMatchingMessagePublished()
+    {
+        var services = new ServiceCollection();
+        services.AddCarotte(c => c
+            .AddBroker("test-broker", _ => { })
+            .AddAssemblies(typeof(TestConsumer).Assembly));
+        services.AddCarotteTestKit();
+
+        await using var serviceProvider = services.BuildServiceProvider();
+        var testKit = serviceProvider.GetRequiredService<CarotteTestKit>();
+
+        await testKit.SimulateReceiveAsync<TestConsumer>(new TestMessage("matching"));
+
+        Should.Throw<InvalidOperationException>(() =>
+            testKit.ShouldNotHavePublished<ResponseMessage>(m => m.Content.Contains("matching")));
+    }
+
+    [Fact]
+    public async Task WaitForPublishedMessageAsync_ShouldReturnExistingMessageImmediately()
+    {
+        var services = new ServiceCollection();
+        services.AddCarotte(c => c
+            .AddBroker("test-broker", _ => { })
+            .AddAssemblies(typeof(TestConsumer).Assembly));
+        services.AddCarotteTestKit();
+
+        await using var serviceProvider = services.BuildServiceProvider();
+        var testKit = serviceProvider.GetRequiredService<CarotteTestKit>();
+
+        await testKit.SimulateReceiveAsync<TestConsumer>(new TestMessage("existing"));
+
+        var msg = await testKit.WaitForPublishedMessageAsync<ResponseMessage>(m => m.Content.Contains("existing"));
+        msg.Content.ShouldBe("Received: existing");
+    }
+
+    [Fact]
+    public async Task WaitForPublishedMessageAsync_ShouldWaitForConcurrentlyPublishedMessage()
+    {
+        var services = new ServiceCollection();
+        services.AddCarotte(c => c
+            .AddBroker("test-broker", _ => { })
+            .AddAssemblies(typeof(TestConsumer).Assembly));
+        services.AddCarotteTestKit();
+
+        await using var serviceProvider = services.BuildServiceProvider();
+        var testKit = serviceProvider.GetRequiredService<CarotteTestKit>();
+
+        var waitTask = testKit.WaitForPublishedMessageAsync<ResponseMessage>(
+            predicate: m => m.Content.Contains("delayed"),
+            timeout: TimeSpan.FromSeconds(3));
+
+        _ = Task.Run(async () =>
+        {
+            await Task.Delay(50);
+            var publisher = serviceProvider.GetRequiredService<IPublisher<ResponseMessage>>();
+            await publisher.PublishAsync(new ResponseMessage("delayed-result"));
+        });
+
+        var result = await waitTask;
+        result.Content.ShouldBe("delayed-result");
+    }
+
+    [Fact]
+    public async Task WaitForPublishedMessageAsync_ShouldThrowTimeoutException_WhenMessageNotPublished()
+    {
+        var services = new ServiceCollection();
+        services.AddCarotte(c => c.AddBroker("test-broker", _ => { }));
+        services.AddCarotteTestKit();
+
+        await using var serviceProvider = services.BuildServiceProvider();
+        var testKit = serviceProvider.GetRequiredService<CarotteTestKit>();
+
+        await Should.ThrowAsync<TimeoutException>(() =>
+            testKit.WaitForPublishedMessageAsync<ResponseMessage>(TimeSpan.FromMilliseconds(50)));
+    }
+
+    [Fact]
+    public async Task Clear_ShouldRemoveAllPublishedMessages()
+    {
+        var services = new ServiceCollection();
+        services.AddCarotte(c => c
+            .AddBroker("test-broker", _ => { })
+            .AddAssemblies(typeof(TestConsumer).Assembly));
+        services.AddCarotteTestKit();
+
+        await using var serviceProvider = services.BuildServiceProvider();
+        var testKit = serviceProvider.GetRequiredService<CarotteTestKit>();
+
+        await testKit.SimulateReceiveAsync<TestConsumer>(new TestMessage("hello"));
+        testKit.Clear();
+
+        testKit.GetSentMessages<ResponseMessage>().ShouldBeEmpty();
+    }
 }

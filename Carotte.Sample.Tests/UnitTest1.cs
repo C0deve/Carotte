@@ -27,8 +27,6 @@ public class Tests
         await testKit.SimulateReceiveAsync<OrderConsumer>(testMessage);
 
         // Assert
-        var sentMessages = testKit.GetSentMessages<NotificationMessage>();
-        sentMessages.Count.ShouldBe(1);
-        sentMessages[0].OrderId.ShouldBe(testMessage.OrderId);
+        testKit.ShouldHavePublished<NotificationMessage>(m => m.OrderId == testMessage.OrderId);
     }
 }

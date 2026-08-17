@@ -5,6 +5,7 @@ using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
 using Carotte.pipeline;
 
+// ReSharper disable once CheckNamespace
 namespace Carotte;
 
 public class CarotteTestKit(IServiceProvider serviceProvider)
@@ -121,7 +122,7 @@ public class CarotteTestKit(IServiceProvider serviceProvider)
 
         var builder = serviceProvider.GetService<CarotteBuilder>();
         var assemblies = new HashSet<Assembly>();
-        if (builder != null && builder.Assemblies.Count > 0)
+        if (builder is { Assemblies.Count: > 0 })
         {
             assemblies.UnionWith(builder.Assemblies);
         }
@@ -168,4 +169,106 @@ public class CarotteTestKit(IServiceProvider serviceProvider)
 
     public IReadOnlyList<TMessage> GetSentMessages<TMessage>() where TMessage : class => 
         serviceProvider.GetRequiredService<MessageTestStore>().GetSentMessages<TMessage>();
+
+    public void Clear() =>
+        serviceProvider.GetRequiredService<MessageTestStore>().Clear();
+
+    public TMessage ShouldHavePublished<TMessage>(Func<TMessage, bool>? predicate = null) where TMessage : class
+    {
+        var messages = GetSentMessages<TMessage>();
+
+        if (predicate == null)
+        {
+            if (messages.Count == 0)
+            {
+                throw new InvalidOperationException(
+                    $"Expected at least one message of type '{typeof(TMessage).Name}' to be published, but none was found.");
+            }
+            return messages[0];
+        }
+
+        var matching = messages.FirstOrDefault(predicate);
+        return matching ??
+               throw new InvalidOperationException(
+                   $"Expected a message of type '{typeof(TMessage).Name}' matching the predicate to be published, but none was found.");
+    }
+
+    public void ShouldNotHavePublished<TMessage>(Func<TMessage, bool>? predicate = null) where TMessage : class
+    {
+        var messages = GetSentMessages<TMessage>();
+
+        if (predicate == null)
+        {
+            if (messages.Count > 0)
+                throw new InvalidOperationException(
+                    $"Expected no message of type '{typeof(TMessage).Name}' to be published, but found {messages.Count}.");
+        }
+        else
+        {
+            var matchingCount = messages.Count(predicate);
+            if (matchingCount > 0)
+                throw new InvalidOperationException(
+                    $"Expected no message of type '{typeof(TMessage).Name}' matching the predicate to be published, but found {matchingCount}.");
+        }
+    }
+
+    public async Task<TMessage> WaitForPublishedMessageAsync<TMessage>(
+        Func<TMessage, bool>? predicate = null,
+        TimeSpan? timeout = null,
+        CancellationToken cancellationToken = default) where TMessage : class
+    {
+        var store = serviceProvider.GetRequiredService<MessageTestStore>();
+        predicate ??= _ => true;
+
+        var existing = store.GetSentMessages<TMessage>().FirstOrDefault(predicate);
+        if (existing != null)
+            return existing;
+
+        var effectiveTimeout = timeout ?? TimeSpan.FromSeconds(5);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        cts.CancelAfter(effectiveTimeout);
+
+        var tcs = new TaskCompletionSource<TMessage>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        void Handler(object msg)
+        {
+            if (msg is TMessage typedMsg && predicate(typedMsg)) 
+                tcs.TrySetResult(typedMsg);
+        }
+
+        store.MessageAdded += Handler;
+        try
+        {
+            var doubleCheck = store.GetSentMessages<TMessage>().FirstOrDefault(predicate);
+            if (doubleCheck != null)
+                return doubleCheck;
+
+            await using (cts.Token.Register(() =>
+                         {
+                             if (cancellationToken.IsCancellationRequested)
+                                 tcs.TrySetCanceled(cancellationToken);
+                             else
+                                 tcs.TrySetException(new TimeoutException(
+                                     $"Timed out after {effectiveTimeout.TotalMilliseconds}ms waiting for message of type '{typeof(TMessage).Name}'."));
+                         }))
+            {
+                return await tcs.Task;
+            }
+        }
+        finally
+        {
+            store.MessageAdded -= Handler;
+        }
+    }
+
+    public Task<TMessage> WaitForPublishedMessageAsync<TMessage>(
+        TimeSpan timeout,
+        CancellationToken cancellationToken = default) where TMessage : class =>
+        WaitForPublishedMessageAsync<TMessage>(predicate: null, timeout: (TimeSpan?)timeout, cancellationToken: cancellationToken);
+
+    public Task<TMessage> WaitForPublishedMessageAsync<TMessage>(
+        Func<TMessage, bool> predicate,
+        TimeSpan timeout,
+        CancellationToken cancellationToken = default) where TMessage : class =>
+        WaitForPublishedMessageAsync(predicate, (TimeSpan?)timeout, cancellationToken);
 }
