@@ -456,19 +456,81 @@ When a consumer handles multiple message types, Carotte uses `BasicProperties.Ty
 
 Carotte publishers set this property automatically. External publishers must set it explicitly when publishing to a queue consumed by a multi-message consumer.
 
-## 🧪 Testing
+## 🧪 Testing with TestKit
 
-Carotte provides a `TestKit` to simplify testing your consumers and publishers without a live RabbitMQ broker.
+Carotte provides `Carotte.TestKit` to facilitate functional in-memory testing of microservices without needing a live RabbitMQ broker.
+
+`CarotteTestKit` executes the complete middleware pipeline (observability with OpenTelemetry tracing and metrics, deserialization, retries, and DI scope isolation) and intercepts all published messages in memory.
+
+### Setup
+
+Register the TestKit in your test `IServiceCollection` (e.g. in `WebApplicationFactory` or test fixture):
 
 ```csharp
-// Use CarotteTestKit in your integration tests
+services.AddCarotte(carotte =>
+{
+    carotte.AddBroker("my-broker", _ => { });
+    carotte.AddAssemblies(typeof(Program).Assembly);
+});
+
+// Replaces RabbitMQ publishers with InMemoryPublisher and registers CarotteTestKit
+services.AddCarotteTestKit();
+```
+
+### Simulating Received Messages
+
+You can simulate message consumption using various overloads:
+
+```csharp
 var testKit = host.Services.GetRequiredService<CarotteTestKit>();
 
-// Simulate receiving a message
-await testKit.SimulateReceiveAsync<OrderConsumer, OrderCreatedMessage>(new OrderCreatedMessage(...));
+// 1. Explicit consumer and message types
+TestDeliveryResult result = await testKit.SimulateReceiveAsync<OrderConsumer, OrderCreatedMessage>(orderCreated);
 
-// Verify messages sent by publishers
-var sentMessages = testKit.GetSentMessages<OrderCreatedMessage>();
+// 2. Inferred message type from instance
+TestDeliveryResult result = await testKit.SimulateReceiveAsync<OrderConsumer>(orderCreated);
+
+// 3. Automatic consumer discovery and dispatch (broadcasts to all matching consumers)
+IReadOnlyList<TestDeliveryResult> results = await testKit.SimulateReceiveAsync(orderCreated);
+```
+
+### Inspecting Delivery Results (`TestDeliveryResult`)
+
+`SimulateReceiveAsync` returns a `TestDeliveryResult` detailing how the pipeline handled the message (including retries, duration, and error status):
+
+```csharp
+var result = await testKit.SimulateReceiveAsync<OrderConsumer>(orderCreated);
+
+// Assert delivery outcome
+Assert.True(result.IsAcked);
+Assert.False(result.IsNacked);
+Assert.False(result.Requeued);
+Assert.Null(result.Exception);
+Assert.True(result.ElapsedTime > TimeSpan.Zero);
+```
+
+### Fluent Assertions & Published Messages
+
+`CarotteTestKit` records all messages published via `IPublisher<T>` and provides fluent assertions and reactive waiting helpers:
+
+```csharp
+// Assert that a message was published (and retrieve it)
+var published = testKit.ShouldHavePublished<OrderProcessedMessage>(msg => msg.OrderId == orderId);
+
+// Assert that no matching message was published
+testKit.ShouldNotHavePublished<OrderFailedMessage>();
+
+// Wait asynchronously for background or delayed publishing (event-driven, non-polling)
+var delayed = await testKit.WaitForPublishedMessageAsync<NotificationMessage>(
+    predicate: msg => msg.UserId == "user-123",
+    timeout: TimeSpan.FromSeconds(2)
+);
+
+// Get all published messages of a given type
+IReadOnlyList<OrderProcessedMessage> allMessages = testKit.GetSentMessages<OrderProcessedMessage>();
+
+// Clear message history between test steps
+testKit.Clear();
 ```
 
 ## 🏗️ Project Structure
