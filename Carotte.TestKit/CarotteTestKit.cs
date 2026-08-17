@@ -161,33 +161,32 @@ public class CarotteTestKit(IServiceProvider serviceProvider)
         return consumerTypes.Distinct();
     }
 
-    private static List<Type> SearchAssemblies(IEnumerable<Assembly> assemblies, HashSet<string> namespaces, Type targetInterface)
-    {
-        var result = new List<Type>();
-        foreach (var assembly in assemblies)
-        {
-            Type[] types;
-            try
-            {
-                types = assembly.GetTypes();
-            }
-            catch (ReflectionTypeLoadException ex)
-            {
-                types = ex.Types.Where(t => t != null).ToArray()!;
-            }
+    private static List<Type> SearchAssemblies(IEnumerable<Assembly> assemblies, HashSet<string> namespaces, Type targetInterface) =>
+    [
+        .. assemblies
+            .SelectMany(GetLoadableTypes)
+            .Where(type => IsCandidateConsumer(type, namespaces, targetInterface))
+    ];
 
-            foreach (var type in types)
-            {
-                if (type is { IsAbstract: false, IsClass: true } &&
-                    (namespaces.Count == 0 || (type.Namespace != null && namespaces.Any(ns => type.Namespace == ns || type.Namespace.StartsWith(ns + ".")))) &&
-                    targetInterface.IsAssignableFrom(type))
-                {
-                    result.Add(type);
-                }
-            }
+    private static IEnumerable<Type> GetLoadableTypes(Assembly assembly)
+    {
+        try
+        {
+            return assembly.GetTypes();
         }
-        return result;
+        catch (ReflectionTypeLoadException ex)
+        {
+            return ex.Types.Where(t => t != null)!;
+        }
     }
+
+    private static bool IsCandidateConsumer(Type type, HashSet<string> namespaces, Type targetInterface) =>
+        type is { IsAbstract: false, IsClass: true } &&
+        IsInNamespace(type, namespaces) &&
+        targetInterface.IsAssignableFrom(type);
+
+    private static bool IsInNamespace(Type type, HashSet<string> namespaces) =>
+        namespaces.Count == 0 || (type.Namespace != null && namespaces.Any(ns => type.Namespace == ns || type.Namespace.StartsWith(ns + ".")));
 
     public IReadOnlyList<TMessage> GetSentMessages<TMessage>() where TMessage : class => 
         serviceProvider.GetRequiredService<MessageTestStore>().GetSentMessages<TMessage>();
