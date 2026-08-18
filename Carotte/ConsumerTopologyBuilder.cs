@@ -1,4 +1,4 @@
-﻿namespace Carotte;
+namespace Carotte;
 
 internal static class ConsumerTopologyBuilder
 {
@@ -38,7 +38,7 @@ internal static class ConsumerTopologyBuilder
             durable: true,
             exclusive: false,
             autoDelete: false,
-            arguments: CreateQueueArguments(errorStrategy),
+            arguments: CreateQueueArguments(errorStrategy, topology.Arguments),
             cancellationToken: cancellationToken);
 
         await rabbitMqClient.QueueBindAsync(
@@ -49,9 +49,6 @@ internal static class ConsumerTopologyBuilder
 
         foreach (var messageExchange in topology.MessageExchangeNames)
         {
-            // We declare the message exchange here to ensure it exists before binding.
-            // This prevents errors if the consumer starts before any producer has published a message.
-            // Note: This assumes the convention that all message exchanges are of type 'fanout'.
             await rabbitMqClient.ExchangeDeclareAsync(
                 exchange: messageExchange,
                 type: "fanout",
@@ -101,7 +98,7 @@ internal static class ConsumerTopologyBuilder
             durable: topology.QueueDurable,
             exclusive: topology.QueueExclusive,
             autoDelete: topology.QueueAutoDelete,
-            arguments: CreateQueueArguments(errorStrategy),
+            arguments: CreateQueueArguments(errorStrategy, topology.Arguments),
             passive: false,
             noWait: false,
             cancellationToken: cancellationToken);
@@ -158,23 +155,30 @@ internal static class ConsumerTopologyBuilder
             cancellationToken: cancellationToken);
     }
 
-    private static IDictionary<string, object?>? CreateQueueArguments(ConsumerErrorStrategy errorStrategy)
+    internal static IDictionary<string, object?>? CreateQueueArguments(
+        ConsumerErrorStrategy errorStrategy,
+        IReadOnlyDictionary<string, object?>? customArguments = null)
     {
-        if (string.IsNullOrWhiteSpace(errorStrategy.DeadLetterExchange))
+        var arguments = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
+
+        if (customArguments != null)
         {
-            return null;
+            foreach (var (k, v) in customArguments)
+            {
+                arguments[k] = v;
+            }
         }
 
-        var arguments = new Dictionary<string, object?>
+        if (!string.IsNullOrWhiteSpace(errorStrategy.DeadLetterExchange) && !arguments.ContainsKey("x-dead-letter-exchange"))
         {
-            ["x-dead-letter-exchange"] = errorStrategy.DeadLetterExchange
-        };
+            arguments["x-dead-letter-exchange"] = errorStrategy.DeadLetterExchange;
+        }
 
-        if (!string.IsNullOrWhiteSpace(errorStrategy.DeadLetterRoutingKey))
+        if (!string.IsNullOrWhiteSpace(errorStrategy.DeadLetterRoutingKey) && !arguments.ContainsKey("x-dead-letter-routing-key"))
         {
             arguments["x-dead-letter-routing-key"] = errorStrategy.DeadLetterRoutingKey;
         }
 
-        return arguments;
+        return arguments.Count > 0 ? arguments : null;
     }
 }

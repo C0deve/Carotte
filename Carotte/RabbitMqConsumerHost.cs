@@ -149,7 +149,8 @@ internal sealed class RabbitMqConsumerHost<TConsumer>(
 
     private async Task ExecutePipelineWithRetryAsync(ConsumerContext context)
     {
-        var maxRetryAttempts = Math.Max(0, topology.ErrorStrategy.WithConventionDefaults(topology.Queue).EffectiveMaxRetryAttempts);
+        var errorStrategy = topology.ErrorStrategy.WithConventionDefaults(topology.Queue);
+        var maxRetryAttempts = Math.Max(0, errorStrategy.EffectiveMaxRetryAttempts);
         var attempt = 0;
 
         while (true)
@@ -166,12 +167,20 @@ internal sealed class RabbitMqConsumerHost<TConsumer>(
             catch (Exception ex) when (attempt < maxRetryAttempts)
             {
                 attempt++;
+                var delay = errorStrategy.GetRetryDelay(attempt);
+
                 logger.LogWarning(
                     ex,
-                    "Message processing failed for consumer {ConsumerType}. Retrying attempt {RetryAttempt}/{MaxRetryAttempts}.",
+                    "Message processing failed for consumer {ConsumerType}. Retrying attempt {RetryAttempt}/{MaxRetryAttempts} after delay {RetryDelay}.",
                     typeof(TConsumer).Name,
                     attempt,
-                    maxRetryAttempts);
+                    maxRetryAttempts,
+                    delay);
+
+                if (delay > TimeSpan.Zero)
+                {
+                    await Task.Delay(delay, context.CancellationToken);
+                }
             }
         }
     }

@@ -44,6 +44,8 @@ internal static class TopologyProvider
         var dlx = overrideSettings?.DeadLetterExchange ?? scan.QueueAttr?.DeadLetterExchange;
         var dlRoutingKey = overrideSettings?.DeadLetterRoutingKey ?? scan.QueueAttr?.DeadLetterRoutingKey;
         var dlQueue = overrideSettings?.DeadLetterQueue ?? scan.QueueAttr?.DeadLetterQueue;
+        var initialInterval = overrideSettings?.InitialRetryInterval;
+        var backoffMultiplier = overrideSettings?.RetryBackoffMultiplier;
 
         var errorStrategy = scan.QueueAttr == null && overrideSettings == null
             ? ConsumerErrorStrategy.ByConvention(queueName)
@@ -52,7 +54,23 @@ internal static class TopologyProvider
                 failureAction,
                 dlx,
                 dlRoutingKey,
-                dlQueue).WithConventionDefaults(queueName);
+                dlQueue,
+                InitialRetryInterval: initialInterval,
+                RetryBackoffMultiplier: backoffMultiplier).WithConventionDefaults(queueName);
+
+        var arguments = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
+        if (!string.IsNullOrWhiteSpace(overrideSettings?.QueueType))
+        {
+            arguments["x-queue-type"] = overrideSettings.QueueType;
+        }
+        if (overrideSettings?.Arguments != null)
+        {
+            foreach (var (k, v) in overrideSettings.Arguments)
+            {
+                arguments[k] = v;
+            }
+        }
+        var readonlyArguments = arguments.Count > 0 ? new ReadOnlyDictionary<string, object?>(arguments) : null;
 
         if (scan.QueueAttr == null && overrideSettings?.RoutingKey == null)
         {
@@ -65,7 +83,8 @@ internal static class TopologyProvider
                     .ToList()
                     .AsReadOnly(),
                 PrefetchCount: prefetchCount,
-                ErrorStrategy: errorStrategy);
+                ErrorStrategy: errorStrategy,
+                Arguments: readonlyArguments);
         }
 
         var routingKey = overrideSettings?.RoutingKey ?? scan.QueueAttr?.RoutingKey ?? string.Empty;
@@ -96,7 +115,8 @@ internal static class TopologyProvider
             ErrorStrategy: errorStrategy,
             QueueDurable: overrideSettings?.QueueDurable ?? scan.QueueAttr?.Durable ?? true,
             QueueExclusive: overrideSettings?.QueueExclusive ?? scan.QueueAttr?.Exclusive ?? false,
-            QueueAutoDelete: overrideSettings?.QueueAutoDelete ?? scan.QueueAttr?.AutoDelete ?? false);
+            QueueAutoDelete: overrideSettings?.QueueAutoDelete ?? scan.QueueAttr?.AutoDelete ?? false,
+            Arguments: readonlyArguments);
     }
 
     private static ProducerInfo ToProducerInfo(this PublisherScanResult scan)
