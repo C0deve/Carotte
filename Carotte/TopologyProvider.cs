@@ -1,68 +1,101 @@
-﻿using System.Collections.ObjectModel;
+using System.Collections.ObjectModel;
 
 namespace Carotte;
 
 internal static class TopologyProvider
 {
-    extension(ConsumerScanResult scan)
+    private static ConsumerSettingsOptions? FindConsumerSettings(
+        Dictionary<string, ConsumerSettingsOptions>? settings,
+        Type consumerType,
+        string? queueName)
     {
-        private ConsumerInfo ToConsumerInfo(string? clientName, ushort defaultPrefetchCount) => new(
+        if (settings == null) return null;
+        if (settings.TryGetValue(consumerType.Name, out var byName)) return byName;
+        if (consumerType.FullName != null && settings.TryGetValue(consumerType.FullName, out var byFullName)) return byFullName;
+        if (queueName != null && settings.TryGetValue(queueName, out var byQueue)) return byQueue;
+        return null;
+    }
+
+    private static ConsumerInfo ToConsumerInfo(
+        this ConsumerScanResult scan,
+        string? clientName,
+        ushort defaultPrefetchCount,
+        ConsumerSettingsOptions? overrideSettings)
+    {
+        var broker = overrideSettings?.Broker ?? scan.QueueAttr?.Broker ?? string.Empty;
+        return new ConsumerInfo(
             scan.ConsumerType,
             [..scan.MessageTypes],
-            scan.QueueAttr?.Broker ?? string.Empty,
-            scan.ToConsumerTopology(clientName, defaultPrefetchCount)
+            broker,
+            scan.ToConsumerTopology(clientName, defaultPrefetchCount, overrideSettings)
         );
+    }
 
-        private IConsumerTopology ToConsumerTopology(string? clientName, ushort defaultPrefetchCount)
+    private static IConsumerTopology ToConsumerTopology(
+        this ConsumerScanResult scan,
+        string? clientName,
+        ushort defaultPrefetchCount,
+        ConsumerSettingsOptions? overrideSettings)
+    {
+        var prefetchCount = overrideSettings?.PrefetchCount ?? scan.QueueAttr?.PrefetchCount ?? defaultPrefetchCount;
+        var queueName = overrideSettings?.QueueName ?? scan.QueueAttr?.Name ?? scan.ConsumerType.Name.ToConsumerQueueName(clientName);
+        var maxRetries = overrideSettings?.MaxRetryAttempts ?? scan.QueueAttr?.MaxRetryAttempts;
+        var dlx = overrideSettings?.DeadLetterExchange ?? scan.QueueAttr?.DeadLetterExchange;
+        var dlRoutingKey = overrideSettings?.DeadLetterRoutingKey ?? scan.QueueAttr?.DeadLetterRoutingKey;
+        var dlQueue = overrideSettings?.DeadLetterQueue ?? scan.QueueAttr?.DeadLetterQueue;
+
+        var errorStrategy = scan.QueueAttr == null && overrideSettings == null
+            ? ConsumerErrorStrategy.ByConvention(queueName)
+            : new ConsumerErrorStrategy(
+                maxRetries,
+                scan.QueueAttr?.FailureAction ?? ConsumerFailureAction.DeadLetter,
+                dlx,
+                dlRoutingKey,
+                dlQueue).WithConventionDefaults(queueName);
+
+        if (scan.QueueAttr == null && overrideSettings?.RoutingKey == null)
         {
-            var prefetchCount = scan.QueueAttr?.PrefetchCount ?? defaultPrefetchCount;
-            var queueName = scan.QueueAttr?.Name ?? scan.ConsumerType.Name.ToConsumerQueueName(clientName);
-            var errorStrategy = scan.QueueAttr == null
-                ? ConsumerErrorStrategy.ByConvention(queueName)
-                : new ConsumerErrorStrategy(
-                    scan.QueueAttr.MaxRetryAttempts,
-                    scan.QueueAttr.FailureAction,
-                    scan.QueueAttr.DeadLetterExchange,
-                    scan.QueueAttr.DeadLetterRoutingKey,
-                    scan.QueueAttr.DeadLetterQueue).WithConventionDefaults(queueName);
-
-            return scan.QueueAttr == null
-                ? new ConsumerConventionTopology(
-                    Broker: scan.QueueAttr?.Broker ?? string.Empty,
-                    Queue: queueName,
-                    ConsumerExchangeName: scan.ConsumerType.Name.ToConsumerExchangeName(clientName),
-                    MessageExchangeNames: scan.MessageTypes
-                        .Select(m => m.Name.ToMessageExchangeName())
-                        .ToList()
-                        .AsReadOnly(),
-                    PrefetchCount: prefetchCount,
-                    ErrorStrategy: errorStrategy)
-                : new ConsumerAttributeTopology(
-                    Broker: scan.QueueAttr?.Broker ?? string.Empty,
-                    Queue: queueName,
-                    Bindings: scan.BindingAttrs
-                        .Select(b => new BindingInfo(
-                            b.Exchange,
-                            b.RoutingKey,
-                            b.ExchangeType,
-                            b.DeclareExchange,
-                            b.Durable,
-                            b.AutoDelete))
-                        .Union([new BindingInfo(
-                            scan.QueueAttr!.Exchange ?? "",
-                            scan.QueueAttr.RoutingKey,
-                            scan.QueueAttr.ExchangeType,
-                            scan.QueueAttr.DeclareExchange,
-                            scan.QueueAttr.ExchangeDurable,
-                            scan.QueueAttr.ExchangeAutoDelete)])
-                        .ToList()
-                        .AsReadOnly(),
-                    PrefetchCount: prefetchCount,
-                    ErrorStrategy: errorStrategy,
-                    QueueDurable: scan.QueueAttr.Durable,
-                    QueueExclusive: scan.QueueAttr.Exclusive,
-                    QueueAutoDelete: scan.QueueAttr.AutoDelete);
+            return new ConsumerConventionTopology(
+                Broker: overrideSettings?.Broker ?? string.Empty,
+                Queue: queueName,
+                ConsumerExchangeName: scan.ConsumerType.Name.ToConsumerExchangeName(clientName),
+                MessageExchangeNames: scan.MessageTypes
+                    .Select(m => m.Name.ToMessageExchangeName())
+                    .ToList()
+                    .AsReadOnly(),
+                PrefetchCount: prefetchCount,
+                ErrorStrategy: errorStrategy);
         }
+
+        var routingKey = overrideSettings?.RoutingKey ?? scan.QueueAttr?.RoutingKey ?? string.Empty;
+        var exchange = scan.QueueAttr?.Exchange ?? string.Empty;
+        var bindings = scan.BindingAttrs
+            .Select(b => new BindingInfo(
+                b.Exchange,
+                b.RoutingKey,
+                b.ExchangeType,
+                b.DeclareExchange,
+                b.Durable,
+                b.AutoDelete))
+            .Union([new BindingInfo(
+                exchange,
+                routingKey,
+                scan.QueueAttr?.ExchangeType ?? ExchangeType.Direct,
+                scan.QueueAttr?.DeclareExchange ?? false,
+                scan.QueueAttr?.ExchangeDurable ?? true,
+                scan.QueueAttr?.ExchangeAutoDelete ?? false)])
+            .ToList()
+            .AsReadOnly();
+
+        return new ConsumerAttributeTopology(
+            Broker: overrideSettings?.Broker ?? scan.QueueAttr?.Broker ?? string.Empty,
+            Queue: queueName,
+            Bindings: bindings,
+            PrefetchCount: prefetchCount,
+            ErrorStrategy: errorStrategy,
+            QueueDurable: scan.QueueAttr?.Durable ?? true,
+            QueueExclusive: scan.QueueAttr?.Exclusive ?? false,
+            QueueAutoDelete: scan.QueueAttr?.AutoDelete ?? false);
     }
 
     private static ProducerInfo ToProducerInfo(this PublisherScanResult scan)
@@ -86,7 +119,8 @@ internal static class TopologyProvider
         Dictionary<string, RabbitMqOptions> brokers,
         ReadOnlyCollection<ConsumerScanResult> consumerScanResults,
         ReadOnlyCollection<PublisherScanResult> publisherScanResults,
-        string? clientName = null)
+        string? clientName = null,
+        Dictionary<string, ConsumerSettingsOptions>? consumerSettings = null)
     {
         var firstBrokerName = brokers.Keys.FirstOrDefault() ?? string.Empty;
 
@@ -99,9 +133,11 @@ internal static class TopologyProvider
             consumerScanResults
                 .Select(sc =>
                 {
-                    var brokerName = sc.QueueAttr?.Broker ?? firstBrokerName;
+                    var initialQueueName = sc.QueueAttr?.Name ?? sc.ConsumerType.Name.ToConsumerQueueName(clientName);
+                    var overrideSetting = FindConsumerSettings(consumerSettings, sc.ConsumerType, initialQueueName);
+                    var brokerName = overrideSetting?.Broker ?? sc.QueueAttr?.Broker ?? firstBrokerName;
                     var prefetchCount = brokers.GetValueOrDefault(brokerName)?.DefaultPrefetchCount ?? 1;
-                    return sc.ToConsumerInfo(clientName, prefetchCount) with { Broker = brokerName };
+                    return sc.ToConsumerInfo(clientName, prefetchCount, overrideSetting) with { Broker = brokerName };
                 })
                 .ToList()
                 .AsReadOnly();

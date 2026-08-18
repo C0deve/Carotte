@@ -8,20 +8,22 @@ public interface ISerializer
     T? Deserialize<T>(byte[] data);
 }
 
-public class JsonSerializerImpl : ISerializer
+public class JsonSerializerImpl(JsonSerializerOptions? options = null) : ISerializer
 {
-    private static readonly JsonSerializerOptions Options = new()
+    private static readonly JsonSerializerOptions DefaultOptions = new()
     {
         PropertyNameCaseInsensitive = true
     };
 
+    private readonly JsonSerializerOptions _options = options ?? DefaultOptions;
+
     public byte[] Serialize<T>(T message)
     {
-        return JsonSerializer.SerializeToUtf8Bytes(message, Options);
+        return JsonSerializer.SerializeToUtf8Bytes(message, _options);
     }
 
     public T? Deserialize<T>(byte[] data)
     {
-        return JsonSerializer.Deserialize<T>(data, Options);
+        return JsonSerializer.Deserialize<T>(data, _options);
     }
 }
