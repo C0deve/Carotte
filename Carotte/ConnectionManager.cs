@@ -1,3 +1,4 @@
+using System.Net.Security;
 using RabbitMQ.Client;
 
 namespace Carotte;
@@ -34,15 +35,17 @@ internal sealed class ConnectionManager(IDictionary<string, RabbitMqOptions> opt
                 throw new ArgumentException($"Broker configuration not found for: {brokerName}");
             }
 
-            var factory = new ConnectionFactory
-            {
-                HostName = opt.Host,
-                Port = opt.Port,
-                UserName = opt.UserName,
-                Password = opt.Password
-            };
+            var factory = CreateConnectionFactory(opt);
 
-            connection = await factory.CreateConnectionAsync();
+            if (opt.Hosts.Count > 0)
+            {
+                connection = await factory.CreateConnectionAsync(opt.Hosts, opt.ClientProvidedName);
+            }
+            else
+            {
+                connection = await factory.CreateConnectionAsync(opt.ClientProvidedName);
+            }
+
             _connections[brokerName] = connection;
             return connection;
         }
@@ -50,6 +53,70 @@ internal sealed class ConnectionManager(IDictionary<string, RabbitMqOptions> opt
         {
             _semaphore.Release();
         }
+    }
+
+    internal static ConnectionFactory CreateConnectionFactory(RabbitMqOptions opt)
+    {
+        var factory = new ConnectionFactory();
+
+        if (!string.IsNullOrWhiteSpace(opt.ConnectionString))
+        {
+            factory.Uri = new Uri(opt.ConnectionString);
+        }
+        else
+        {
+            factory.HostName = opt.Host;
+            factory.Port = opt.Port;
+            factory.VirtualHost = opt.VirtualHost;
+            factory.UserName = opt.UserName;
+            factory.Password = opt.Password;
+        }
+
+        if (opt.ClientProvidedName != null)
+        {
+            factory.ClientProvidedName = opt.ClientProvidedName;
+        }
+
+        if (opt.RequestedHeartbeat.HasValue)
+        {
+            factory.RequestedHeartbeat = opt.RequestedHeartbeat.Value;
+        }
+
+        if (opt.RequestedConnectionTimeout.HasValue)
+        {
+            factory.RequestedConnectionTimeout = opt.RequestedConnectionTimeout.Value;
+        }
+
+        if (opt.ContinuationTimeout.HasValue)
+        {
+            factory.ContinuationTimeout = opt.ContinuationTimeout.Value;
+        }
+
+        if (opt.NetworkRecoveryInterval.HasValue)
+        {
+            factory.NetworkRecoveryInterval = opt.NetworkRecoveryInterval.Value;
+        }
+
+        if (opt.Ssl != null)
+        {
+            factory.Ssl.Enabled = opt.Ssl.Enabled;
+            if (opt.Ssl.ServerName != null)
+            {
+                factory.Ssl.ServerName = opt.Ssl.ServerName;
+            }
+            if (opt.Ssl.AcceptUntrustedCertificates)
+            {
+                factory.Ssl.AcceptablePolicyErrors |= SslPolicyErrors.RemoteCertificateNameMismatch
+                                                   | SslPolicyErrors.RemoteCertificateChainErrors
+                                                   | SslPolicyErrors.RemoteCertificateNotAvailable;
+            }
+            if (opt.Ssl.Version.HasValue)
+            {
+                factory.Ssl.Version = opt.Ssl.Version.Value;
+            }
+        }
+
+        return factory;
     }
 
     public async Task RegisterHostAsync(string brokerName)
