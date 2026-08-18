@@ -40,6 +40,7 @@ internal static class TopologyProvider
         var prefetchCount = overrideSettings?.PrefetchCount ?? scan.QueueAttr?.PrefetchCount ?? defaultPrefetchCount;
         var queueName = overrideSettings?.QueueName ?? scan.QueueAttr?.Name ?? scan.ConsumerType.Name.ToConsumerQueueName(clientName);
         var maxRetries = overrideSettings?.MaxRetryAttempts ?? scan.QueueAttr?.MaxRetryAttempts;
+        var failureAction = overrideSettings?.FailureAction ?? scan.QueueAttr?.FailureAction ?? ConsumerFailureAction.DeadLetter;
         var dlx = overrideSettings?.DeadLetterExchange ?? scan.QueueAttr?.DeadLetterExchange;
         var dlRoutingKey = overrideSettings?.DeadLetterRoutingKey ?? scan.QueueAttr?.DeadLetterRoutingKey;
         var dlQueue = overrideSettings?.DeadLetterQueue ?? scan.QueueAttr?.DeadLetterQueue;
@@ -48,7 +49,7 @@ internal static class TopologyProvider
             ? ConsumerErrorStrategy.ByConvention(queueName)
             : new ConsumerErrorStrategy(
                 maxRetries,
-                scan.QueueAttr?.FailureAction ?? ConsumerFailureAction.DeadLetter,
+                failureAction,
                 dlx,
                 dlRoutingKey,
                 dlQueue).WithConventionDefaults(queueName);
@@ -93,9 +94,9 @@ internal static class TopologyProvider
             Bindings: bindings,
             PrefetchCount: prefetchCount,
             ErrorStrategy: errorStrategy,
-            QueueDurable: scan.QueueAttr?.Durable ?? true,
-            QueueExclusive: scan.QueueAttr?.Exclusive ?? false,
-            QueueAutoDelete: scan.QueueAttr?.AutoDelete ?? false);
+            QueueDurable: overrideSettings?.QueueDurable ?? scan.QueueAttr?.Durable ?? true,
+            QueueExclusive: overrideSettings?.QueueExclusive ?? scan.QueueAttr?.Exclusive ?? false,
+            QueueAutoDelete: overrideSettings?.QueueAutoDelete ?? scan.QueueAttr?.AutoDelete ?? false);
     }
 
     private static ProducerInfo ToProducerInfo(this PublisherScanResult scan)

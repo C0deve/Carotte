@@ -20,6 +20,10 @@ public class ConsumerSettingsOptions
     public string? DeadLetterExchange { get; set; }
     public string? DeadLetterRoutingKey { get; set; }
     public string? DeadLetterQueue { get; set; }
+    public ConsumerFailureAction? FailureAction { get; set; }
+    public bool? QueueDurable { get; set; }
+    public bool? QueueExclusive { get; set; }
+    public bool? QueueAutoDelete { get; set; }
     public string? QueueType { get; set; }
     public Dictionary<string, object?> Arguments { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 }
