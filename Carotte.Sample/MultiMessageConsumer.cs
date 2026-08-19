@@ -1,5 +1,11 @@
 ﻿namespace Carotte.Sample;
 
+/// <summary>
+/// Represents a notification sent to a customer.
+/// </summary>
+/// <param name="OrderId">The related order identifier.</param>
+/// <param name="Message">The text message content.</param>
+/// <param name="RecipientEmail">The recipient email address.</param>
 [Publisher("my-broker", "notifications-exchange")]
 public record NotificationMessage(Guid OrderId, string Message, string RecipientEmail);
 

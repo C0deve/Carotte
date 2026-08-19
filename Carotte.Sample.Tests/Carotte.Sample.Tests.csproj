@@ -25,6 +25,7 @@
     </ItemGroup>
 
     <ItemGroup>
+        <ProjectReference Include="..\Carotte.Documentation\Carotte.Documentation.csproj" />
         <ProjectReference Include="..\Carotte.Sample\Carotte.Sample.csproj" />
         <ProjectReference Include="..\Carotte.TestKit\Carotte.TestKit.csproj" />
     </ItemGroup>
