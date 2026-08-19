@@ -1,6 +1,6 @@
 # Carotte.DocCli 🥕📖
 
-`Carotte.DocCli` est un outil en ligne de commande permettant de générer automatiquement une spécification complète au format **Markdown** de la topologie de messagerie d'un microservice basé sur **Carotte**.
+`Carotte.DocCli` est un outil en ligne de commande permettant de générer automatiquement une spécification complète au format **Markdown** ou **AsyncAPI** (YAML / JSON) de la topologie de messagerie d'un microservice basé sur **Carotte**.
 
 Il analyse les métadonnées de vos assemblies .NET compilés (producteurs marqués par `[Publisher]`, consommateurs implémentant `IConsumer<T>`, topologies `[Queue]` / `[Binding]` ou conventions automatiques) ainsi que les commentaires XML de documentation (`/// <summary>`) pour produire une documentation claire, vivante et synchronisée avec le code.
 
@@ -8,6 +8,7 @@ Il analyse les métadonnées de vos assemblies .NET compilés (producteurs marqu
 
 ## 🚀 Fonctionnalités
 
+- 📄 **Spécifications AsyncAPI (YAML & JSON)** : Export au standard AsyncAPI (versions 2.6.0 et 3.0.0) avec les bindings AMQP (exchanges, queues, routing keys, Dead-Letter) et schémas JSON Schema.
 - 📊 **Diagramme Mermaid interactif** : Génération automatique d'un diagramme de flux orienté (`graph LR`) visualisant les producteurs, consommateurs, échanges, files et dead-letter exchanges (DLX/DLQ).
 - 📤 **Tableau des messages produits** : Liste des messages émis avec broker, échange de destination, clé de routage et type d'échange.
 - 📥 **Tableau des messages consommés** : Liste des consommateurs, files d'attente, liaisons (bindings) et stratégies de résilience/erreur (retries, DLX/DLQ, requeue).
@@ -30,6 +31,23 @@ Ou si l'outil est publié sous forme de binaire autonome / global tool :
 carotte-doc --assembly ./bin/Release/net10.0/MyService.dll --output ./docs/MESSAGING.md
 ```
 
+### Génération AsyncAPI (YAML / JSON)
+
+```bash
+# Export AsyncAPI en YAML (v2.6 par défaut)
+dotnet run --project Carotte.DocCli -- \
+  --assembly ./bin/Release/net10.0/MyService.dll \
+  --format asyncapi-yaml \
+  --output ./docs/asyncapi.yaml
+
+# Export AsyncAPI en JSON (v3.0)
+dotnet run --project Carotte.DocCli -- \
+  --assembly ./bin/Release/net10.0/MyService.dll \
+  --format asyncapi-json \
+  --spec-version 3.0.0 \
+  --output ./docs/asyncapi.json
+```
+
 ---
 
 ## ⚙️ Options et Arguments
@@ -37,12 +55,15 @@ carotte-doc --assembly ./bin/Release/net10.0/MyService.dll --output ./docs/MESSA
 | Option | Alias | Description | Valeur par défaut |
 | :--- | :--- | :--- | :--- |
 | `--assembly` | `-a` | **(Requis)** Chemin vers l'assembly compilé (`.dll`) du microservice. | *Aucun* |
-| `--output` | `-o` | Chemin du fichier Markdown à générer. Si non spécifié, le Markdown est affiché sur la sortie standard (`stdout`). | *stdout* |
-| `--title` | `-t` | Titre personnalisé pour le document Markdown généré. | `{AssemblyName} Messaging Specification` |
+| `--output` | `-o` | Chemin du fichier à générer. Si non spécifié, le résultat est affiché sur la sortie standard (`stdout`). | *stdout* |
+| `--format` | `-f` | Format de sortie : `markdown`, `asyncapi-yaml`, `asyncapi-json`. | `markdown` |
+| `--title` | `-t` | Titre personnalisé pour le document généré. | `{AssemblyName} Messaging Specification` |
+| `--api-version` | | Version de l'API dans le document AsyncAPI. | `1.0.0` |
+| `--spec-version` | | Version de la spécification AsyncAPI (`2.6.0`, `3.0.0`). | `2.6.0` |
 | `--xml-doc` | `-x` | Chemin vers le fichier de documentation XML généré par le compilateur C#. | Fichier `.xml` adjacent au `.dll` s'il existe |
 | `--namespaces` | `-n` | Liste de namespaces (séparés par des virgules) pour restreindre le scan. | Tous les namespaces de l'assembly |
-| `--no-diagram` | | Désactive la génération du diagramme Mermaid. | `false` (diagramme inclus) |
-| `--no-contracts` | | Désactive la section détaillée des contrats de données. | `false` (contrats inclus) |
+| `--no-diagram` | | Désactive la génération du diagramme Mermaid (Markdown uniquement). | `false` (diagramme inclus) |
+| `--no-contracts` | | Désactive la section détaillée des contrats de données (Markdown uniquement). | `false` (contrats inclus) |
 | `--help` | `-h` | Affiche l'aide et la description des commandes. | |
 
 ---

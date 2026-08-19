@@ -11,6 +11,9 @@ public static class CliParser
         var namespaces = new List<string>();
         var includeDiagram = true;
         var includeContracts = true;
+        var format = "markdown";
+        string? apiVersion = null;
+        string? specVersion = null;
         var showHelp = false;
 
         for (var i = 0; i < args.Length; i++)
@@ -33,6 +36,15 @@ public static class CliParser
                     break;
                 case "-x" or "--xml-doc" when i + 1 < args.Length:
                     xmlDocPath = args[++i];
+                    break;
+                case "-f" or "--format" when i + 1 < args.Length:
+                    format = args[++i];
+                    break;
+                case "--api-version" when i + 1 < args.Length:
+                    apiVersion = args[++i];
+                    break;
+                case "--spec-version" when i + 1 < args.Length:
+                    specVersion = args[++i];
                     break;
                 case "-n" or "--namespaces" when i + 1 < args.Length:
                 {
@@ -58,6 +70,9 @@ public static class CliParser
             Namespaces = namespaces.AsReadOnly(),
             IncludeDiagram = includeDiagram,
             IncludeContracts = includeContracts,
+            Format = format,
+            ApiVersion = apiVersion,
+            SpecVersion = specVersion,
             ShowHelp = showHelp
         };
     }

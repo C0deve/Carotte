@@ -1,4 +1,5 @@
 using System.Reflection;
+using Carotte.Documentation.AsyncApi;
 
 namespace Carotte.Documentation;
 
@@ -19,4 +20,20 @@ public static class CarotteDocumentationExtensions
         CarotteDocumentationOptions? options = null,
         CancellationToken cancellationToken = default) =>
         await new CarotteDocGenerator().GenerateToFileAsync(assembly, outputPath, options, cancellationToken);
+
+    public static string GenerateAsyncApi(this CarotteBuilder builder, CarotteAsyncApiOptions? options = null) =>
+        new AsyncApiGenerator().Generate(builder, options);
+
+    public static string GenerateAsyncApi(this Assembly assembly, CarotteAsyncApiOptions? options = null) =>
+        new AsyncApiGenerator().Generate(assembly, options);
+
+    public static string GenerateAsyncApi(this IReadOnlyCollection<Assembly> assemblies, CarotteAsyncApiOptions? options = null) =>
+        new AsyncApiGenerator().Generate(assemblies, options);
+
+    public static async Task GenerateAsyncApiFileAsync(
+        this Assembly assembly,
+        string outputPath,
+        CarotteAsyncApiOptions? options = null,
+        CancellationToken cancellationToken = default) =>
+        await new AsyncApiGenerator().GenerateToFileAsync(assembly, outputPath, options, cancellationToken);
 }

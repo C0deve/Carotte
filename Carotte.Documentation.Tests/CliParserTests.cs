@@ -82,4 +82,56 @@ public class CliParserTests
         // Assert
         options.ShowHelp.ShouldBeTrue();
     }
+
+    [Fact]
+    public void Parse_WhenFormatOptionPassedWithShortFlag_ShouldSetFormat()
+    {
+        // Arrange
+        string[] args = ["-a", "MyService.dll", "-f", "asyncapi-yaml"];
+
+        // Act
+        var options = CliParser.Parse(args);
+
+        // Assert
+        options.Format.ShouldBe("asyncapi-yaml");
+    }
+
+    [Fact]
+    public void Parse_WhenFormatOptionPassedWithLongFlag_ShouldSetFormat()
+    {
+        // Arrange
+        string[] args = ["-a", "MyService.dll", "--format", "asyncapi-json"];
+
+        // Act
+        var options = CliParser.Parse(args);
+
+        // Assert
+        options.Format.ShouldBe("asyncapi-json");
+    }
+
+    [Fact]
+    public void Parse_WhenApiVersionOptionPassed_ShouldSetApiVersion()
+    {
+        // Arrange
+        string[] args = ["-a", "MyService.dll", "--api-version", "2.1.0"];
+
+        // Act
+        var options = CliParser.Parse(args);
+
+        // Assert
+        options.ApiVersion.ShouldBe("2.1.0");
+    }
+
+    [Fact]
+    public void Parse_WhenSpecVersionOptionPassed_ShouldSetSpecVersion()
+    {
+        // Arrange
+        string[] args = ["-a", "MyService.dll", "--spec-version", "3.0.0"];
+
+        // Act
+        var options = CliParser.Parse(args);
+
+        // Assert
+        options.SpecVersion.ShouldBe("3.0.0");
+    }
 }

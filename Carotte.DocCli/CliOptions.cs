@@ -9,5 +9,8 @@ public sealed record CliOptions
     public IReadOnlyCollection<string> Namespaces { get; init; } = [];
     public bool IncludeDiagram { get; init; } = true;
     public bool IncludeContracts { get; init; } = true;
+    public string Format { get; init; } = "markdown";
+    public string? ApiVersion { get; init; }
+    public string? SpecVersion { get; init; }
     public bool ShowHelp { get; init; }
 }

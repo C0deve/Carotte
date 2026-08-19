@@ -1,0 +1,157 @@
+using Shouldly;
+using Carotte.Documentation.AsyncApi;
+
+namespace Carotte.Documentation.Tests;
+
+public class AsyncApiGeneratorTests
+{
+    private readonly AsyncApiGenerator _generator = new();
+
+    [Fact]
+    public void Generate_FromAssembly_ShouldIncludeDocumentTitle()
+    {
+        // Arrange
+        var assembly = typeof(OrderCreatedConsumer).Assembly;
+        var options = new CarotteAsyncApiOptions
+        {
+            Title = "Order Service AsyncAPI",
+            Format = AsyncApiFormat.Json
+        };
+
+        // Act
+        var spec = _generator.Generate(assembly, options);
+
+        // Assert
+        spec.ShouldContain("\"title\": \"Order Service AsyncAPI\"");
+    }
+
+    [Fact]
+    public void Generate_FromAssembly_ShouldIncludeAsyncApiVersion()
+    {
+        // Arrange
+        var assembly = typeof(OrderCreatedConsumer).Assembly;
+        var options = new CarotteAsyncApiOptions
+        {
+            SpecVersion = AsyncApiVersion.V2_6,
+            Format = AsyncApiFormat.Json
+        };
+
+        // Act
+        var spec = _generator.Generate(assembly, options);
+
+        // Assert
+        spec.ShouldContain("\"asyncapi\": \"2.6.0\"");
+    }
+
+    [Fact]
+    public void Generate_FromAssembly_ShouldIncludeServer()
+    {
+        // Arrange
+        var assembly = typeof(OrderCreatedConsumer).Assembly;
+        var options = new CarotteAsyncApiOptions
+        {
+            Format = AsyncApiFormat.Json
+        };
+
+        // Act
+        var spec = _generator.Generate(assembly, options);
+
+        // Assert
+        spec.ShouldContain("primary-broker");
+    }
+
+    [Fact]
+    public void Generate_FromAssembly_ShouldIncludePublishChannel()
+    {
+        // Arrange
+        var assembly = typeof(OrderCreatedConsumer).Assembly;
+        var options = new CarotteAsyncApiOptions
+        {
+            Format = AsyncApiFormat.Json
+        };
+
+        // Act
+        var spec = _generator.Generate(assembly, options);
+
+        // Assert
+        spec.ShouldContain("orders.exchange/order.created");
+    }
+
+    [Fact]
+    public void Generate_FromAssembly_ShouldIncludeComponentsSchemas()
+    {
+        // Arrange
+        var assembly = typeof(OrderCreatedConsumer).Assembly;
+        var options = new CarotteAsyncApiOptions
+        {
+            Format = AsyncApiFormat.Json
+        };
+
+        // Act
+        var spec = _generator.Generate(assembly, options);
+
+        // Assert
+        spec.ShouldContain("OrderCreatedMessage");
+    }
+
+    [Fact]
+    public void Generate_WithYamlFormat_ShouldProduceYaml()
+    {
+        // Arrange
+        var assembly = typeof(OrderCreatedConsumer).Assembly;
+        var options = new CarotteAsyncApiOptions
+        {
+            Format = AsyncApiFormat.Yaml
+        };
+
+        // Act
+        var spec = _generator.Generate(assembly, options);
+
+        // Assert
+        spec.ShouldContain("asyncapi: 2.6.0");
+    }
+
+    [Fact]
+    public void Generate_WithV3_ShouldProduceV3Spec()
+    {
+        // Arrange
+        var assembly = typeof(OrderCreatedConsumer).Assembly;
+        var options = new CarotteAsyncApiOptions
+        {
+            SpecVersion = AsyncApiVersion.V3_0,
+            Format = AsyncApiFormat.Json
+        };
+
+        // Act
+        var spec = _generator.Generate(assembly, options);
+
+        // Assert
+        spec.ShouldContain("\"asyncapi\": \"3.0.0\"");
+    }
+
+    [Fact]
+    public async Task GenerateToFileAsync_ShouldWriteFileSuccessfully()
+    {
+        // Arrange
+        var assembly = typeof(OrderCreatedConsumer).Assembly;
+        var tempFile = Path.Combine(Path.GetTempPath(), $"asyncapi_test_{Guid.NewGuid():N}.yaml");
+
+        try
+        {
+            // Act
+            await _generator.GenerateToFileAsync(assembly, tempFile);
+
+            // Assert
+            File.Exists(tempFile).ShouldBeTrue();
+            var content = await File.ReadAllTextAsync(tempFile);
+            content.ShouldContain("asyncapi: 2.6.0");
+        }
+        finally
+        {
+            if (File.Exists(tempFile))
+            {
+                File.Delete(tempFile);
+            }
+        }
+    }
+}
