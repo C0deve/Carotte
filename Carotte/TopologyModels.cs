@@ -122,7 +122,7 @@ public readonly record struct BindingInfo(
     bool Durable = true,
     bool AutoDelete = false);
 
-internal readonly record struct ProducerInfo(
+public readonly record struct ProducerInfo(
     Type MessageType,
     string Broker,
     string ExchangePublication,

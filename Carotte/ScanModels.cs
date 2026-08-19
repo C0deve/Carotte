@@ -2,7 +2,7 @@
 
 namespace Carotte;
 
-internal readonly record struct MessageBrokerSettings(
+public readonly record struct MessageBrokerSettings(
     ReadOnlyDictionary<string, BrokerInfos> Brokers,
     ReadOnlyCollection<ConsumerInfo> Consumers,
     ReadOnlyCollection<ProducerInfo> Producers);

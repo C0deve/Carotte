@@ -12,6 +12,7 @@ Carotte is a high-level RabbitMQ client wrapper for .NET 10, designed for seamle
 - **Publisher/Consumer Abstractions**: Clean interfaces for message handling. A consumer can handle multiple message types.
 - **Pipeline-based Processing**: Middleware support for both consumers and publishers (Logging, Tracing, Metrics).
 - **Automatic Registration**: Easy dependency injection setup with assembly scanning and namespace filtering.
+- **Documentation Generation**: Automated Markdown specification and Mermaid topology diagram generation via `Carotte.DocCli` and `Carotte.Documentation` for CI/CD pipelines.
 - **Test-Driven Design**: Includes a dedicated `TestKit` for easy integration testing.
 - **High Performance**: Optimized for .NET 10 with a lightweight footprint.
 
@@ -37,6 +38,8 @@ Before integrating Carotte into an existing service, check these constraints:
 Carotte is available as a set of NuGet packages:
 
 - `Carotte`: Core library.
+- `Carotte.Documentation`: Markdown documentation and topology generator.
+- `Carotte.DocCli`: CLI tool for generating documentation in CI/CD.
 - `Carotte.TestKit`: Testing utilities.
 
 Install the runtime package in an application project:
@@ -533,9 +536,49 @@ IReadOnlyList<OrderProcessedMessage> allMessages = testKit.GetSentMessages<Order
 testKit.Clear();
 ```
 
+## 📚 Documentation Generation (Carotte.DocCli & Carotte.Documentation)
+
+Carotte provides automated generation of Markdown documentation and interactive Mermaid topology diagrams from your compiled microservice assemblies.
+
+### Using the CLI (`Carotte.DocCli`)
+
+Generate a complete messaging specification for your microservice directly from the command line:
+
+```bash
+dotnet run --project Carotte.DocCli -- --assembly ./src/MyService/bin/Release/net10.0/MyService.dll --output ./docs/MESSAGING.md
+```
+
+Options:
+- `-a, --assembly <path>`: (Required) Path to the compiled assembly (`.dll`).
+- `-o, --output <path>`: Output path for the generated Markdown file (defaults to stdout).
+- `-t, --title <title>`: Custom title for the documentation.
+- `-x, --xml-doc <path>`: Path to XML documentation file (`/// <summary>`) for enriching data contract tables.
+- `-n, --namespaces <list>`: Comma-separated list of namespaces to include.
+- `--no-diagram`: Disable Mermaid diagram generation.
+- `--no-contracts`: Disable data contracts schemas.
+
+For more details, CI/CD pipeline integration, and Markdown rendering examples, see the [Carotte.DocCli README](Carotte.DocCli/README.md).
+
+### Using C# Programmatically (`Carotte.Documentation`)
+
+You can also generate documentation or run architecture tests directly in C#:
+
+```csharp
+using Carotte.Documentation;
+
+var generator = new CarotteDocGenerator();
+string markdown = generator.Generate(typeof(Program).Assembly);
+
+// Or write directly to a file
+await generator.GenerateToFileAsync(typeof(Program).Assembly, "docs/MESSAGING.md");
+```
+
 ## 🏗️ Project Structure
 
 - `Carotte/`: Core library containing the RabbitMQ client wrapper and pipeline logic.
+- `Carotte.Documentation/`: Documentation generator library (Markdown, Mermaid diagrams, schemas).
+- `Carotte.DocCli/`: CLI tool to generate Markdown documentation from assemblies.
+- `Carotte.Documentation.Tests/`: Unit tests for the documentation generation engine.
 - `Carotte.Sample/`: A sample ASP.NET Core application demonstrating usage.
 - `Carotte.TestKit/`: Testing framework for mocking and simulating messages.
 - `Carotte.Tests/`: Unit and integration tests for the project.
@@ -546,6 +589,7 @@ testKit.Clear();
 - **Build**: `dotnet build`
 - **Run Sample**: `dotnet run --project Carotte.Sample`
 - **Test**: `dotnet test`
+- **Generate Documentation**: `dotnet run --project Carotte.DocCli -- --assembly Carotte.Sample/bin/Debug/net10.0/Carotte.Sample.dll`
 - **Benchmarks**: `dotnet run -c Release --project Carotte.Benchmarks`
 
 ## 🛠️ Configuration Examples

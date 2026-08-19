@@ -5,6 +5,9 @@
     <File Path="README.md" />
   </Folder>
   <Project Path="Carotte/Carotte.csproj" />
+  <Project Path="Carotte.Documentation/Carotte.Documentation.csproj" />
+  <Project Path="Carotte.DocCli/Carotte.DocCli.csproj" />
+  <Project Path="Carotte.Documentation.Tests/Carotte.Documentation.Tests.csproj" />
   <Project Path="Carotte.TestKit/Carotte.TestKit.csproj" />
   <Project Path="Carotte.Benchmarks/Carotte.Benchmarks.csproj" />
   <Project Path="Carotte.Sample.Tests/Carotte.Sample.Tests.csproj" />
