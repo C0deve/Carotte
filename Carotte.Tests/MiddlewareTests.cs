@@ -13,7 +13,6 @@ public class MiddlewareTests
     {
         // Arrange
         string[] expected = ["m1-start", "m2-start", "target", "m2-end", "m1-end"];
-        var channel = new Mock<IChannel>();
         var ea = new BasicDeliverEventArgs(
             consumerTag: "tag",
             deliveryTag: 1,

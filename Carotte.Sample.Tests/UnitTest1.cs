@@ -1,5 +1,4 @@
 using Microsoft.Extensions.DependencyInjection;
-using Shouldly;
 
 namespace Carotte.Sample.Tests;
 
@@ -24,7 +23,7 @@ public class Tests
             100);
 
         // Act
-        await testKit.SimulateReceiveAsync<OrderConsumer>(testMessage);
+        await testKit.SimulateReceiveAsync(testMessage);
 
         // Assert
         testKit.ShouldHavePublished<NotificationMessage>(m => m.OrderId == testMessage.OrderId);

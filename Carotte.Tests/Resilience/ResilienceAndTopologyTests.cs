@@ -66,7 +66,7 @@ public class ResilienceAndTopologyTests
     [Fact]
     public void TopologyProvider_ShouldMapQuorumAndRetrySettingsFromConfiguration()
     {
-        var json = """
+        const string json = """
         {
           "Carotte": {
             "Brokers": {
@@ -100,7 +100,7 @@ public class ResilienceAndTopologyTests
         foreach (var (k, v) in options.Brokers) builder.AddBroker(k, v);
         foreach (var (k, v) in options.Consumers) builder.ConsumerSettings[k] = v;
         builder.AddAssemblies(typeof(ResilienceAndTopologyTests).Assembly)
-               .AddNamespaces("Carotte.Tests.Resilience");
+            .AddNamespaces("Carotte.Tests.Resilience");
 
         var (consumers, _) = builder.Assemblies.Scan(builder.Namespaces);
         var settings = TopologyProvider.CreateSettings(

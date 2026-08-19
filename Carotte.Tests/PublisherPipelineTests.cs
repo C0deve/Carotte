@@ -16,8 +16,8 @@ public class PublisherPipelineTests
         var connectionMock = new Mock<IConnection>();
         var channelMock = new Mock<IChannel>();
 
-        var broker = "test-broker";
-        var exchange = "test-exchange";
+        const string broker = "test-broker";
+        const string exchange = "test-exchange";
         var message = new TestMessage("Hello");
 
         connectionManagerMock.Setup(m => m.GetConnectionAsync(broker)).ReturnsAsync(connectionMock.Object);
