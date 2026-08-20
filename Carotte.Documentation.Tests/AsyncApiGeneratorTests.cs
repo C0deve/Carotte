@@ -108,7 +108,7 @@ public class AsyncApiGeneratorTests
         var spec = _generator.Generate(assembly, options);
 
         // Assert
-        spec.ShouldContain("asyncapi: 2.6.0");
+        spec.ShouldContain("asyncapi: 3.1.0");
     }
 
     [Fact]
@@ -130,6 +130,24 @@ public class AsyncApiGeneratorTests
     }
 
     [Fact]
+    public void Generate_WithV3_1_ShouldProduceV3_1Spec()
+    {
+        // Arrange
+        var assembly = typeof(OrderCreatedConsumer).Assembly;
+        var options = new CarotteAsyncApiOptions
+        {
+            SpecVersion = AsyncApiVersion.V3_1,
+            Format = AsyncApiFormat.Json
+        };
+
+        // Act
+        var spec = _generator.Generate(assembly, options);
+
+        // Assert
+        spec.ShouldContain("\"asyncapi\": \"3.1.0\"");
+    }
+
+    [Fact]
     public async Task GenerateToFileAsync_ShouldWriteFileSuccessfully()
     {
         // Arrange
@@ -144,7 +162,7 @@ public class AsyncApiGeneratorTests
             // Assert
             File.Exists(tempFile).ShouldBeTrue();
             var content = await File.ReadAllTextAsync(tempFile);
-            content.ShouldContain("asyncapi: 2.6.0");
+            content.ShouldContain("asyncapi: 3.1.0");
         }
         finally
         {

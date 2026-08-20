@@ -40,9 +40,14 @@ public static class Program
                     ? AsyncApiFormat.Json
                     : AsyncApiFormat.Yaml;
 
-                var specVersion = options.SpecVersion is "3.0.0" or "3.0" or "v3" or "V3_0"
-                    ? AsyncApiVersion.V3_0
-                    : AsyncApiVersion.V2_6;
+                var specVersion = options.SpecVersion switch
+                {
+                    "2.6.0" or "2.6" or "v2.6" or "v2" or "V2_6" => AsyncApiVersion.V2_6,
+                    "3.0.0" or "3.0" or "v3.0" or "V3_0" => AsyncApiVersion.V3_0,
+                    "3.1.0" or "3.1" or "v3.1" or "v3" or "V3_1" => AsyncApiVersion.V3_1,
+                    null => AsyncApiVersion.V3_1,
+                    _ => AsyncApiVersion.V3_1
+                };
 
                 var asyncApiOptions = new CarotteAsyncApiOptions
                 {
@@ -111,7 +116,7 @@ public static class Program
         Console.WriteLine("  -f, --format <format>       Output format: markdown, asyncapi-yaml, asyncapi-json (defaults to markdown)");
         Console.WriteLine("  -t, --title <title>         Custom title for the document");
         Console.WriteLine("  --api-version <version>     API version in AsyncAPI document (defaults to 1.0.0)");
-        Console.WriteLine("  --spec-version <version>    AsyncAPI specification version: 2.6.0, 3.0.0 (defaults to 2.6.0)");
+        Console.WriteLine("  --spec-version <version>    AsyncAPI specification version: 2.6.0, 3.0.0, 3.1.0 (defaults to 3.1.0)");
         Console.WriteLine("  -x, --xml-doc <path>        Path to XML documentation file (defaults to matching .xml alongside .dll)");
         Console.WriteLine("  -n, --namespaces <list>     Comma-separated list of namespaces to include in scan");
         Console.WriteLine("  --no-diagram                Disable Mermaid diagram generation (Markdown only)");

@@ -5,7 +5,7 @@ namespace Carotte.Documentation.AsyncApi;
 public sealed record AsyncApiDocument
 {
     [JsonPropertyName("asyncapi")]
-    public string AsyncApi { get; init; } = "2.6.0";
+    public string AsyncApi { get; init; } = "3.1.0";
 
     [JsonPropertyName("info")]
     public AsyncApiInfo Info { get; init; } = new();

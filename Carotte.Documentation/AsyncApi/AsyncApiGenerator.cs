@@ -79,8 +79,14 @@ public sealed class AsyncApiGenerator(
         CarotteAsyncApiOptions options,
         IXmlDocumentationReader? xmlReader)
     {
-        var isV3 = options.SpecVersion == AsyncApiVersion.V3_0;
-        var specVersionString = isV3 ? "3.0.0" : "2.6.0";
+        var isV3 = options.SpecVersion is AsyncApiVersion.V3_0 or AsyncApiVersion.V3_1;
+        var specVersionString = options.SpecVersion switch
+        {
+            AsyncApiVersion.V2_6 => "2.6.0",
+            AsyncApiVersion.V3_0 => "3.0.0",
+            AsyncApiVersion.V3_1 => "3.1.0",
+            _ => "3.1.0"
+        };
 
         var servers = BuildServers(settings, isV3);
         var messageTypes = settings.Producers

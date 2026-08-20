@@ -1,15 +1,16 @@
-asyncapi: 2.6.0
+asyncapi: 3.1.0
 info:
   title: Carotte.Sample Messaging API
   version: 1.0.0
 servers:
   my-broker:
-    url: localhost:5672
+    host: localhost:5672
     protocol: amqp
     protocolVersion: 0.9.1
     description: RabbitMQ broker 'my-broker'
 channels:
   notifications-exchange/NotificationMessage:
+    address: notifications-exchange/NotificationMessage
     bindings:
       amqp:
         is: routingKey
@@ -18,19 +19,11 @@ channels:
           type: direct
           durable: true
           autoDelete: false
-    publish:
-      operationId: publishNotificationMessage
-      summary: Publishes NotificationMessage message
-      bindings:
-        amqp:
-          exchange:
-            name: notifications-exchange
-            type: direct
-            durable: true
-            autoDelete: false
-      message:
+    messages:
+      NotificationMessage:
         $ref: '#/components/messages/NotificationMessage'
   orders-exchange/OrderCreated:
+    address: orders-exchange/OrderCreated
     bindings:
       amqp:
         is: routingKey
@@ -39,31 +32,57 @@ channels:
           type: direct
           durable: true
           autoDelete: false
-    publish:
-      operationId: publishOrderCreated
-      summary: Publishes OrderCreated message
-      bindings:
-        amqp:
-          exchange:
-            name: orders-exchange
-            type: direct
-            durable: true
-            autoDelete: false
-      message:
+    messages:
+      OrderCreated:
         $ref: '#/components/messages/OrderCreated'
   orders-exchange/order.created:
-    subscribe:
-      operationId: consumeOrderConsumer
-      summary: Consumes messages by OrderConsumer
-      bindings:
-        amqp:
-          queue:
-            name: order-processing-queue
-            durable: true
-            exclusive: false
-            autoDelete: false
-      message:
+    address: orders-exchange/order.created
+    messages:
+      OrderCreated:
         $ref: '#/components/messages/OrderCreated'
+operations:
+  publishNotificationMessage:
+    action: send
+    summary: Publishes NotificationMessage message
+    channel:
+      $ref: '#/channels/notifications-exchange~1NotificationMessage'
+    messages:
+      - $ref: '#/components/messages/NotificationMessage'
+  publishOrderCreated:
+    action: send
+    summary: Publishes OrderCreated message
+    channel:
+      $ref: '#/channels/orders-exchange~1OrderCreated'
+    messages:
+      - $ref: '#/components/messages/OrderCreated'
+  consumeMultiMessageConsumer:
+    action: receive
+    summary: Consumes messages by MultiMessageConsumer
+    channel:
+      $ref: '#/channels/orders-exchange~1order.created'
+    bindings:
+      amqp:
+        queue:
+          name: order-processing-queue
+          durable: true
+          exclusive: false
+          autoDelete: false
+    messages:
+      - $ref: '#/components/messages/OrderCreated'
+  consumeOrderConsumer:
+    action: receive
+    summary: Consumes messages by OrderConsumer
+    channel:
+      $ref: '#/channels/orders-exchange~1order.created'
+    bindings:
+      amqp:
+        queue:
+          name: order-processing-queue
+          durable: true
+          exclusive: false
+          autoDelete: false
+    messages:
+      - $ref: '#/components/messages/OrderCreated'
 components:
   messages:
     NotificationMessage:

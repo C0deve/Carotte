@@ -5,7 +5,7 @@ public sealed record CarotteAsyncApiOptions
     public string Title { get; init; } = "Microservice Messaging API";
     public string Version { get; init; } = "1.0.0";
     public string? Description { get; init; }
-    public AsyncApiVersion SpecVersion { get; init; } = AsyncApiVersion.V2_6;
+    public AsyncApiVersion SpecVersion { get; init; } = AsyncApiVersion.V3_1;
     public AsyncApiFormat Format { get; init; } = AsyncApiFormat.Yaml;
     public string? XmlDocumentationPath { get; init; }
     public IReadOnlyCollection<string> Namespaces { get; init; } = [];

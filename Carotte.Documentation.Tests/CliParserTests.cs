@@ -134,4 +134,17 @@ public class CliParserTests
         // Assert
         options.SpecVersion.ShouldBe("3.0.0");
     }
+
+    [Fact]
+    public void Parse_WhenSpecVersion3_1OptionPassed_ShouldSetSpecVersion()
+    {
+        // Arrange
+        string[] args = ["-a", "MyService.dll", "--spec-version", "3.1.0"];
+
+        // Act
+        var options = CliParser.Parse(args);
+
+        // Assert
+        options.SpecVersion.ShouldBe("3.1.0");
+    }
 }
