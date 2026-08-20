@@ -1,0 +1,118 @@
+asyncapi: 2.6.0
+info:
+  title: Carotte.Sample Messaging API
+  version: 1.0.0
+servers:
+  my-broker:
+    url: localhost:5672
+    protocol: amqp
+    protocolVersion: 0.9.1
+    description: RabbitMQ broker 'my-broker'
+channels:
+  notifications-exchange/NotificationMessage:
+    bindings:
+      amqp:
+        is: routingKey
+        exchange:
+          name: notifications-exchange
+          type: direct
+          durable: true
+          autoDelete: false
+    publish:
+      operationId: publishNotificationMessage
+      summary: Publishes NotificationMessage message
+      bindings:
+        amqp:
+          exchange:
+            name: notifications-exchange
+            type: direct
+            durable: true
+            autoDelete: false
+      message:
+        $ref: '#/components/messages/NotificationMessage'
+  orders-exchange/OrderCreated:
+    bindings:
+      amqp:
+        is: routingKey
+        exchange:
+          name: orders-exchange
+          type: direct
+          durable: true
+          autoDelete: false
+    publish:
+      operationId: publishOrderCreated
+      summary: Publishes OrderCreated message
+      bindings:
+        amqp:
+          exchange:
+            name: orders-exchange
+            type: direct
+            durable: true
+            autoDelete: false
+      message:
+        $ref: '#/components/messages/OrderCreated'
+  orders-exchange/order.created:
+    subscribe:
+      operationId: consumeOrderConsumer
+      summary: Consumes messages by OrderConsumer
+      bindings:
+        amqp:
+          queue:
+            name: order-processing-queue
+            durable: true
+            exclusive: false
+            autoDelete: false
+      message:
+        $ref: '#/components/messages/OrderCreated'
+components:
+  messages:
+    NotificationMessage:
+      name: NotificationMessage
+      title: NotificationMessage
+      summary: Represents a notification sent to a customer.
+      payload:
+        $ref: '#/components/schemas/NotificationMessage'
+    OrderCreated:
+      name: OrderCreated
+      title: OrderCreated
+      summary: Represents an event triggered when a new order is placed.
+      payload:
+        $ref: '#/components/schemas/OrderCreated'
+  schemas:
+    NotificationMessage:
+      type: object
+      description: Represents a notification sent to a customer.
+      properties:
+        OrderId:
+          type: string
+          format: uuid
+          description: The related order identifier.
+        Message:
+          type: string
+          description: The text message content.
+        RecipientEmail:
+          type: string
+          description: The recipient email address.
+      required:
+        - OrderId
+        - Message
+        - RecipientEmail
+    OrderCreated:
+      type: object
+      description: Represents an event triggered when a new order is placed.
+      properties:
+        OrderId:
+          type: string
+          format: uuid
+          description: The unique identifier of the created order.
+        CustomerName:
+          type: string
+          description: The full name of the customer.
+        Amount:
+          type: number
+          format: double
+          description: The total monetary amount for the order.
+      required:
+        - OrderId
+        - CustomerName
+        - Amount

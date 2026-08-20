@@ -1,5 +1,6 @@
 using System.Reflection;
 using Carotte.Documentation;
+using Carotte.Documentation.AsyncApi;
 using Shouldly;
 
 namespace Carotte.Sample.Tests;
@@ -10,7 +11,7 @@ namespace Carotte.Sample.Tests;
 /// </summary>
 public sealed class MessagingDocumentationArchitectureTests
 {
-    private static readonly Assembly s_sampleAssembly = typeof(Program).Assembly;
+    private static readonly Assembly SampleAssembly = typeof(Program).Assembly;
 
     [Fact]
     public void DocumentationFile_ShouldExistOnDisk()
@@ -32,7 +33,7 @@ public sealed class MessagingDocumentationArchitectureTests
             Title = "Carotte.Sample Messaging Specification"
         };
 
-        var generatedMarkdown = generator.Generate(s_sampleAssembly, options);
+        var generatedMarkdown = generator.Generate(SampleAssembly, options);
 
         var normalizedGenerated = generatedMarkdown.Replace("\r\n", "\n").Trim();
         var normalizedExpected = expectedMarkdown.Replace("\r\n", "\n").Trim();
@@ -43,11 +44,41 @@ public sealed class MessagingDocumentationArchitectureTests
     }
 
     [Fact]
+    public void AsyncApiDocumentationFile_ShouldExistOnDisk()
+    {
+        var docPath = GetAsyncApiDocumentationFilePath();
+
+        File.Exists(docPath).ShouldBeTrue($"Expected AsyncAPI documentation file to exist at '{docPath}'.");
+    }
+
+    [Fact]
+    public async Task GeneratedAsyncApiDocumentation_ShouldMatch_CommittedSnapshot()
+    {
+        var docPath = GetAsyncApiDocumentationFilePath();
+        var expectedYaml = await File.ReadAllTextAsync(docPath);
+
+        var generator = new AsyncApiGenerator();
+        var options = new CarotteAsyncApiOptions
+        {
+            Title = "Carotte.Sample Messaging API"
+        };
+
+        var generatedYaml = generator.Generate(SampleAssembly, options);
+
+        var normalizedGenerated = generatedYaml.Replace("\r\n", "\n").Trim();
+        var normalizedExpected = expectedYaml.Replace("\r\n", "\n").Trim();
+
+        normalizedGenerated.ShouldBe(
+            normalizedExpected,
+            "The AsyncAPI documentation snapshot is out of sync with the codebase. Run Carotte.DocCli or update docs/asyncapi.yaml.");
+    }
+
+    [Fact]
     public void GeneratedDocumentation_ShouldContain_MermaidTopologyDiagram()
     {
         var generator = new CarotteDocGenerator();
 
-        var markdown = generator.Generate(s_sampleAssembly);
+        var markdown = generator.Generate(SampleAssembly);
 
         markdown.ShouldContain("```mermaid");
     }
@@ -57,7 +88,7 @@ public sealed class MessagingDocumentationArchitectureTests
     {
         var generator = new CarotteDocGenerator();
 
-        var markdown = generator.Generate(s_sampleAssembly);
+        var markdown = generator.Generate(SampleAssembly);
 
         markdown.ShouldContain("MultiMessageConsumer");
     }
@@ -67,7 +98,7 @@ public sealed class MessagingDocumentationArchitectureTests
     {
         var generator = new CarotteDocGenerator();
 
-        var markdown = generator.Generate(s_sampleAssembly);
+        var markdown = generator.Generate(SampleAssembly);
 
         markdown.ShouldContain("OrderConsumer");
     }
@@ -86,5 +117,21 @@ public sealed class MessagingDocumentationArchitectureTests
         }
 
         return Path.Combine(currentDir.FullName, "Carotte.Sample", "docs", "MESSAGING.md");
+    }
+
+    private static string GetAsyncApiDocumentationFilePath()
+    {
+        var currentDir = new DirectoryInfo(AppContext.BaseDirectory);
+        while (currentDir != null && !File.Exists(Path.Combine(currentDir.FullName, "Carotte.slnx")))
+        {
+            currentDir = currentDir.Parent;
+        }
+
+        if (currentDir == null)
+        {
+            throw new InvalidOperationException("Could not find solution root directory containing Carotte.slnx.");
+        }
+
+        return Path.Combine(currentDir.FullName, "Carotte.Sample", "docs", "asyncapi.yaml");
     }
 }
