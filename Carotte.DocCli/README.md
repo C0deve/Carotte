@@ -8,7 +8,7 @@ Il analyse les métadonnées de vos assemblies .NET compilés (producteurs marqu
 
 ## 🚀 Fonctionnalités
 
-- 📄 **Spécifications AsyncAPI (YAML & JSON)** : Export au standard AsyncAPI (versions 2.6.0, 3.0.0 et 3.1.0) avec les bindings AMQP (exchanges, queues, routing keys, Dead-Letter) et schémas JSON Schema.
+- 📄 **Spécifications AsyncAPI (YAML & JSON)** : Export au standard AsyncAPI (version 3.1.0) avec les bindings AMQP (exchanges, queues, routing keys, Dead-Letter), validation de schéma et schémas JSON Schema.
 - 📊 **Diagramme Mermaid interactif** : Génération automatique d'un diagramme de flux orienté (`graph LR`) visualisant les producteurs, consommateurs, échanges, files et dead-letter exchanges (DLX/DLQ).
 - 📤 **Tableau des messages produits** : Liste des messages émis avec broker, échange de destination, clé de routage et type d'échange.
 - 📥 **Tableau des messages consommés** : Liste des consommateurs, files d'attente, liaisons (bindings) et stratégies de résilience/erreur (retries, DLX/DLQ, requeue).
@@ -34,17 +34,17 @@ carotte-doc --assembly ./bin/Release/net10.0/MyService.dll --output ./docs/MESSA
 ### Génération AsyncAPI (YAML / JSON)
 
 ```bash
-# Export AsyncAPI en YAML (v2.6 par défaut)
+# Export AsyncAPI en YAML (v3.1) avec validation
 dotnet run --project Carotte.DocCli -- \
   --assembly ./bin/Release/net10.0/MyService.dll \
   --format asyncapi-yaml \
+  --validate \
   --output ./docs/asyncapi.yaml
 
-# Export AsyncAPI en JSON (v3.0)
+# Export AsyncAPI en JSON (v3.1)
 dotnet run --project Carotte.DocCli -- \
   --assembly ./bin/Release/net10.0/MyService.dll \
   --format asyncapi-json \
-  --spec-version 3.0.0 \
   --output ./docs/asyncapi.json
 ```
 
@@ -59,7 +59,7 @@ dotnet run --project Carotte.DocCli -- \
 | `--format` | `-f` | Format de sortie : `markdown`, `asyncapi-yaml`, `asyncapi-json`. | `markdown` |
 | `--title` | `-t` | Titre personnalisé pour le document généré. | `{AssemblyName} Messaging Specification` |
 | `--api-version` | | Version de l'API dans le document AsyncAPI. | `1.0.0` |
-| `--spec-version` | | Version de la spécification AsyncAPI (`2.6.0`, `3.0.0`, `3.1.0`). | `3.1.0` |
+| `--validate` | `-v` | Valide le document AsyncAPI généré par rapport à la spécification AsyncAPI 3.1. | `false` |
 | `--xml-doc` | `-x` | Chemin vers le fichier de documentation XML généré par le compilateur C#. | Fichier `.xml` adjacent au `.dll` s'il existe |
 | `--namespaces` | `-n` | Liste de namespaces (séparés par des virgules) pour restreindre le scan. | Tous les namespaces de l'assembly |
 | `--no-diagram` | | Désactive la génération du diagramme Mermaid (Markdown uniquement). | `false` (diagramme inclus) |

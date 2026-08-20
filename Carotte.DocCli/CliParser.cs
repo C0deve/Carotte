@@ -13,7 +13,7 @@ public static class CliParser
         var includeContracts = true;
         var format = "markdown";
         string? apiVersion = null;
-        string? specVersion = null;
+        var validate = false;
         var showHelp = false;
 
         for (var i = 0; i < args.Length; i++)
@@ -43,8 +43,8 @@ public static class CliParser
                 case "--api-version" when i + 1 < args.Length:
                     apiVersion = args[++i];
                     break;
-                case "--spec-version" when i + 1 < args.Length:
-                    specVersion = args[++i];
+                case "-v" or "--validate":
+                    validate = true;
                     break;
                 case "-n" or "--namespaces" when i + 1 < args.Length:
                 {
@@ -72,7 +72,7 @@ public static class CliParser
             IncludeContracts = includeContracts,
             Format = format,
             ApiVersion = apiVersion,
-            SpecVersion = specVersion,
+            Validate = validate,
             ShowHelp = showHelp
         };
     }

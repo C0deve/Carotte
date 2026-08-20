@@ -4,6 +4,9 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageVersion Include="BenchmarkDotNet" Version="0.15.8" />
+    <PackageVersion Include="ByteBard.AsyncAPI.NET" Version="3.0.1" />
+    <PackageVersion Include="ByteBard.AsyncAPI.NET.Bindings" Version="3.0.1" />
+    <PackageVersion Include="ByteBard.AsyncAPI.NET.Readers" Version="3.0.1" />
     <PackageVersion Include="coverlet.collector" Version="10.0.1" />
     <PackageVersion Include="JetBrains.Annotations" Version="2026.2.0" />
     <PackageVersion Include="Microsoft.Extensions.Configuration" Version="10.0.11" />

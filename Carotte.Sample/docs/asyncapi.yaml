@@ -9,7 +9,7 @@ servers:
     protocolVersion: 0.9.1
     description: RabbitMQ broker 'my-broker'
 channels:
-  notifications-exchange/NotificationMessage:
+  notifications-exchange.NotificationMessage:
     address: notifications-exchange/NotificationMessage
     bindings:
       amqp:
@@ -19,10 +19,12 @@ channels:
           type: direct
           durable: true
           autoDelete: false
+          vhost: /
+        bindingVersion: 0.3.0
     messages:
       NotificationMessage:
         $ref: '#/components/messages/NotificationMessage'
-  orders-exchange/OrderCreated:
+  orders-exchange.OrderCreated:
     address: orders-exchange/OrderCreated
     bindings:
       amqp:
@@ -32,11 +34,23 @@ channels:
           type: direct
           durable: true
           autoDelete: false
+          vhost: /
+        bindingVersion: 0.3.0
     messages:
       OrderCreated:
         $ref: '#/components/messages/OrderCreated'
-  orders-exchange/order.created:
+  orders-exchange.order.created:
     address: orders-exchange/order.created
+    bindings:
+      amqp:
+        is: queue
+        queue:
+          name: order-processing-queue
+          durable: true
+          exclusive: false
+          autoDelete: false
+          vhost: /
+        bindingVersion: 0.3.0
     messages:
       OrderCreated:
         $ref: '#/components/messages/OrderCreated'
@@ -45,42 +59,36 @@ operations:
     action: send
     summary: Publishes NotificationMessage message
     channel:
-      $ref: '#/channels/notifications-exchange~1NotificationMessage'
+      $ref: '#/channels/notifications-exchange.NotificationMessage'
     messages:
       - $ref: '#/components/messages/NotificationMessage'
   publishOrderCreated:
     action: send
     summary: Publishes OrderCreated message
     channel:
-      $ref: '#/channels/orders-exchange~1OrderCreated'
+      $ref: '#/channels/orders-exchange.OrderCreated'
     messages:
       - $ref: '#/components/messages/OrderCreated'
   consumeMultiMessageConsumer:
     action: receive
     summary: Consumes messages by MultiMessageConsumer
     channel:
-      $ref: '#/channels/orders-exchange~1order.created'
+      $ref: '#/channels/orders-exchange.order.created'
     bindings:
       amqp:
-        queue:
-          name: order-processing-queue
-          durable: true
-          exclusive: false
-          autoDelete: false
+        ack: true
+        bindingVersion: 0.3.0
     messages:
       - $ref: '#/components/messages/OrderCreated'
   consumeOrderConsumer:
     action: receive
     summary: Consumes messages by OrderConsumer
     channel:
-      $ref: '#/channels/orders-exchange~1order.created'
+      $ref: '#/channels/orders-exchange.order.created'
     bindings:
       amqp:
-        queue:
-          name: order-processing-queue
-          durable: true
-          exclusive: false
-          autoDelete: false
+        ack: true
+        bindingVersion: 0.3.0
     messages:
       - $ref: '#/components/messages/OrderCreated'
 components:

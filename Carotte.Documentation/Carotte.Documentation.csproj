@@ -1,6 +1,12 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
+    <PackageReference Include="ByteBard.AsyncAPI.NET" />
+    <PackageReference Include="ByteBard.AsyncAPI.NET.Bindings" />
+    <PackageReference Include="ByteBard.AsyncAPI.NET.Readers" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\Carotte\Carotte.csproj" />
   </ItemGroup>
 

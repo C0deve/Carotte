@@ -1,8 +1,9 @@
 using System.Reflection;
+using System.Text.RegularExpressions;
 
 namespace Carotte.Documentation.AsyncApi;
 
-public sealed class AsyncApiGenerator(
+public sealed partial class AsyncApiGenerator(
     IJsonSchemaGenerator? jsonSchemaGenerator = null,
     IAsyncApiSerializer? jsonSerializer = null,
     IAsyncApiSerializer? yamlSerializer = null) : IAsyncApiGenerator
@@ -79,16 +80,7 @@ public sealed class AsyncApiGenerator(
         CarotteAsyncApiOptions options,
         IXmlDocumentationReader? xmlReader)
     {
-        var isV3 = options.SpecVersion is AsyncApiVersion.V3_0 or AsyncApiVersion.V3_1;
-        var specVersionString = options.SpecVersion switch
-        {
-            AsyncApiVersion.V2_6 => "2.6.0",
-            AsyncApiVersion.V3_0 => "3.0.0",
-            AsyncApiVersion.V3_1 => "3.1.0",
-            _ => "3.1.0"
-        };
-
-        var servers = BuildServers(settings, isV3);
+        var servers = BuildServers(settings);
         var messageTypes = settings.Producers
             .Select(p => p.MessageType)
             .Concat(settings.Consumers.SelectMany(c => c.MessageTypes))
@@ -98,19 +90,23 @@ public sealed class AsyncApiGenerator(
         var (messages, schemas) = BuildComponents(messageTypes, xmlReader);
 
         var channels = new Dictionary<string, AsyncApiChannel>();
-        var operationsV3 = isV3 ? new Dictionary<string, AsyncApiOperationV3>() : null;
+        var operations = new Dictionary<string, AsyncApiOperation>();
 
         foreach (var producer in settings.Producers)
         {
-            var channelKey = string.IsNullOrEmpty(producer.RoutingKey)
+            var channelAddress = string.IsNullOrEmpty(producer.RoutingKey)
                 ? producer.ExchangePublication
                 : $"{producer.ExchangePublication}/{producer.RoutingKey}";
+
+            var channelKey = SanitizeChannelKey(string.IsNullOrEmpty(producer.RoutingKey)
+                ? producer.ExchangePublication
+                : $"{producer.ExchangePublication}.{producer.RoutingKey}");
 
             if (!channels.TryGetValue(channelKey, out var channel))
             {
                 channel = new AsyncApiChannel
                 {
-                    Address = isV3 ? channelKey : null,
+                    Address = channelAddress,
                     Bindings = new AsyncApiChannelBindings
                     {
                         Amqp = new AsyncApiAmqpChannelBinding
@@ -121,72 +117,61 @@ public sealed class AsyncApiGenerator(
                                 Name = producer.ExchangePublication,
                                 Type = producer.ExchangeType.ToString().ToLowerInvariant(),
                                 Durable = producer.Durable,
-                                AutoDelete = producer.AutoDelete
-                            }
+                                AutoDelete = producer.AutoDelete,
+                                Vhost = "/"
+                            },
+                            BindingVersion = "0.3.0"
                         }
                     }
                 };
                 channels[channelKey] = channel;
             }
 
-            if (isV3)
+            channel.Messages ??= new Dictionary<string, AsyncApiMessageRef>();
+            channel.Messages[producer.MessageType.Name] = new AsyncApiMessageRef
             {
-                channel.Messages ??= new Dictionary<string, AsyncApiMessageRef>();
-                channel.Messages[producer.MessageType.Name] = new AsyncApiMessageRef
-                {
-                    Ref = $"#/components/messages/{producer.MessageType.Name}"
-                };
+                Ref = $"#/components/messages/{producer.MessageType.Name}"
+            };
 
-                var opId = $"publish{producer.MessageType.Name}";
-                operationsV3![opId] = new AsyncApiOperationV3
-                {
-                    Action = "send",
-                    Summary = $"Publishes {producer.MessageType.Name} message",
-                    Channel = new AsyncApiChannelRef { Ref = $"#/channels/{EscapeJsonPointer(channelKey)}" },
-                    Messages = [new AsyncApiMessageRef { Ref = $"#/components/messages/{producer.MessageType.Name}" }]
-                };
-            }
-            else
+            var opId = $"publish{producer.MessageType.Name}";
+            operations[opId] = new AsyncApiOperation
             {
-                channels[channelKey] = channel with
-                {
-                    Publish = new AsyncApiOperation
-                    {
-                        OperationId = $"publish{producer.MessageType.Name}",
-                        Summary = $"Publishes {producer.MessageType.Name} message",
-                        Message = new AsyncApiMessageRef
-                        {
-                            Ref = $"#/components/messages/{producer.MessageType.Name}"
-                        },
-                        Bindings = new AsyncApiOperationBindings
-                        {
-                            Amqp = new AsyncApiAmqpOperationBinding
-                            {
-                                Exchange = new AsyncApiAmqpExchangeBinding
-                                {
-                                    Name = producer.ExchangePublication,
-                                    Type = producer.ExchangeType.ToString().ToLowerInvariant(),
-                                    Durable = producer.Durable,
-                                    AutoDelete = producer.AutoDelete
-                                }
-                            }
-                        }
-                    }
-                };
-            }
+                Action = "send",
+                Summary = $"Publishes {producer.MessageType.Name} message",
+                Channel = new AsyncApiChannelRef { Ref = $"#/channels/{channelKey}" },
+                Messages = [new AsyncApiMessageRef { Ref = $"#/components/messages/{producer.MessageType.Name}" }]
+            };
         }
 
         foreach (var consumer in settings.Consumers)
         {
-            var channelKeys = GetConsumerChannelKeys(consumer);
+            var channelAddresses = GetConsumerChannelAddresses(consumer);
 
-            foreach (var channelKey in channelKeys)
+            foreach (var channelAddress in channelAddresses)
             {
+                var channelKey = SanitizeChannelKey(channelAddress);
+
                 if (!channels.TryGetValue(channelKey, out var channel))
                 {
                     channel = new AsyncApiChannel
                     {
-                        Address = isV3 ? channelKey : null
+                        Address = channelAddress,
+                        Bindings = new AsyncApiChannelBindings
+                        {
+                            Amqp = new AsyncApiAmqpChannelBinding
+                            {
+                                Is = "queue",
+                                Queue = new AsyncApiAmqpQueueBinding
+                                {
+                                    Name = string.IsNullOrWhiteSpace(consumer.Topology.Queue) ? "default-queue" : consumer.Topology.Queue,
+                                    Durable = true,
+                                    Exclusive = false,
+                                    AutoDelete = false,
+                                    Vhost = "/"
+                                },
+                                BindingVersion = "0.3.0"
+                            }
+                        }
                     };
                     channels[channelKey] = channel;
                 }
@@ -196,76 +181,43 @@ public sealed class AsyncApiGenerator(
                     ? new AsyncApiMessageRef { Ref = $"#/components/messages/{primaryMessageType.Name}" }
                     : null;
 
-                if (isV3)
+                if (primaryMessageType != null)
                 {
-                    if (primaryMessageType != null)
-                    {
-                        channel.Messages ??= new Dictionary<string, AsyncApiMessageRef>();
-                        channel.Messages[primaryMessageType.Name] = messageRef!;
-                    }
+                    channel.Messages ??= new Dictionary<string, AsyncApiMessageRef>();
+                    channel.Messages[primaryMessageType.Name] = messageRef!;
+                }
 
-                    var opId = $"consume{consumer.ConsumerType.Name}";
-                    operationsV3![opId] = new AsyncApiOperationV3
-                    {
-                        Action = "receive",
-                        Summary = $"Consumes messages by {consumer.ConsumerType.Name}",
-                        Channel = new AsyncApiChannelRef { Ref = $"#/channels/{EscapeJsonPointer(channelKey)}" },
-                        Bindings = new AsyncApiOperationBindings
-                        {
-                            Amqp = new AsyncApiAmqpOperationBinding
-                            {
-                                Queue = new AsyncApiAmqpQueueBinding
-                                {
-                                    Name = consumer.Topology.Queue,
-                                    Durable = true,
-                                    Exclusive = false,
-                                    AutoDelete = false
-                                }
-                            }
-                        },
-                        Messages = messageRef != null ? [messageRef] : null
-                    };
-                }
-                else
+                var opId = $"consume{consumer.ConsumerType.Name}";
+                operations[opId] = new AsyncApiOperation
                 {
-                    channels[channelKey] = channel with
+                    Action = "receive",
+                    Summary = $"Consumes messages by {consumer.ConsumerType.Name}",
+                    Channel = new AsyncApiChannelRef { Ref = $"#/channels/{channelKey}" },
+                    Bindings = new AsyncApiOperationBindings
                     {
-                        Subscribe = new AsyncApiOperation
+                        Amqp = new AsyncApiAmqpOperationBinding
                         {
-                            OperationId = $"consume{consumer.ConsumerType.Name}",
-                            Summary = $"Consumes messages by {consumer.ConsumerType.Name}",
-                            Bindings = new AsyncApiOperationBindings
-                            {
-                                Amqp = new AsyncApiAmqpOperationBinding
-                                {
-                                    Queue = new AsyncApiAmqpQueueBinding
-                                    {
-                                        Name = consumer.Topology.Queue,
-                                        Durable = true,
-                                        Exclusive = false,
-                                        AutoDelete = false
-                                    }
-                                }
-                            },
-                            Message = messageRef
+                            Ack = true,
+                            BindingVersion = "0.3.0"
                         }
-                    };
-                }
+                    },
+                    Messages = messageRef != null ? [messageRef] : null
+                };
             }
         }
 
         var document = new AsyncApiDocument
         {
-            AsyncApi = specVersionString,
+            AsyncApi = "3.1.0",
             Info = new AsyncApiInfo
             {
                 Title = options.Title,
                 Version = options.Version,
                 Description = options.Description
             },
-            Servers = servers,
+            Servers = servers.Count > 0 ? servers : null,
             Channels = channels.Count > 0 ? channels : null,
-            Operations = operationsV3,
+            Operations = operations.Count > 0 ? operations : null,
             Components = new AsyncApiComponents
             {
                 Messages = messages.Count > 0 ? messages : null,
@@ -278,20 +230,39 @@ public sealed class AsyncApiGenerator(
             : _yamlSerializer.Serialize(document);
     }
 
-    private static List<string> GetConsumerChannelKeys(ConsumerInfo consumer)
+    private static List<string> GetConsumerChannelAddresses(ConsumerInfo consumer)
     {
         if (consumer.Topology is ConsumerAttributeTopology attrTopology && attrTopology.Bindings.Count > 0)
         {
-            return attrTopology.Bindings
-                .Select(b => string.IsNullOrEmpty(b.RoutingKey) ? b.ExchangeSource : $"{b.ExchangeSource}/{b.RoutingKey}")
+            var addresses = attrTopology.Bindings
+                .Select(b =>
+                {
+                    if (!string.IsNullOrEmpty(b.RoutingKey) && !string.IsNullOrEmpty(b.ExchangeSource))
+                    {
+                        return $"{b.ExchangeSource}/{b.RoutingKey}";
+                    }
+
+                    if (!string.IsNullOrEmpty(b.ExchangeSource))
+                    {
+                        return b.ExchangeSource;
+                    }
+
+                    return consumer.Topology.Queue;
+                })
+                .Where(s => !string.IsNullOrWhiteSpace(s))
                 .Distinct()
                 .ToList();
+
+            if (addresses.Count > 0)
+            {
+                return addresses;
+            }
         }
 
-        return [consumer.Topology.Queue];
+        return [string.IsNullOrWhiteSpace(consumer.Topology.Queue) ? "default-queue" : consumer.Topology.Queue];
     }
 
-    private static Dictionary<string, AsyncApiServer> BuildServers(MessageBrokerSettings settings, bool isV3)
+    private static Dictionary<string, AsyncApiServer> BuildServers(MessageBrokerSettings settings)
     {
         var servers = new Dictionary<string, AsyncApiServer>();
 
@@ -299,11 +270,10 @@ public sealed class AsyncApiGenerator(
         {
             foreach (var (name, broker) in settings.Brokers)
             {
-                var address = $"{broker.Host}:{broker.Port}";
-                servers[name] = new AsyncApiServer
+                var serverKey = SanitizeChannelKey(name);
+                servers[serverKey] = new AsyncApiServer
                 {
-                    Url = isV3 ? null : address,
-                    Host = isV3 ? address : null,
+                    Host = $"{broker.Host}:{broker.Port}",
                     Protocol = "amqp",
                     ProtocolVersion = "0.9.1",
                     Description = $"RabbitMQ broker '{name}'"
@@ -322,10 +292,10 @@ public sealed class AsyncApiGenerator(
             {
                 foreach (var name in referencedBrokers)
                 {
-                    servers[name] = new AsyncApiServer
+                    var serverKey = SanitizeChannelKey(name);
+                    servers[serverKey] = new AsyncApiServer
                     {
-                        Url = isV3 ? null : "localhost:5672",
-                        Host = isV3 ? "localhost:5672" : null,
+                        Host = "localhost:5672",
                         Protocol = "amqp",
                         ProtocolVersion = "0.9.1",
                         Description = $"RabbitMQ broker '{name}'"
@@ -336,8 +306,7 @@ public sealed class AsyncApiGenerator(
             {
                 servers["default-broker"] = new AsyncApiServer
                 {
-                    Url = isV3 ? null : "localhost:5672",
-                    Host = isV3 ? "localhost:5672" : null,
+                    Host = "localhost:5672",
                     Protocol = "amqp",
                     ProtocolVersion = "0.9.1",
                     Description = "Default RabbitMQ broker"
@@ -375,8 +344,15 @@ public sealed class AsyncApiGenerator(
         return (messages, schemas);
     }
 
-    private static string EscapeJsonPointer(string token) =>
-        token.Replace("~", "~0").Replace("/", "~1");
+    private static string SanitizeChannelKey(string key)
+    {
+        var sanitized = key.Replace('/', '.').Replace('#', '_').Replace('*', '_');
+        sanitized = ChannelKeyRegex().Replace(sanitized, "_");
+        return string.IsNullOrEmpty(sanitized) ? "default" : sanitized;
+    }
+
+    [GeneratedRegex(@"[^a-zA-Z0-9\.\-_]")]
+    private static partial Regex ChannelKeyRegex();
 
     private static IXmlDocumentationReader? ResolveXmlReader(
         IEnumerable<Assembly> assemblies,

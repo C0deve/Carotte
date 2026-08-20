@@ -11,6 +11,6 @@ public sealed record CliOptions
     public bool IncludeContracts { get; init; } = true;
     public string Format { get; init; } = "markdown";
     public string? ApiVersion { get; init; }
-    public string? SpecVersion { get; init; }
+    public bool Validate { get; init; }
     public bool ShowHelp { get; init; }
 }

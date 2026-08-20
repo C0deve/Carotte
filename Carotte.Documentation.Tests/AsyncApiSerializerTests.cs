@@ -12,7 +12,7 @@ public class AsyncApiSerializerTests
     {
         return new AsyncApiDocument
         {
-            AsyncApi = "2.6.0",
+            AsyncApi = "3.1.0",
             Info = new AsyncApiInfo
             {
                 Title = "Test Messaging Service",
@@ -23,7 +23,7 @@ public class AsyncApiSerializerTests
             {
                 ["primary-broker"] = new AsyncApiServer
                 {
-                    Url = "localhost:5672",
+                    Host = "localhost:5672",
                     Protocol = "amqp",
                     ProtocolVersion = "0.9.1",
                     Description = "Primary RabbitMQ broker"
@@ -31,14 +31,23 @@ public class AsyncApiSerializerTests
             },
             Channels = new Dictionary<string, AsyncApiChannel>
             {
-                ["orders.exchange/order.created"] = new AsyncApiChannel
+                ["orders.exchange.order.created"] = new AsyncApiChannel
                 {
-                    Publish = new AsyncApiOperation
+                    Address = "orders.exchange/order.created",
+                    Messages = new Dictionary<string, AsyncApiMessageRef>
                     {
-                        OperationId = "publishOrderCreated",
-                        Summary = "Publishes OrderCreated event",
-                        Message = new AsyncApiMessageRef { Ref = "#/components/messages/OrderCreated" }
+                        ["OrderCreated"] = new AsyncApiMessageRef { Ref = "#/components/messages/OrderCreated" }
                     }
+                }
+            },
+            Operations = new Dictionary<string, AsyncApiOperation>
+            {
+                ["publishOrderCreated"] = new AsyncApiOperation
+                {
+                    Action = "send",
+                    Summary = "Publishes OrderCreated event",
+                    Channel = new AsyncApiChannelRef { Ref = "#/channels/orders.exchange.order.created" },
+                    Messages = [new AsyncApiMessageRef { Ref = "#/components/messages/OrderCreated" }]
                 }
             },
             Components = new AsyncApiComponents
@@ -80,9 +89,9 @@ public class AsyncApiSerializerTests
         var json = _jsonSerializer.Serialize(doc);
 
         // Assert
-        json.ShouldContain("\"asyncapi\": \"2.6.0\"");
+        json.ShouldContain("\"asyncapi\": \"3.1.0\"");
         json.ShouldContain("\"title\": \"Test Messaging Service\"");
-        json.ShouldContain("\"localhost:5672\"");
+        json.ShouldContain("\"host\": \"localhost:5672\"");
         json.ShouldContain("\"$ref\": \"#/components/messages/OrderCreated\"");
     }
 
@@ -96,9 +105,9 @@ public class AsyncApiSerializerTests
         var yaml = _yamlSerializer.Serialize(doc);
 
         // Assert
-        yaml.ShouldContain("asyncapi: 2.6.0");
+        yaml.ShouldContain("asyncapi: 3.1.0");
         yaml.ShouldContain("title: Test Messaging Service");
-        yaml.ShouldContain("url: localhost:5672");
+        yaml.ShouldContain("host: localhost:5672");
         yaml.ShouldContain("$ref: '#/components/messages/OrderCreated'");
     }
 

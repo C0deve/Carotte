@@ -20,7 +20,7 @@ public sealed record AsyncApiDocument
 
     [JsonPropertyName("operations")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public Dictionary<string, AsyncApiOperationV3>? Operations { get; init; }
+    public Dictionary<string, AsyncApiOperation>? Operations { get; init; }
 
     [JsonPropertyName("components")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
@@ -42,13 +42,12 @@ public sealed record AsyncApiInfo
 
 public sealed record AsyncApiServer
 {
-    [JsonPropertyName("url")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public string? Url { get; init; }
-
     [JsonPropertyName("host")]
+    public string Host { get; init; } = "localhost:5672";
+
+    [JsonPropertyName("pathname")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public string? Host { get; init; }
+    public string? Pathname { get; init; }
 
     [JsonPropertyName("protocol")]
     public string Protocol { get; init; } = "amqp";
@@ -76,14 +75,6 @@ public sealed record AsyncApiChannel
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public AsyncApiChannelBindings? Bindings { get; init; }
 
-    [JsonPropertyName("publish")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public AsyncApiOperation? Publish { get; init; }
-
-    [JsonPropertyName("subscribe")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public AsyncApiOperation? Subscribe { get; init; }
-
     [JsonPropertyName("messages")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public Dictionary<string, AsyncApiMessageRef>? Messages { get; set; }
@@ -91,9 +82,8 @@ public sealed record AsyncApiChannel
 
 public sealed record AsyncApiOperation
 {
-    [JsonPropertyName("operationId")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public string? OperationId { get; init; }
+    [JsonPropertyName("action")]
+    public string Action { get; init; } = "send";
 
     [JsonPropertyName("summary")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
@@ -102,24 +92,6 @@ public sealed record AsyncApiOperation
     [JsonPropertyName("description")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Description { get; init; }
-
-    [JsonPropertyName("bindings")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public AsyncApiOperationBindings? Bindings { get; init; }
-
-    [JsonPropertyName("message")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public object? Message { get; init; }
-}
-
-public sealed record AsyncApiOperationV3
-{
-    [JsonPropertyName("action")]
-    public string Action { get; init; } = "send";
-
-    [JsonPropertyName("summary")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public string? Summary { get; init; }
 
     [JsonPropertyName("channel")]
     public AsyncApiChannelRef Channel { get; init; } = new();
@@ -171,6 +143,10 @@ public sealed record AsyncApiAmqpChannelBinding
     [JsonPropertyName("queue")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public AsyncApiAmqpQueueBinding? Queue { get; init; }
+
+    [JsonPropertyName("bindingVersion")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? BindingVersion { get; init; } = "0.3.0";
 }
 
 public sealed record AsyncApiOperationBindings
@@ -182,13 +158,45 @@ public sealed record AsyncApiOperationBindings
 
 public sealed record AsyncApiAmqpOperationBinding
 {
-    [JsonPropertyName("queue")]
+    [JsonPropertyName("expiration")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public AsyncApiAmqpQueueBinding? Queue { get; init; }
+    public int? Expiration { get; init; }
 
-    [JsonPropertyName("exchange")]
+    [JsonPropertyName("userId")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public AsyncApiAmqpExchangeBinding? Exchange { get; init; }
+    public string? UserId { get; init; }
+
+    [JsonPropertyName("cc")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<string>? Cc { get; init; }
+
+    [JsonPropertyName("priority")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public int? Priority { get; init; }
+
+    [JsonPropertyName("deliveryMode")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public int? DeliveryMode { get; init; }
+
+    [JsonPropertyName("mandatory")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? Mandatory { get; init; }
+
+    [JsonPropertyName("bcc")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<string>? Bcc { get; init; }
+
+    [JsonPropertyName("timestamp")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? Timestamp { get; init; }
+
+    [JsonPropertyName("ack")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? Ack { get; init; }
+
+    [JsonPropertyName("bindingVersion")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? BindingVersion { get; init; } = "0.3.0";
 }
 
 public sealed record AsyncApiAmqpExchangeBinding
@@ -205,6 +213,10 @@ public sealed record AsyncApiAmqpExchangeBinding
 
     [JsonPropertyName("autoDelete")]
     public bool AutoDelete { get; init; } = false;
+
+    [JsonPropertyName("vhost")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Vhost { get; init; } = "/";
 }
 
 public sealed record AsyncApiAmqpQueueBinding
@@ -220,6 +232,10 @@ public sealed record AsyncApiAmqpQueueBinding
 
     [JsonPropertyName("autoDelete")]
     public bool AutoDelete { get; init; } = false;
+
+    [JsonPropertyName("vhost")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Vhost { get; init; } = "/";
 }
 
 public sealed record AsyncApiComponents

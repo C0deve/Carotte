@@ -32,7 +32,6 @@ public class AsyncApiGeneratorTests
         var assembly = typeof(OrderCreatedConsumer).Assembly;
         var options = new CarotteAsyncApiOptions
         {
-            SpecVersion = AsyncApiVersion.V2_6,
             Format = AsyncApiFormat.Json
         };
 
@@ -40,7 +39,7 @@ public class AsyncApiGeneratorTests
         var spec = _generator.Generate(assembly, options);
 
         // Assert
-        spec.ShouldContain("\"asyncapi\": \"2.6.0\"");
+        spec.ShouldContain("\"asyncapi\": \"3.1.0\"");
     }
 
     [Fact]
@@ -112,13 +111,12 @@ public class AsyncApiGeneratorTests
     }
 
     [Fact]
-    public void Generate_WithV3_ShouldProduceV3Spec()
+    public void Generate_FromAssembly_ShouldIncludeOperations()
     {
         // Arrange
         var assembly = typeof(OrderCreatedConsumer).Assembly;
         var options = new CarotteAsyncApiOptions
         {
-            SpecVersion = AsyncApiVersion.V3_0,
             Format = AsyncApiFormat.Json
         };
 
@@ -126,25 +124,8 @@ public class AsyncApiGeneratorTests
         var spec = _generator.Generate(assembly, options);
 
         // Assert
-        spec.ShouldContain("\"asyncapi\": \"3.0.0\"");
-    }
-
-    [Fact]
-    public void Generate_WithV3_1_ShouldProduceV3_1Spec()
-    {
-        // Arrange
-        var assembly = typeof(OrderCreatedConsumer).Assembly;
-        var options = new CarotteAsyncApiOptions
-        {
-            SpecVersion = AsyncApiVersion.V3_1,
-            Format = AsyncApiFormat.Json
-        };
-
-        // Act
-        var spec = _generator.Generate(assembly, options);
-
-        // Assert
-        spec.ShouldContain("\"asyncapi\": \"3.1.0\"");
+        spec.ShouldContain("\"publishOrderCreatedMessage\"");
+        spec.ShouldContain("\"consumeOrderCreatedConsumer\"");
     }
 
     [Fact]

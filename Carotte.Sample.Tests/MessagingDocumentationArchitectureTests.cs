@@ -74,6 +74,23 @@ public sealed class MessagingDocumentationArchitectureTests
     }
 
     [Fact]
+    public void GeneratedAsyncApiDocumentation_ShouldBeValidAsyncApi3_1()
+    {
+        var generator = new AsyncApiGenerator();
+        var options = new CarotteAsyncApiOptions
+        {
+            Title = "Carotte.Sample Messaging API"
+        };
+
+        var generatedYaml = generator.Generate(SampleAssembly, options);
+
+        var validator = new AsyncApiDocumentValidator();
+        var result = validator.Validate(generatedYaml);
+
+        result.IsValid.ShouldBeTrue($"AsyncAPI validation errors: {string.Join(", ", result.Errors)}");
+    }
+
+    [Fact]
     public void GeneratedDocumentation_ShouldContain_MermaidTopologyDiagram()
     {
         var generator = new CarotteDocGenerator();

@@ -123,28 +123,28 @@ public class CliParserTests
     }
 
     [Fact]
-    public void Parse_WhenSpecVersionOptionPassed_ShouldSetSpecVersion()
+    public void Parse_WhenValidateFlagPassed_ShouldSetValidate()
     {
         // Arrange
-        string[] args = ["-a", "MyService.dll", "--spec-version", "3.0.0"];
+        string[] args = ["-a", "MyService.dll", "--validate"];
 
         // Act
         var options = CliParser.Parse(args);
 
         // Assert
-        options.SpecVersion.ShouldBe("3.0.0");
+        options.Validate.ShouldBeTrue();
     }
 
     [Fact]
-    public void Parse_WhenSpecVersion3_1OptionPassed_ShouldSetSpecVersion()
+    public void Parse_WhenValidateShortFlagPassed_ShouldSetValidate()
     {
         // Arrange
-        string[] args = ["-a", "MyService.dll", "--spec-version", "3.1.0"];
+        string[] args = ["-a", "MyService.dll", "-v"];
 
         // Act
         var options = CliParser.Parse(args);
 
         // Assert
-        options.SpecVersion.ShouldBe("3.1.0");
+        options.Validate.ShouldBeTrue();
     }
 }
