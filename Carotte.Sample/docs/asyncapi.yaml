@@ -3,143 +3,252 @@ info:
   title: Carotte.Sample Messaging API
   version: 1.0.0
 servers:
-  my-broker:
+  default-broker:
     host: localhost:5672
     protocol: amqp
     protocolVersion: 0.9.1
-    description: RabbitMQ broker 'my-broker'
+    description: Default RabbitMQ broker
 channels:
-  notifications-exchange.NotificationMessage:
-    address: notifications-exchange/NotificationMessage
+  x.pub.order-cancelled:
+    address: x.pub.order-cancelled
     bindings:
       amqp:
         is: routingKey
         exchange:
-          name: notifications-exchange
-          type: direct
+          name: x.pub.order-cancelled
+          type: fanout
           durable: true
           autoDelete: false
           vhost: /
         bindingVersion: 0.3.0
     messages:
-      NotificationMessage:
-        $ref: '#/components/messages/NotificationMessage'
-  orders-exchange.OrderCreated:
-    address: orders-exchange/OrderCreated
+      OrderCancelledEvent:
+        $ref: '#/components/messages/OrderCancelledEvent'
+  x.pub.order-placed:
+    address: x.pub.order-placed
     bindings:
       amqp:
         is: routingKey
         exchange:
-          name: orders-exchange
-          type: direct
+          name: x.pub.order-placed
+          type: fanout
           durable: true
           autoDelete: false
           vhost: /
         bindingVersion: 0.3.0
     messages:
-      OrderCreated:
-        $ref: '#/components/messages/OrderCreated'
-  orders-exchange.order.created:
-    address: orders-exchange/order.created
+      OrderPlacedEvent:
+        $ref: '#/components/messages/OrderPlacedEvent'
+  x.pub.order-processed:
+    address: x.pub.order-processed
+    bindings:
+      amqp:
+        is: routingKey
+        exchange:
+          name: x.pub.order-processed
+          type: fanout
+          durable: true
+          autoDelete: false
+          vhost: /
+        bindingVersion: 0.3.0
+    messages:
+      OrderProcessedEvent:
+        $ref: '#/components/messages/OrderProcessedEvent'
+  q.notification-consumer:
+    address: q.notification-consumer
     bindings:
       amqp:
         is: queue
         queue:
-          name: order-processing-queue
+          name: q.notification-consumer
           durable: true
           exclusive: false
           autoDelete: false
           vhost: /
         bindingVersion: 0.3.0
     messages:
-      OrderCreated:
-        $ref: '#/components/messages/OrderCreated'
+      OrderProcessedEvent:
+        $ref: '#/components/messages/OrderProcessedEvent'
+  q.order-audit-consumer:
+    address: q.order-audit-consumer
+    bindings:
+      amqp:
+        is: queue
+        queue:
+          name: q.order-audit-consumer
+          durable: true
+          exclusive: false
+          autoDelete: false
+          vhost: /
+        bindingVersion: 0.3.0
+    messages:
+      OrderPlacedEvent:
+        $ref: '#/components/messages/OrderPlacedEvent'
+  q.order-processing-consumer:
+    address: q.order-processing-consumer
+    bindings:
+      amqp:
+        is: queue
+        queue:
+          name: q.order-processing-consumer
+          durable: true
+          exclusive: false
+          autoDelete: false
+          vhost: /
+        bindingVersion: 0.3.0
+    messages:
+      OrderPlacedEvent:
+        $ref: '#/components/messages/OrderPlacedEvent'
 operations:
-  publishNotificationMessage:
+  publishOrderCancelledEvent:
     action: send
-    summary: Publishes NotificationMessage message
+    summary: Publishes OrderCancelledEvent message
     channel:
-      $ref: '#/channels/notifications-exchange.NotificationMessage'
+      $ref: '#/channels/x.pub.order-cancelled'
     messages:
-      - $ref: '#/components/messages/NotificationMessage'
-  publishOrderCreated:
+      - $ref: '#/components/messages/OrderCancelledEvent'
+  publishOrderPlacedEvent:
     action: send
-    summary: Publishes OrderCreated message
+    summary: Publishes OrderPlacedEvent message
     channel:
-      $ref: '#/channels/orders-exchange.OrderCreated'
+      $ref: '#/channels/x.pub.order-placed'
     messages:
-      - $ref: '#/components/messages/OrderCreated'
-  consumeMultiMessageConsumer:
+      - $ref: '#/components/messages/OrderPlacedEvent'
+  publishOrderProcessedEvent:
+    action: send
+    summary: Publishes OrderProcessedEvent message
+    channel:
+      $ref: '#/channels/x.pub.order-processed'
+    messages:
+      - $ref: '#/components/messages/OrderProcessedEvent'
+  consumeNotificationConsumer:
     action: receive
-    summary: Consumes messages by MultiMessageConsumer
+    summary: Consumes messages by NotificationConsumer
     channel:
-      $ref: '#/channels/orders-exchange.order.created'
+      $ref: '#/channels/q.notification-consumer'
     bindings:
       amqp:
         ack: true
         bindingVersion: 0.3.0
     messages:
-      - $ref: '#/components/messages/OrderCreated'
-  consumeOrderConsumer:
+      - $ref: '#/components/messages/OrderProcessedEvent'
+  consumeOrderAuditConsumer:
     action: receive
-    summary: Consumes messages by OrderConsumer
+    summary: Consumes messages by OrderAuditConsumer
     channel:
-      $ref: '#/channels/orders-exchange.order.created'
+      $ref: '#/channels/q.order-audit-consumer'
     bindings:
       amqp:
         ack: true
         bindingVersion: 0.3.0
     messages:
-      - $ref: '#/components/messages/OrderCreated'
+      - $ref: '#/components/messages/OrderPlacedEvent'
+  consumeOrderProcessingConsumer:
+    action: receive
+    summary: Consumes messages by OrderProcessingConsumer
+    channel:
+      $ref: '#/channels/q.order-processing-consumer'
+    bindings:
+      amqp:
+        ack: true
+        bindingVersion: 0.3.0
+    messages:
+      - $ref: '#/components/messages/OrderPlacedEvent'
 components:
   messages:
-    NotificationMessage:
-      name: NotificationMessage
-      title: NotificationMessage
-      summary: Represents a notification sent to a customer.
+    OrderCancelledEvent:
+      name: OrderCancelledEvent
+      title: OrderCancelledEvent
+      summary: Represents an event published when an order is cancelled.
       payload:
-        $ref: '#/components/schemas/NotificationMessage'
-    OrderCreated:
-      name: OrderCreated
-      title: OrderCreated
-      summary: Represents an event triggered when a new order is placed.
+        $ref: '#/components/schemas/OrderCancelledEvent'
+    OrderPlacedEvent:
+      name: OrderPlacedEvent
+      title: OrderPlacedEvent
+      summary: Represents an event published when a customer places a new order.
       payload:
-        $ref: '#/components/schemas/OrderCreated'
+        $ref: '#/components/schemas/OrderPlacedEvent'
+    OrderProcessedEvent:
+      name: OrderProcessedEvent
+      title: OrderProcessedEvent
+      summary: Represents an event published when an order has been successfully processed.
+      payload:
+        $ref: '#/components/schemas/OrderProcessedEvent'
   schemas:
-    NotificationMessage:
+    OrderCancelledEvent:
       type: object
-      description: Represents a notification sent to a customer.
+      description: Represents an event published when an order is cancelled.
       properties:
         OrderId:
           type: string
           format: uuid
-          description: The related order identifier.
-        Message:
+          description: The unique identifier of the cancelled order.
+        Reason:
           type: string
-          description: The text message content.
-        RecipientEmail:
+          description: The cancellation reason.
+        CancelledAt:
           type: string
-          description: The recipient email address.
+          format: date-time
+          description: The timestamp when the order was cancelled.
       required:
         - OrderId
-        - Message
-        - RecipientEmail
-    OrderCreated:
+        - Reason
+        - CancelledAt
+    OrderPlacedEvent:
       type: object
-      description: Represents an event triggered when a new order is placed.
+      description: Represents an event published when a customer places a new order.
       properties:
         OrderId:
           type: string
           format: uuid
-          description: The unique identifier of the created order.
-        CustomerName:
+          description: The unique identifier of the order.
+        CustomerId:
           type: string
-          description: The full name of the customer.
-        Amount:
+          format: uuid
+          description: The unique identifier of the customer.
+        CustomerEmail:
+          type: string
+          description: The email address of the customer.
+        TotalAmount:
           type: number
           format: double
-          description: The total monetary amount for the order.
+          description: The total amount of the order.
+        PlacedAt:
+          type: string
+          format: date-time
+          description: The timestamp when the order was placed.
       required:
         - OrderId
-        - CustomerName
-        - Amount
+        - CustomerId
+        - CustomerEmail
+        - TotalAmount
+        - PlacedAt
+    OrderProcessedEvent:
+      type: object
+      description: Represents an event published when an order has been successfully processed.
+      properties:
+        OrderId:
+          type: string
+          format: uuid
+          description: The unique identifier of the order.
+        CustomerId:
+          type: string
+          format: uuid
+          description: The unique identifier of the customer.
+        CustomerEmail:
+          type: string
+          description: The email address of the customer.
+        TotalAmount:
+          type: number
+          format: double
+          description: The total amount processed.
+        ProcessedAt:
+          type: string
+          format: date-time
+          description: The timestamp when the order was processed.
+      required:
+        - OrderId
+        - CustomerId
+        - CustomerEmail
+        - TotalAmount
+        - ProcessedAt

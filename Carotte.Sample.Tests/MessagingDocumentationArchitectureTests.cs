@@ -101,23 +101,33 @@ public sealed class MessagingDocumentationArchitectureTests
     }
 
     [Fact]
-    public void GeneratedDocumentation_ShouldContain_MultiMessageConsumer()
+    public void GeneratedDocumentation_ShouldContain_OrderProcessingConsumer()
     {
         var generator = new CarotteDocGenerator();
 
         var markdown = generator.Generate(SampleAssembly);
 
-        markdown.ShouldContain("MultiMessageConsumer");
+        markdown.ShouldContain("OrderProcessingConsumer");
     }
 
     [Fact]
-    public void GeneratedDocumentation_ShouldContain_OrderConsumer()
+    public void GeneratedDocumentation_ShouldContain_NotificationConsumer()
     {
         var generator = new CarotteDocGenerator();
 
         var markdown = generator.Generate(SampleAssembly);
 
-        markdown.ShouldContain("OrderConsumer");
+        markdown.ShouldContain("NotificationConsumer");
+    }
+
+    [Fact]
+    public void GeneratedDocumentation_ShouldContain_OrderAuditConsumer()
+    {
+        var generator = new CarotteDocGenerator();
+
+        var markdown = generator.Generate(SampleAssembly);
+
+        markdown.ShouldContain("OrderAuditConsumer");
     }
 
     private static string GetDocumentationFilePath()
