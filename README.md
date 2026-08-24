@@ -642,6 +642,14 @@ Use `[Publisher]` parameters when a produced message must target a specific brok
 public record CreateOrderCommand(Guid OrderId, string CustomerName, decimal Amount);
 ```
 
+## 🚀 CI/CD & Releases
+
+Automated workflows are set up via GitHub Actions:
+- **CI**: Runs on every pull request and push to validate build, formatting, and tests with code coverage.
+- **Release**: Automatically triggered on Git tag push (e.g., `v1.0.0`) or manually via `workflow_dispatch` to package and publish to NuGet.org with **Trusted Publishing (OIDC)** and GitHub Packages.
+
+For the full setup instructions and step-by-step release guide, see the [CI/CD & Release Guide](docs/CICD.md).
+
 ## 📄 License
 
 TODO: Specify License (likely MIT or Apache-2.0).
