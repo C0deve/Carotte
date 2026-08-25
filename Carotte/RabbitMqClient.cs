@@ -51,7 +51,7 @@ internal sealed class RabbitMqClient(IConnectionManager connectionManager, ILogg
 
         _brokerName = null;
     }
-    
+
     public async ValueTask DisposeAsync()
     {
         await CloseAsync();

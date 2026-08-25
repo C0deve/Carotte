@@ -12,7 +12,7 @@ public class CarotteBuilder
     internal Uri? OtlpEndpoint { get; private set; }
     public string? ClientName { get; private set; }
     public JsonSerializerOptions? CustomJsonSerializerOptions { get; private set; }
-    
+
     public CarotteBuilder SetClientName(string name)
     {
         ClientName = name;

@@ -545,8 +545,8 @@ public class RabbitMqConsumerHostTests
         public Task HandleAsync(TestMessage message, CancellationToken cancellationToken)
         {
             Attempts++;
-            return Attempts <= failuresBeforeSuccess 
-                ? throw new InvalidOperationException("Simulated processing failure.") 
+            return Attempts <= failuresBeforeSuccess
+                ? throw new InvalidOperationException("Simulated processing failure.")
                 : Task.CompletedTask;
         }
     }

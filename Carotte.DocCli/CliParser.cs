@@ -47,11 +47,11 @@ public static class CliParser
                     validate = true;
                     break;
                 case "-n" or "--namespaces" when i + 1 < args.Length:
-                {
-                    var nsList = args[++i].Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-                    namespaces.AddRange(nsList);
-                    break;
-                }
+                    {
+                        var nsList = args[++i].Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+                        namespaces.AddRange(nsList);
+                        break;
+                    }
                 case "--no-diagram":
                     includeDiagram = false;
                     break;

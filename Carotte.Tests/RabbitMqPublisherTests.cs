@@ -18,7 +18,7 @@ public class RabbitMqPublisherTests
         loggerMock.Setup(x => x.IsEnabled(It.IsAny<LogLevel>())).Returns(true);
         var broker = "test-broker";
         var message = new TestMessage();
-        
+
         // Pass null or string.Empty for exchange to trigger convention
         var publisher = new RabbitMqPublisher<TestMessage>(
             rabbitMqClient.Object,
@@ -33,7 +33,7 @@ public class RabbitMqPublisherTests
         // Assert
         var expectedExchange = "x.pub.test";
         VerifyLog(loggerMock, LogLevel.Information, $"Starting RabbitMqPublisher for TestMessage on broker test-broker. Exchange: {expectedExchange}");
-        
+
         // Verify exchange is declared as fanout (convention)
         rabbitMqClient.Verify(c => c.ExchangeDeclareAsync(
             expectedExchange,
@@ -65,7 +65,7 @@ public class RabbitMqPublisherTests
         loggerMock.Setup(x => x.IsEnabled(It.IsAny<LogLevel>())).Returns(true);
         var broker = "test-broker";
         var message = new TestMessage();
-        
+
         var publisher = new RabbitMqPublisher<TestMessage>(
             rabbitMqClient.Object,
             serializer.Object,
@@ -102,7 +102,7 @@ public class RabbitMqPublisherTests
         var broker = "test-broker";
         var explicitExchange = "explicit-exchange";
         var message = new TestMessage();
-        
+
         var publisher = new RabbitMqPublisher<TestMessage>(
             rabbitMqClient.Object,
             serializer.Object,
@@ -117,7 +117,7 @@ public class RabbitMqPublisherTests
         VerifyLog(loggerMock, LogLevel.Information, "Starting RabbitMqPublisher for TestMessage on broker test-broker. Exchange: explicit-exchange");
         // Should NOT declare exchange by convention (or at least not the message one in fanout)
         // Currently RabbitMqPublisher doesn't declare anything, it delegates to publication middleware.
-        
+
         rabbitMqClient.Verify(c => c.BasicPublishAsync<TestMessage>(
             explicitExchange,
             It.IsAny<string>(),

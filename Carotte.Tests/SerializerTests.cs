@@ -11,7 +11,7 @@ public class SerializerTests
     {
         var message = new TestMessage("Hello World");
         var result = _serializer.Serialize(message);
-        
+
         result.ShouldNotBeNull();
         result.ShouldNotBeEmpty();
     }
@@ -21,9 +21,9 @@ public class SerializerTests
     {
         var original = new TestMessage("Test Content");
         var bytes = _serializer.Serialize(original);
-        
+
         var deserialized = _serializer.Deserialize<TestMessage>(bytes);
-        
+
         deserialized.ShouldNotBeNull();
         deserialized.Content.ShouldBe(original.Content);
     }

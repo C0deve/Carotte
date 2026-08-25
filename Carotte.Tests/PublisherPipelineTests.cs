@@ -49,7 +49,7 @@ public class PublisherPipelineTests
 
         // Verify that serialization took place
         serializerMock.Verify(s => s.Serialize(message), Times.Once);
-        
+
         await publisher.DisposeAsync();
         rabbitMqClientMock.Verify(c => c.DisposeAsync(), Times.Once);
     }

@@ -40,7 +40,7 @@ public class EndToEndTests
         try
         {
             var services = new ServiceCollection();
-            
+
             // 2. Configure Carotte
             services.AddCarotte(builder =>
             {
@@ -68,12 +68,12 @@ public class EndToEndTests
             // 4. Send a message via the publisher
             var publisher = serviceProvider.GetRequiredService<IPublisher<SimpleMessage>>();
             var messageToSend = new SimpleMessage { Content = "Hello Carotte!" };
-            
+
             await publisher.PublishAsync(messageToSend);
 
             // 5. Verify reception
             var received = await SimpleConsumer.MessageReceived.Task.WaitAsync(TimeSpan.FromSeconds(10));
-            
+
             received.ShouldBeTrue();
             SimpleConsumer.LastReceivedMessage.ShouldNotBeNull();
             SimpleConsumer.LastReceivedMessage.Content.ShouldBe("Hello Carotte!");

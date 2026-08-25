@@ -29,22 +29,23 @@ public class DefaultExchangeNameTests
         // Arrange
         var services = new ServiceCollection();
         var rabbitMqClient = new Mock<IRabbitMqClient>();
-        
-        services.AddCarotte(builder => {
+
+        services.AddCarotte(builder =>
+        {
             builder
                 .AddBroker("test-broker", _ => { })
                 .AddAssemblies(typeof(DefaultExchangeNameTests).Assembly);
         });
-        
+
         // We need to replace the IRabbitMqClient to verify calls
         services.AddSingleton(rabbitMqClient.Object);
 
         var sp = services.BuildServiceProvider();
         var hostedServices = sp.GetServices<IHostedService>();
-        var host = hostedServices.FirstOrDefault(h => h.GetType().IsGenericType && 
+        var host = hostedServices.FirstOrDefault(h => h.GetType().IsGenericType &&
                                             h.GetType().GetGenericTypeDefinition() == typeof(RabbitMqConsumerHost<>) &&
                                             h.GetType().GetGenericArguments()[0] == typeof(ExchangeTestConsumer));
-        
+
         host.ShouldNotBeNull();
 
         // Act
@@ -53,7 +54,7 @@ public class DefaultExchangeNameTests
         // Assert
         // Expected exchange name for ExchangeTestMessage should be x.pub.exchange-test
         var expectedExchange = "x.pub.exchange-test";
-        
+
         rabbitMqClient.Verify(c => c.ExchangeDeclareAsync(
             expectedExchange,
             "fanout",

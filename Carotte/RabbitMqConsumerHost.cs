@@ -20,7 +20,7 @@ internal sealed class RabbitMqConsumerHost<TConsumer>(
     public override async Task StartAsync(CancellationToken cancellationToken)
     {
         mediator.Initialize<TConsumer>();
-        
+
         var exchanges = topology switch
         {
             ConsumerConventionTopology conv => string.Join(", ", conv.MessageExchangeNames.Union([conv.ConsumerExchangeName])),
@@ -33,11 +33,11 @@ internal sealed class RabbitMqConsumerHost<TConsumer>(
         BuildPipeline();
 
         await rabbitMqClient.ConnectAsync(topology.Broker, cancellationToken);
-        
+
         await rabbitMqClient.BasicQosAsync(0, topology.PrefetchCount, false, cancellationToken);
 
         rabbitMqClient.ReceivedAsync += (_, ea) => HandleMessageAsync(ea, CancellationToken.None);
-        
+
         await SetupTopologyAsync(cancellationToken);
 
         await base.StartAsync(cancellationToken);
@@ -46,10 +46,10 @@ internal sealed class RabbitMqConsumerHost<TConsumer>(
     public override async Task StopAsync(CancellationToken cancellationToken)
     {
         logger.LogStoppingRabbitmqConsumerHost(typeof(TConsumer).Name);
-        
+
         await rabbitMqClient.CloseAsync(cancellationToken);
         await rabbitMqClient.DisposeAsync();
-        
+
         await base.StopAsync(cancellationToken);
     }
 

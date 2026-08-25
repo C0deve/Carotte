@@ -19,17 +19,17 @@ public class RoutingKeyTests
         var broker = "test-broker";
         var exchange = "test-exchange";
         var message = new TestMessage("Hello");
-        
+
         connectionManagerMock.Setup(m => m.GetConnectionAsync(broker)).ReturnsAsync(connectionMock.Object);
         connectionMock.Setup(c => c.CreateChannelAsync(It.IsAny<CreateChannelOptions?>(), It.IsAny<CancellationToken>())).ReturnsAsync(channelMock.Object);
         channelMock.Setup(c => c.IsOpen).Returns(true);
         serializerMock.Setup(s => s.Serialize(message)).Returns([1, 2, 3]);
 
         var publisher = new RabbitMqPublisher<TestMessage>(
-            rabbitMqClientMock.Object, 
-            serializerMock.Object, 
+            rabbitMqClientMock.Object,
+            serializerMock.Object,
             Mock.Of<ILogger<RabbitMqPublisher<TestMessage>>>(),
-            broker, 
+            broker,
             exchange);
 
         // Act

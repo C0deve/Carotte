@@ -118,7 +118,7 @@ public static class ServiceCollectionExtensions
                         m.AddOtlpExporter(opt => opt.Endpoint = builder.OtlpEndpoint);
                     }
                 });
-            
+
             return services;
         }
 

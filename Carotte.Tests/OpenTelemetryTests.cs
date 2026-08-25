@@ -24,13 +24,13 @@ public class OpenTelemetryTests
 
         // Assert
         var sp = services.BuildServiceProvider();
-        
+
         // Check if OpenTelemetry services are registered
         // The registration of the OTLP exporter is internal to the implementation of WithTracing/WithMetrics
         // But we can verify that the builder has correctly taken the URL into account.
         // Since we cannot easily inspect the internal configuration of OpenTelemetry without complex reflection,
         // we rely on the compilation and the fact that the method is called.
-        
+
         var tracerProvider = sp.GetService<TracerProvider>();
         tracerProvider.ShouldNotBeNull();
 

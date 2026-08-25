@@ -25,7 +25,7 @@ internal static class TopologyProvider
         var broker = overrideSettings?.Broker ?? scan.QueueAttr?.Broker ?? string.Empty;
         return new ConsumerInfo(
             scan.ConsumerType,
-            [..scan.MessageTypes],
+            [.. scan.MessageTypes],
             broker,
             scan.ToConsumerTopology(clientName, defaultPrefetchCount, overrideSettings)
         );

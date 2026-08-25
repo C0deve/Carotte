@@ -7,7 +7,7 @@ namespace Carotte.Tests;
 public class ValidationTests
 {
     public class Message;
-    
+
     public class NoAttributeConsumer : IConsumer<Message>
     {
         public Task HandleAsync(Message message, CancellationToken cancellationToken) => Task.CompletedTask;
