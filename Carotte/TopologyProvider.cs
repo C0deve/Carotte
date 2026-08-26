@@ -102,7 +102,7 @@ internal static class TopologyProvider
                 exchange,
                 routingKey,
                 scan.QueueAttr?.ExchangeType ?? ExchangeType.Direct,
-                scan.QueueAttr?.DeclareExchange ?? false,
+                scan.QueueAttr?.DeclareExchange ?? true,
                 scan.QueueAttr?.ExchangeDurable ?? true,
                 scan.QueueAttr?.ExchangeAutoDelete ?? false)])
             .ToList()

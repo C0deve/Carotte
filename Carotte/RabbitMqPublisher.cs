@@ -40,7 +40,7 @@ internal sealed class RabbitMqPublisher<TMessage>(
             string.IsNullOrWhiteSpace(exchange) ? typeof(TMessage).Name.ToDefaultExchangeName() : exchange,
             string.IsNullOrWhiteSpace(exchange) ? string.Empty : typeof(TMessage).Name,
             string.IsNullOrWhiteSpace(exchange) ? ExchangeType.Fanout : ExchangeType.Direct,
-            string.IsNullOrWhiteSpace(exchange),
+            declareExchange: true,
             durable: true,
             autoDelete: false)
     {

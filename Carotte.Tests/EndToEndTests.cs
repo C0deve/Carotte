@@ -146,6 +146,9 @@ namespace Carotte.Tests
 
             try
             {
+                EndToEnd.Explicit.SimpleConsumer.LastReceivedMessage = null;
+                EndToEnd.Explicit.SimpleConsumer.MessageReceived = new TaskCompletionSource<bool>();
+
                 var services = new ServiceCollection();
 
                 services.AddCarotte(builder =>

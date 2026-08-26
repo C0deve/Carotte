@@ -115,12 +115,67 @@ public class RabbitMqPublisherTests
 
         // Assert
         VerifyLog(loggerMock, LogLevel.Information, "Starting RabbitMqPublisher for TestMessage on broker test-broker. Exchange: explicit-exchange");
-        // Should NOT declare exchange by convention (or at least not the message one in fanout)
-        // Currently RabbitMqPublisher doesn't declare anything, it delegates to publication middleware.
+
+        rabbitMqClient.Verify(c => c.ExchangeDeclareAsync(
+            explicitExchange,
+            "direct",
+            true,
+            false,
+            null,
+            false,
+            false,
+            It.IsAny<CancellationToken>()), Times.Once);
 
         rabbitMqClient.Verify(c => c.BasicPublishAsync<TestMessage>(
             explicitExchange,
             It.IsAny<string>(),
+            It.IsAny<byte[]>(),
+            It.IsAny<BasicProperties>(),
+            true,
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task PublishAsync_ShouldNotDeclareExchange_WhenDeclareExchangeIsFalse()
+    {
+        // Arrange
+        var rabbitMqClient = new Mock<IRabbitMqClient>();
+        var serializer = new Mock<ISerializer>();
+        var loggerMock = new Mock<ILogger<RabbitMqPublisher<TestMessage>>>();
+        loggerMock.Setup(x => x.IsEnabled(It.IsAny<LogLevel>())).Returns(true);
+        var broker = "test-broker";
+        var explicitExchange = "explicit-exchange";
+        var message = new TestMessage();
+
+        var publisher = new RabbitMqPublisher<TestMessage>(
+            rabbitMqClient.Object,
+            serializer.Object,
+            loggerMock.Object,
+            broker,
+            explicitExchange,
+            "routing.key",
+            ExchangeType.Direct,
+            declareExchange: false,
+            durable: true,
+            autoDelete: false);
+
+        // Act
+        await publisher.PublishAsync(message, CancellationToken.None);
+
+        // Assert
+        rabbitMqClient.Verify(c => c.ExchangeDeclareAsync(
+            It.IsAny<string>(),
+            It.IsAny<string>(),
+            It.IsAny<bool>(),
+            It.IsAny<bool>(),
+            It.IsAny<IDictionary<string, object?>?>(),
+            It.IsAny<bool>(),
+            It.IsAny<bool>(),
+            It.IsAny<CancellationToken>()), Times.Never);
+
+        rabbitMqClient.Verify(c => c.BasicPublishAsync<TestMessage>(
+            explicitExchange,
+            "routing.key",
             It.IsAny<byte[]>(),
             It.IsAny<BasicProperties>(),
             true,

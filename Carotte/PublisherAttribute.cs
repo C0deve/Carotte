@@ -6,7 +6,7 @@ public class PublisherAttribute(
     string? exchange = null,
     string? routingKey = null,
     ExchangeType exchangeType = ExchangeType.Direct,
-    bool declareExchange = false,
+    bool declareExchange = true,
     bool durable = true,
     bool autoDelete = false) : Attribute
 {

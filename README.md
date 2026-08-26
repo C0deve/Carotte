@@ -155,7 +155,7 @@ For advanced scenarios, you can customize your consumers and messages using attr
 - `[Binding("exchange", "routingKey", ...)]`: Adds a binding and can optionally declare its source exchange.
 - `[Publisher(...)]`: Configures the broker, exchange, publication routing key, exchange type, and exchange declaration flags.
 
-Explicit exchanges are assumed to exist by default. Set `declareExchange: true` when Carotte owns their declaration. The available exchange flags are `exchangeType`, `durable`, and `autoDelete`; queue flags are `durable`, `exclusive`, and `autoDelete`.
+Exchanges are declared automatically by default (`declareExchange: true`). Set `declareExchange: false` when targeting pre-existing exchanges or running in environments with restricted permissions. The available exchange flags are `exchangeType`, `durable`, and `autoDelete`; queue flags are `durable`, `exclusive`, and `autoDelete`.
 
 > [!NOTE]
 > In the current implementation, applying `[Queue]` switches the consumer to attribute-based topology. If you want the default E2E convention (`x.pub.*` -> `x.sub.*` -> `q.*`), do not add `[Queue]` to the consumer.
@@ -274,7 +274,7 @@ With convention-based topology, Carotte declares:
 | Message exchange -> consumer exchange binding | routing key `""` |
 | Consumer exchange -> queue binding | routing key `""` |
 
-With attribute-based topology, queue flags can be configured on `[Queue]`. Source exchanges are not redeclared unless `declareExchange: true` is set on `[Queue]` or `[Binding]`.
+With attribute-based topology, queue flags can be configured on `[Queue]`. Source exchanges are declared by default (`declareExchange: true`), but declaration can be disabled by setting `declareExchange: false` on `[Queue]` or `[Binding]`.
 
 > [!IMPORTANT]
 > RabbitMQ requires an existing exchange declaration to match its original type and flags. If an existing exchange named `orders-exchange` is already declared as `topic`, do not let Carotte redeclare it as `fanout`. Use explicit attributes and verify the generated topology before connecting Carotte to shared infrastructure.

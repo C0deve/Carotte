@@ -5,7 +5,7 @@ public class BindingAttribute(
     string exchange,
     string routingKey = "",
     ExchangeType exchangeType = ExchangeType.Direct,
-    bool declareExchange = false,
+    bool declareExchange = true,
     bool durable = true,
     bool autoDelete = false) : Attribute
 {

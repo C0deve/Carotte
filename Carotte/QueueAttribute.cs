@@ -22,7 +22,7 @@ public class QueueAttribute(
     bool exclusive = false,
     bool autoDelete = false,
     ExchangeType exchangeType = ExchangeType.Direct,
-    bool declareExchange = false,
+    bool declareExchange = true,
     bool exchangeDurable = true,
     bool exchangeAutoDelete = false) : Attribute
 {

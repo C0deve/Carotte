@@ -118,7 +118,7 @@ public readonly record struct BindingInfo(
     string ExchangeSource,
     string RoutingKey,
     ExchangeType ExchangeType = ExchangeType.Direct,
-    bool DeclareExchange = false,
+    bool DeclareExchange = true,
     bool Durable = true,
     bool AutoDelete = false);
 

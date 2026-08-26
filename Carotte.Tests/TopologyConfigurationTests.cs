@@ -209,6 +209,114 @@ public class TopologyConfigurationTests
         consumer.Topology.Broker.ShouldBe("default-broker");
     }
 
+    [Fact]
+    public void Attributes_ShouldHaveDeclareExchangeTrueByDefault()
+    {
+        var publisherAttr = new PublisherAttribute();
+        publisherAttr.DeclareExchange.ShouldBeTrue();
+
+        var queueAttr = new QueueAttribute("test-queue");
+        queueAttr.DeclareExchange.ShouldBeTrue();
+
+        var bindingAttr = new BindingAttribute("test-exchange");
+        bindingAttr.DeclareExchange.ShouldBeTrue();
+
+        var bindingInfo = new BindingInfo("test-exchange", "test-key");
+        bindingInfo.DeclareExchange.ShouldBeTrue();
+    }
+
+    [Fact]
+    public void TopologyProvider_ShouldDefaultDeclareExchangeToTrue_WhenNotSpecified()
+    {
+        var publisherAttr = new PublisherAttribute(broker: "broker", exchange: "orders");
+        var queueAttr = new QueueAttribute("orders-queue", broker: "broker", exchange: "orders");
+        var bindingAttr = new BindingAttribute("other-exchange", "other.key");
+
+        var scanResult = new ConsumerScanResult(
+            typeof(TestConsumer),
+            new List<Type> { typeof(TestMessage) }.AsReadOnly(),
+            queueAttr,
+            new List<BindingAttribute> { bindingAttr }.AsReadOnly());
+
+        var settings = TopologyProvider.CreateSettings(
+            new Dictionary<string, RabbitMqOptions> { ["broker"] = new() },
+            new List<ConsumerScanResult> { scanResult }.AsReadOnly(),
+            new List<PublisherScanResult> { new(typeof(TestMessage), publisherAttr) }.AsReadOnly());
+
+        var producer = settings.Producers.Single();
+        producer.DeclareExchange.ShouldBeTrue();
+
+        var topology = settings.Consumers.Single().Topology.ShouldBeOfType<ConsumerAttributeTopology>();
+        topology.Bindings.Count.ShouldBe(2);
+        topology.Bindings[0].DeclareExchange.ShouldBeTrue(); // bindingAttr
+        topology.Bindings[1].DeclareExchange.ShouldBeTrue(); // queueAttr exchange
+    }
+
+    [Fact]
+    public void TopologyProvider_ShouldRespectDeclareExchangeFalse_WhenSpecified()
+    {
+        var publisherAttr = new PublisherAttribute(broker: "broker", exchange: "orders", declareExchange: false);
+        var queueAttr = new QueueAttribute("orders-queue", broker: "broker", exchange: "orders", declareExchange: false);
+        var bindingAttr = new BindingAttribute("other-exchange", "other.key", declareExchange: false);
+
+        var scanResult = new ConsumerScanResult(
+            typeof(TestConsumer),
+            new List<Type> { typeof(TestMessage) }.AsReadOnly(),
+            queueAttr,
+            new List<BindingAttribute> { bindingAttr }.AsReadOnly());
+
+        var settings = TopologyProvider.CreateSettings(
+            new Dictionary<string, RabbitMqOptions> { ["broker"] = new() },
+            new List<ConsumerScanResult> { scanResult }.AsReadOnly(),
+            new List<PublisherScanResult> { new(typeof(TestMessage), publisherAttr) }.AsReadOnly());
+
+        var producer = settings.Producers.Single();
+        producer.DeclareExchange.ShouldBeFalse();
+
+        var topology = settings.Consumers.Single().Topology.ShouldBeOfType<ConsumerAttributeTopology>();
+        topology.Bindings.Count.ShouldBe(2);
+        topology.Bindings[0].DeclareExchange.ShouldBeFalse();
+        topology.Bindings[1].DeclareExchange.ShouldBeFalse();
+    }
+
+    [Fact]
+    public async Task AttributeTopology_ShouldNotDeclareExchange_WhenDeclareExchangeIsFalse()
+    {
+        var rabbitMqClient = new Mock<IRabbitMqClient>();
+        var topology = new ConsumerAttributeTopology(
+            Broker: "broker",
+            Queue: "orders-queue",
+            Bindings:
+            [
+                new BindingInfo(
+                    "orders",
+                    "order.*",
+                    ExchangeType.Topic,
+                    DeclareExchange: false)
+            ],
+            ErrorStrategy: new ConsumerErrorStrategy(FailureAction: ConsumerFailureAction.Requeue));
+
+        await ConsumerTopologyBuilder.BuildAsync(rabbitMqClient.Object, topology, CancellationToken.None);
+
+        rabbitMqClient.Verify(client => client.ExchangeDeclareAsync(
+            "orders",
+            It.IsAny<string>(),
+            It.IsAny<bool>(),
+            It.IsAny<bool>(),
+            It.IsAny<IDictionary<string, object?>?>(),
+            It.IsAny<bool>(),
+            It.IsAny<bool>(),
+            It.IsAny<CancellationToken>()), Times.Never);
+
+        rabbitMqClient.Verify(client => client.QueueBindAsync(
+            "orders-queue",
+            "orders",
+            "order.*",
+            null,
+            false,
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+
     private sealed class TestMessage;
     private sealed class OtherMessage;
     private sealed class TestConsumer : IConsumer<TestMessage>
