@@ -47,8 +47,23 @@ internal sealed class RabbitMqConsumerHost<TConsumer>(
     {
         logger.LogStoppingRabbitmqConsumerHost(typeof(TConsumer).Name);
 
-        await rabbitMqClient.CloseAsync(cancellationToken);
-        await rabbitMqClient.DisposeAsync();
+        try
+        {
+            await rabbitMqClient.CloseAsync(cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Error while closing RabbitMqClient in consumer host {ConsumerType}", typeof(TConsumer).Name);
+        }
+
+        try
+        {
+            await rabbitMqClient.DisposeAsync();
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Error while disposing RabbitMqClient in consumer host {ConsumerType}", typeof(TConsumer).Name);
+        }
 
         await base.StopAsync(cancellationToken);
     }

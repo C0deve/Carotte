@@ -26,7 +26,14 @@ internal sealed class ConnectionManager(IDictionary<string, RabbitMqOptions> opt
                     return connection;
                 }
 
-                connection.Dispose();
+                try
+                {
+                    connection.Dispose();
+                }
+                catch (Exception)
+                {
+                }
+
                 _connections.Remove(brokerName);
             }
 
@@ -146,7 +153,18 @@ internal sealed class ConnectionManager(IDictionary<string, RabbitMqOptions> opt
                     _activeHosts.Remove(brokerName);
                     if (_connections.TryGetValue(brokerName, out var connection))
                     {
-                        await connection.CloseAsync();
+                        try
+                        {
+                            if (connection.IsOpen)
+                            {
+                                await connection.CloseAsync();
+                            }
+                            connection.Dispose();
+                        }
+                        catch (Exception)
+                        {
+                        }
+
                         _connections.Remove(brokerName);
                     }
                 }
@@ -166,7 +184,13 @@ internal sealed class ConnectionManager(IDictionary<string, RabbitMqOptions> opt
     {
         foreach (var connection in _connections.Values)
         {
-            connection.Dispose();
+            try
+            {
+                connection.Dispose();
+            }
+            catch (Exception)
+            {
+            }
         }
         _connections.Clear();
         _activeHosts.Clear();
