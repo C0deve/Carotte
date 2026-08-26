@@ -16,108 +16,107 @@ internal static class TopologyProvider
         return null;
     }
 
-    private static ConsumerInfo ToConsumerInfo(
-        this ConsumerScanResult scan,
-        string? clientName,
-        ushort defaultPrefetchCount,
-        ConsumerSettingsOptions? overrideSettings,
-        string brokerName)
+    extension(ConsumerScanResult scan)
     {
-        return new ConsumerInfo(
-            scan.ConsumerType,
-            [.. scan.MessageTypes],
-            brokerName,
-            scan.ToConsumerTopology(clientName, defaultPrefetchCount, overrideSettings, brokerName)
-        );
-    }
-
-    private static IConsumerTopology ToConsumerTopology(
-        this ConsumerScanResult scan,
-        string? clientName,
-        ushort defaultPrefetchCount,
-        ConsumerSettingsOptions? overrideSettings,
-        string brokerName)
-    {
-        var prefetchCount = overrideSettings?.PrefetchCount ?? scan.QueueAttr?.PrefetchCount ?? defaultPrefetchCount;
-        var queueName = overrideSettings?.QueueName ?? scan.QueueAttr?.Name ?? scan.ConsumerType.Name.ToConsumerQueueName(clientName);
-        var maxRetries = overrideSettings?.MaxRetryAttempts ?? scan.QueueAttr?.MaxRetryAttempts;
-        var failureAction = overrideSettings?.FailureAction ?? scan.QueueAttr?.FailureAction ?? ConsumerFailureAction.DeadLetter;
-        var dlx = overrideSettings?.DeadLetterExchange ?? scan.QueueAttr?.DeadLetterExchange;
-        var dlRoutingKey = overrideSettings?.DeadLetterRoutingKey ?? scan.QueueAttr?.DeadLetterRoutingKey;
-        var dlQueue = overrideSettings?.DeadLetterQueue ?? scan.QueueAttr?.DeadLetterQueue;
-        var initialInterval = overrideSettings?.InitialRetryInterval;
-        var backoffMultiplier = overrideSettings?.RetryBackoffMultiplier;
-
-        var errorStrategy = scan.QueueAttr == null && overrideSettings == null
-            ? ConsumerErrorStrategy.ByConvention(queueName)
-            : new ConsumerErrorStrategy(
-                maxRetries,
-                failureAction,
-                dlx,
-                dlRoutingKey,
-                dlQueue,
-                InitialRetryInterval: initialInterval,
-                RetryBackoffMultiplier: backoffMultiplier).WithConventionDefaults(queueName);
-
-        var arguments = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
-        if (!string.IsNullOrWhiteSpace(overrideSettings?.QueueType))
+        private ConsumerInfo ToConsumerInfo(string? clientName,
+            ushort defaultPrefetchCount,
+            ConsumerSettingsOptions? overrideSettings,
+            string brokerName)
         {
-            arguments["x-queue-type"] = overrideSettings.QueueType;
+            return new ConsumerInfo(
+                scan.ConsumerType,
+                [.. scan.MessageTypes],
+                brokerName,
+                scan.ToConsumerTopology(clientName, defaultPrefetchCount, overrideSettings, brokerName)
+            );
         }
-        if (overrideSettings?.Arguments != null)
+
+        private IConsumerTopology ToConsumerTopology(string? clientName,
+            ushort defaultPrefetchCount,
+            ConsumerSettingsOptions? overrideSettings,
+            string brokerName)
         {
-            foreach (var (k, v) in overrideSettings.Arguments)
+            var prefetchCount = overrideSettings?.PrefetchCount ?? scan.QueueAttr?.PrefetchCount ?? defaultPrefetchCount;
+            var queueName = overrideSettings?.QueueName ?? scan.QueueAttr?.Name ?? scan.ConsumerType.Name.ToConsumerQueueName(clientName);
+            var maxRetries = overrideSettings?.MaxRetryAttempts ?? scan.QueueAttr?.MaxRetryAttempts;
+            var failureAction = overrideSettings?.FailureAction ?? scan.QueueAttr?.FailureAction ?? ConsumerFailureAction.DeadLetter;
+            var dlx = overrideSettings?.DeadLetterExchange ?? scan.QueueAttr?.DeadLetterExchange;
+            var dlRoutingKey = overrideSettings?.DeadLetterRoutingKey ?? scan.QueueAttr?.DeadLetterRoutingKey;
+            var dlQueue = overrideSettings?.DeadLetterQueue ?? scan.QueueAttr?.DeadLetterQueue;
+            var initialInterval = overrideSettings?.InitialRetryInterval;
+            var backoffMultiplier = overrideSettings?.RetryBackoffMultiplier;
+
+            var errorStrategy = scan.QueueAttr == null && overrideSettings == null
+                ? ConsumerErrorStrategy.ByConvention(queueName)
+                : new ConsumerErrorStrategy(
+                    maxRetries,
+                    failureAction,
+                    dlx,
+                    dlRoutingKey,
+                    dlQueue,
+                    InitialRetryInterval: initialInterval,
+                    RetryBackoffMultiplier: backoffMultiplier).WithConventionDefaults(queueName);
+
+            var arguments = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
+            if (!string.IsNullOrWhiteSpace(overrideSettings?.QueueType))
             {
-                arguments[k] = v;
+                arguments["x-queue-type"] = overrideSettings.QueueType;
             }
-        }
-        var readonlyArguments = arguments.Count > 0 ? new ReadOnlyDictionary<string, object?>(arguments) : null;
+            if (overrideSettings?.Arguments != null)
+            {
+                foreach (var (k, v) in overrideSettings.Arguments)
+                {
+                    arguments[k] = v;
+                }
+            }
+            var readonlyArguments = arguments.Count > 0 ? new ReadOnlyDictionary<string, object?>(arguments) : null;
 
-        if (scan.QueueAttr == null && overrideSettings?.RoutingKey == null)
-        {
-            return new ConsumerConventionTopology(
+            if (scan.QueueAttr == null && overrideSettings?.RoutingKey == null)
+            {
+                return new ConsumerConventionTopology(
+                    Broker: brokerName,
+                    Queue: queueName,
+                    ConsumerExchangeName: scan.ConsumerType.Name.ToConsumerExchangeName(clientName),
+                    MessageExchangeNames: scan.MessageTypes
+                        .Select(m => m.Name.ToMessageExchangeName())
+                        .ToList()
+                        .AsReadOnly(),
+                    PrefetchCount: prefetchCount,
+                    ErrorStrategy: errorStrategy,
+                    Arguments: readonlyArguments);
+            }
+
+            var routingKey = overrideSettings?.RoutingKey ?? scan.QueueAttr?.RoutingKey ?? string.Empty;
+            var exchange = scan.QueueAttr?.Exchange ?? string.Empty;
+            var bindings = scan.BindingAttrs
+                .Select(b => new BindingInfo(
+                    b.Exchange,
+                    b.RoutingKey,
+                    b.ExchangeType,
+                    b.DeclareExchange,
+                    b.Durable,
+                    b.AutoDelete))
+                .Union([new BindingInfo(
+                    exchange,
+                    routingKey,
+                    scan.QueueAttr?.ExchangeType ?? ExchangeType.Direct,
+                    scan.QueueAttr?.DeclareExchange ?? true,
+                    scan.QueueAttr?.ExchangeDurable ?? true,
+                    scan.QueueAttr?.ExchangeAutoDelete ?? false)])
+                .ToList()
+                .AsReadOnly();
+
+            return new ConsumerAttributeTopology(
                 Broker: brokerName,
                 Queue: queueName,
-                ConsumerExchangeName: scan.ConsumerType.Name.ToConsumerExchangeName(clientName),
-                MessageExchangeNames: scan.MessageTypes
-                    .Select(m => m.Name.ToMessageExchangeName())
-                    .ToList()
-                    .AsReadOnly(),
+                Bindings: bindings,
                 PrefetchCount: prefetchCount,
                 ErrorStrategy: errorStrategy,
+                QueueDurable: overrideSettings?.QueueDurable ?? scan.QueueAttr?.Durable ?? true,
+                QueueExclusive: overrideSettings?.QueueExclusive ?? scan.QueueAttr?.Exclusive ?? false,
+                QueueAutoDelete: overrideSettings?.QueueAutoDelete ?? scan.QueueAttr?.AutoDelete ?? false,
                 Arguments: readonlyArguments);
         }
-
-        var routingKey = overrideSettings?.RoutingKey ?? scan.QueueAttr?.RoutingKey ?? string.Empty;
-        var exchange = scan.QueueAttr?.Exchange ?? string.Empty;
-        var bindings = scan.BindingAttrs
-            .Select(b => new BindingInfo(
-                b.Exchange,
-                b.RoutingKey,
-                b.ExchangeType,
-                b.DeclareExchange,
-                b.Durable,
-                b.AutoDelete))
-            .Union([new BindingInfo(
-                exchange,
-                routingKey,
-                scan.QueueAttr?.ExchangeType ?? ExchangeType.Direct,
-                scan.QueueAttr?.DeclareExchange ?? true,
-                scan.QueueAttr?.ExchangeDurable ?? true,
-                scan.QueueAttr?.ExchangeAutoDelete ?? false)])
-            .ToList()
-            .AsReadOnly();
-
-        return new ConsumerAttributeTopology(
-            Broker: brokerName,
-            Queue: queueName,
-            Bindings: bindings,
-            PrefetchCount: prefetchCount,
-            ErrorStrategy: errorStrategy,
-            QueueDurable: overrideSettings?.QueueDurable ?? scan.QueueAttr?.Durable ?? true,
-            QueueExclusive: overrideSettings?.QueueExclusive ?? scan.QueueAttr?.Exclusive ?? false,
-            QueueAutoDelete: overrideSettings?.QueueAutoDelete ?? scan.QueueAttr?.AutoDelete ?? false,
-            Arguments: readonlyArguments);
     }
 
     private static ProducerInfo ToProducerInfo(this PublisherScanResult scan)
