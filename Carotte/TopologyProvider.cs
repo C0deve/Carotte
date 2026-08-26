@@ -20,14 +20,14 @@ internal static class TopologyProvider
         this ConsumerScanResult scan,
         string? clientName,
         ushort defaultPrefetchCount,
-        ConsumerSettingsOptions? overrideSettings)
+        ConsumerSettingsOptions? overrideSettings,
+        string brokerName)
     {
-        var broker = overrideSettings?.Broker ?? scan.QueueAttr?.Broker ?? string.Empty;
         return new ConsumerInfo(
             scan.ConsumerType,
             [.. scan.MessageTypes],
-            broker,
-            scan.ToConsumerTopology(clientName, defaultPrefetchCount, overrideSettings)
+            brokerName,
+            scan.ToConsumerTopology(clientName, defaultPrefetchCount, overrideSettings, brokerName)
         );
     }
 
@@ -35,7 +35,8 @@ internal static class TopologyProvider
         this ConsumerScanResult scan,
         string? clientName,
         ushort defaultPrefetchCount,
-        ConsumerSettingsOptions? overrideSettings)
+        ConsumerSettingsOptions? overrideSettings,
+        string brokerName)
     {
         var prefetchCount = overrideSettings?.PrefetchCount ?? scan.QueueAttr?.PrefetchCount ?? defaultPrefetchCount;
         var queueName = overrideSettings?.QueueName ?? scan.QueueAttr?.Name ?? scan.ConsumerType.Name.ToConsumerQueueName(clientName);
@@ -75,7 +76,7 @@ internal static class TopologyProvider
         if (scan.QueueAttr == null && overrideSettings?.RoutingKey == null)
         {
             return new ConsumerConventionTopology(
-                Broker: overrideSettings?.Broker ?? string.Empty,
+                Broker: brokerName,
                 Queue: queueName,
                 ConsumerExchangeName: scan.ConsumerType.Name.ToConsumerExchangeName(clientName),
                 MessageExchangeNames: scan.MessageTypes
@@ -108,7 +109,7 @@ internal static class TopologyProvider
             .AsReadOnly();
 
         return new ConsumerAttributeTopology(
-            Broker: overrideSettings?.Broker ?? scan.QueueAttr?.Broker ?? string.Empty,
+            Broker: brokerName,
             Queue: queueName,
             Bindings: bindings,
             PrefetchCount: prefetchCount,
@@ -158,7 +159,7 @@ internal static class TopologyProvider
                     var overrideSetting = FindConsumerSettings(consumerSettings, sc.ConsumerType, initialQueueName);
                     var brokerName = overrideSetting?.Broker ?? sc.QueueAttr?.Broker ?? firstBrokerName;
                     var prefetchCount = brokers.GetValueOrDefault(brokerName)?.DefaultPrefetchCount ?? 1;
-                    return sc.ToConsumerInfo(clientName, prefetchCount, overrideSetting) with { Broker = brokerName };
+                    return sc.ToConsumerInfo(clientName, prefetchCount, overrideSetting, brokerName);
                 })
                 .ToList()
                 .AsReadOnly();

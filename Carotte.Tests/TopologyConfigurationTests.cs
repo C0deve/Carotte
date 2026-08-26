@@ -140,6 +140,43 @@ public class TopologyConfigurationTests
         result.Errors.ShouldContain(error => error is ConflictingExchangeDeclaration);
     }
 
+    [Fact]
+    public void TopologyProvider_ShouldUseDefaultBrokerForAttributeConsumer_WhenBrokerNotSpecified()
+    {
+        var queueAttribute = new QueueAttribute("orders-queue", exchange: "orders");
+        var scanResult = new ConsumerScanResult(
+            typeof(TestConsumer),
+            new List<Type> { typeof(TestMessage) }.AsReadOnly(),
+            queueAttribute,
+            new List<BindingAttribute>().AsReadOnly());
+
+        var settings = TopologyProvider.CreateSettings(
+            new Dictionary<string, RabbitMqOptions> { ["default-broker"] = new() },
+            new List<ConsumerScanResult> { scanResult }.AsReadOnly(),
+            new List<PublisherScanResult>().AsReadOnly());
+
+        var consumer = settings.Consumers.Single();
+        consumer.Topology.Broker.ShouldBe("default-broker");
+    }
+
+    [Fact]
+    public void TopologyProvider_ShouldUseDefaultBrokerForConventionConsumer_WhenBrokerNotSpecified()
+    {
+        var scanResult = new ConsumerScanResult(
+            typeof(TestConsumer),
+            new List<Type> { typeof(TestMessage) }.AsReadOnly(),
+            null,
+            new List<BindingAttribute>().AsReadOnly());
+
+        var settings = TopologyProvider.CreateSettings(
+            new Dictionary<string, RabbitMqOptions> { ["default-broker"] = new() },
+            new List<ConsumerScanResult> { scanResult }.AsReadOnly(),
+            new List<PublisherScanResult>().AsReadOnly());
+
+        var consumer = settings.Consumers.Single();
+        consumer.Topology.Broker.ShouldBe("default-broker");
+    }
+
     private sealed class TestMessage;
     private sealed class OtherMessage;
     private sealed class TestConsumer : IConsumer<TestMessage>
