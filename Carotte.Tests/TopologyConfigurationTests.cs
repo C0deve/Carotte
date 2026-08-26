@@ -58,6 +58,38 @@ public class TopologyConfigurationTests
     }
 
     [Fact]
+    public async Task AttributeTopology_ShouldSkipBindingWithNoExchange()
+    {
+        var rabbitMqClient = new Mock<IRabbitMqClient>();
+        var topology = new ConsumerAttributeTopology(
+            Broker: "broker",
+            Queue: "orders-queue",
+            Bindings:
+            [
+                new BindingInfo("", "order.created"),
+                new BindingInfo("orders", "order.created")
+            ],
+            ErrorStrategy: new ConsumerErrorStrategy(FailureAction: ConsumerFailureAction.Requeue));
+
+        await ConsumerTopologyBuilder.BuildAsync(rabbitMqClient.Object, topology, CancellationToken.None);
+
+        rabbitMqClient.Verify(client => client.QueueBindAsync(
+            "orders-queue",
+            "",
+            "order.created",
+            It.IsAny<IDictionary<string, object?>?>(),
+            false,
+            It.IsAny<CancellationToken>()), Times.Never);
+        rabbitMqClient.Verify(client => client.QueueBindAsync(
+            "orders-queue",
+            "orders",
+            "order.created",
+            null,
+            false,
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
     public void TopologyProvider_ShouldPreservePublisherConfiguration()
     {
         var attribute = new PublisherAttribute(

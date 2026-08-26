@@ -103,7 +103,7 @@ internal static class ConsumerTopologyBuilder
             noWait: false,
             cancellationToken: cancellationToken);
 
-        foreach (var binding in topology.Bindings)
+        foreach (var binding in topology.Bindings.Where(binding => !string.IsNullOrWhiteSpace(binding.ExchangeSource)))
         {
             await rabbitMqClient.QueueBindAsync(
                 queue: topology.Queue,

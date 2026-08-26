@@ -5,7 +5,7 @@ using Testcontainers.RabbitMq;
 
 namespace Carotte.Tests.EndToEnd.Explicit
 {
-    [Publisher]
+    [Publisher(exchange: "simple-exchange")]
     public class SimpleMessage
     {
         public string Content { get; set; } = string.Empty;
