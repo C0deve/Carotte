@@ -19,7 +19,7 @@ internal class PublisherTracingMiddleware<TMessage> : IPublisherMiddleware<TMess
         try
         {
             context.Properties ??= new BasicProperties();
-            context.Properties.Type = context.RoutingKey;
+            context.Properties.Type = typeof(TMessage).Name;
 
             if (activity != null)
             {

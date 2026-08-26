@@ -8,7 +8,7 @@ internal record PublisherContext<TMessage>(
     string RoutingKey,
     CancellationToken CancellationToken = default) where TMessage : class
 {
-    public BasicProperties? Properties { get; set; }
+    public BasicProperties Properties { get; set; } = new() { Type = typeof(TMessage).Name };
     public byte[]? Body { get; set; }
 }
 

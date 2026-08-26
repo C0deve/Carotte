@@ -50,6 +50,34 @@ public class ConsumerMediatorTests
     }
 
     [Fact]
+    public void ResolveMessageType_ShouldResolveKnownTypeByFullNameForMultiMessageConsumer()
+    {
+        // Arrange
+        var mediator = CreateMediator<MultiMessageConsumer>();
+        var args = CreateDeliveryArgs(typeof(SecondMessage).FullName);
+
+        // Act
+        var messageType = mediator.ResolveMessageType(args);
+
+        // Assert
+        messageType.ShouldBe(typeof(SecondMessage));
+    }
+
+    [Fact]
+    public void ResolveMessageType_ShouldReturnNullForMultiMessageConsumer_WhenTypeIsEmptyString()
+    {
+        // Arrange
+        var mediator = CreateMediator<MultiMessageConsumer>();
+        var args = CreateDeliveryArgs(string.Empty);
+
+        // Act
+        var messageType = mediator.ResolveMessageType(args);
+
+        // Assert
+        messageType.ShouldBeNull();
+    }
+
+    [Fact]
     public void ResolveMessageType_ShouldInferTypeForSingleMessageConsumer_WhenTypeIsMissing()
     {
         // Arrange

@@ -33,9 +33,16 @@ internal sealed class ConsumerMediator(IServiceProvider serviceProvider)
 
     public Type? ResolveMessageType(BasicDeliverEventArgs ea)
     {
-        if (ea.BasicProperties.Type != null && _handlerMethods.Keys.Any(k => k.Name == ea.BasicProperties.Type))
+        if (!string.IsNullOrEmpty(ea.BasicProperties.Type))
         {
-            return _handlerMethods.Keys.FirstOrDefault(k => k.Name == ea.BasicProperties.Type);
+            var match = _handlerMethods.Keys.FirstOrDefault(k =>
+                string.Equals(k.Name, ea.BasicProperties.Type, StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(k.FullName, ea.BasicProperties.Type, StringComparison.OrdinalIgnoreCase));
+
+            if (match != null)
+            {
+                return match;
+            }
         }
 
         return _handlerMethods.Count == 1
