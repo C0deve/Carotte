@@ -56,7 +56,7 @@ public class MessageTypeResolver : IMessageTypeResolver
         var (cleanTypeName, cleanShortName) = ExtractCleanTypeNames(trimmedIdentifier);
 
         // Find the first candidate whose metadata matches the identifier
-        return candidateTypes.FirstOrDefault(candidate => 
+        return candidateTypes.FirstOrDefault(candidate =>
             GetMetadata(candidate)
             .Matches(trimmedIdentifier,
                 cleanTypeName,
