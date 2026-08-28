@@ -91,6 +91,34 @@ public class ConsumerMediatorTests
         messageType.ShouldBe(typeof(FirstMessage));
     }
 
+    [Fact]
+    public void ResolveMessageType_ShouldReturnNullForSingleMessageConsumer_WhenTypeIsExplicitlySpecifiedButUnknown()
+    {
+        // Arrange
+        var mediator = CreateMediator<SingleMessageConsumer>();
+        var args = CreateDeliveryArgs(type: "UnrelatedMessage");
+
+        // Act
+        var messageType = mediator.ResolveMessageType(args);
+
+        // Assert
+        messageType.ShouldBeNull();
+    }
+
+    [Fact]
+    public void ResolveMessageType_ShouldResolveByCustomMessageTypeAttribute()
+    {
+        // Arrange
+        var mediator = CreateMediator<CustomAliasedConsumer>();
+        var args = CreateDeliveryArgs(type: "custom.message.type");
+
+        // Act
+        var messageType = mediator.ResolveMessageType(args);
+
+        // Assert
+        messageType.ShouldBe(typeof(AliasedMessage));
+    }
+
     private static ConsumerMediator CreateMediator<TConsumer>()
         where TConsumer : class
     {
@@ -135,5 +163,13 @@ public class ConsumerMediatorTests
         public Task HandleAsync(FirstMessage message, CancellationToken cancellationToken) => Task.CompletedTask;
 
         public Task HandleAsync(SecondMessage message, CancellationToken cancellationToken) => Task.CompletedTask;
+    }
+
+    [MessageType("custom.message.type")]
+    public class AliasedMessage;
+
+    public class CustomAliasedConsumer : IConsumer<AliasedMessage>
+    {
+        public Task HandleAsync(AliasedMessage message, CancellationToken cancellationToken) => Task.CompletedTask;
     }
 }

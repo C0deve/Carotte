@@ -4,8 +4,11 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Carotte;
 
-internal sealed class ConsumerMediator(IServiceProvider serviceProvider)
+internal sealed class ConsumerMediator(
+    IServiceProvider serviceProvider,
+    IMessageTypeResolver? messageTypeResolver = null)
 {
+    private readonly IMessageTypeResolver _messageTypeResolver = messageTypeResolver ?? MessageTypeResolver.Default;
     private Type? _consumerType;
     private readonly Dictionary<Type, MethodInfo> _handlerMethods = [];
 
@@ -33,30 +36,10 @@ internal sealed class ConsumerMediator(IServiceProvider serviceProvider)
 
     public Type? ResolveMessageType(BasicDeliverEventArgs ea)
     {
-        if (!string.IsNullOrEmpty(ea.BasicProperties.Type))
-        {
-            var match = _handlerMethods.Keys.FirstOrDefault(k =>
-                string.Equals(k.Name, ea.BasicProperties.Type, StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(k.FullName, ea.BasicProperties.Type, StringComparison.OrdinalIgnoreCase));
-
-            if (match != null)
-            {
-                return match;
-            }
-        }
-
-        return _handlerMethods.Count == 1
-            ? _handlerMethods.Keys.First()
-            : null;
+        return _messageTypeResolver.ResolveType(ea.BasicProperties.Type, _handlerMethods.Keys);
     }
 
     internal AsyncServiceScope CreateMessageScope() => serviceProvider.CreateAsyncScope();
-
-    public async Task InvokeAsync(Type messageType, object message, CancellationToken cancellationToken)
-    {
-        await using var messageScope = CreateMessageScope();
-        await InvokeAsync(messageScope.ServiceProvider, messageType, message, cancellationToken);
-    }
 
     internal async Task InvokeAsync(
         IServiceProvider messageServiceProvider,

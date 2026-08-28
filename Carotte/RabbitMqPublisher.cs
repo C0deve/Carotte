@@ -13,10 +13,12 @@ internal sealed class RabbitMqPublisher<TMessage>(
     ExchangeType exchangeType,
     bool declareExchange,
     bool durable,
-    bool autoDelete)
+    bool autoDelete,
+    IMessageTypeResolver? messageTypeResolver = null)
     : IPublisher<TMessage>, IAsyncDisposable
     where TMessage : class
 {
+    private readonly IMessageTypeResolver _messageTypeResolver = messageTypeResolver ?? MessageTypeResolver.Default;
     private readonly PublisherPipeline<TMessage> _pipeline = new PublisherPipelineBuilder<TMessage>()
         .Use(new PublisherMetricsMiddleware<TMessage>())
         .Use(new PublisherTracingMiddleware<TMessage>())
@@ -31,7 +33,8 @@ internal sealed class RabbitMqPublisher<TMessage>(
         ISerializer serializer,
         ILogger<RabbitMqPublisher<TMessage>> logger,
         string broker,
-        string? exchange)
+        string? exchange,
+        IMessageTypeResolver? messageTypeResolver = null)
         : this(
             rabbitMqClient,
             serializer,
@@ -42,7 +45,8 @@ internal sealed class RabbitMqPublisher<TMessage>(
             string.IsNullOrWhiteSpace(exchange) ? ExchangeType.Fanout : ExchangeType.Direct,
             declareExchange: true,
             durable: true,
-            autoDelete: false)
+            autoDelete: false,
+            messageTypeResolver)
     {
     }
 
@@ -77,7 +81,12 @@ internal sealed class RabbitMqPublisher<TMessage>(
             }
         }
 
-        var context = new PublisherContext<TMessage>(message, exchange, routingKey, cancellationToken);
+        var context = new PublisherContext<TMessage>(
+            message,
+            exchange,
+            routingKey,
+            _messageTypeResolver.GetTypeIdentifier(typeof(TMessage)),
+            cancellationToken);
         await _pipeline.ExecuteAsync(context);
     }
 

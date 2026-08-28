@@ -83,6 +83,7 @@ public static class ServiceCollectionExtensions
         private IServiceCollection AddCoreServices(CarotteBuilder builder)
         {
             services.AddLogging();
+            services.TryAddSingleton<IMessageTypeResolver, MessageTypeResolver>();
             services.TryAddSingleton<IConnectionManager>(_ => new ConnectionManager(builder.Brokers));
             services.TryAddTransient<IRabbitMqClient, RabbitMqClient>();
 

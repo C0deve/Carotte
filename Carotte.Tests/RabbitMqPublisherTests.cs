@@ -1,4 +1,5 @@
 ﻿using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.DependencyInjection;
 using Moq;
 using RabbitMQ.Client;
 
@@ -6,6 +7,7 @@ namespace Carotte.Tests;
 
 public class RabbitMqPublisherTests
 {
+    [Publisher]
     public class TestMessage;
 
     [Fact]
@@ -216,6 +218,82 @@ public class RabbitMqPublisherTests
             It.IsAny<BasicProperties>(),
             true,
             It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task PublishAsync_ShouldUseInjectedMessageTypeResolver_WhenProvided()
+    {
+        // Arrange
+        var rabbitMqClient = new Mock<IRabbitMqClient>();
+        var serializer = new Mock<ISerializer>();
+        var messageTypeResolver = new Mock<IMessageTypeResolver>();
+        messageTypeResolver
+            .Setup(r => r.GetTypeIdentifier(typeof(TestMessage)))
+            .Returns("custom.identifier.test-message");
+
+        var publisher = new RabbitMqPublisher<TestMessage>(
+            rabbitMqClient.Object,
+            serializer.Object,
+            Mock.Of<ILogger<RabbitMqPublisher<TestMessage>>>(),
+            "test-broker",
+            "test-exchange",
+            "routing.key",
+            ExchangeType.Direct,
+            declareExchange: false,
+            durable: true,
+            autoDelete: false,
+            messageTypeResolver.Object);
+
+        // Act
+        await publisher.PublishAsync(new TestMessage(), CancellationToken.None);
+
+        // Assert
+        rabbitMqClient.Verify(c => c.BasicPublishAsync<TestMessage>(
+            "test-exchange",
+            "routing.key",
+            It.IsAny<byte[]>(),
+            It.Is<BasicProperties>(p => p.Type == "custom.identifier.test-message"),
+            true,
+            It.IsAny<CancellationToken>()), Times.Once);
+
+        messageTypeResolver.Verify(r => r.GetTypeIdentifier(typeof(TestMessage)), Times.Once);
+    }
+
+    [Fact]
+    public async Task PublishAsync_ShouldUseCustomResolverFromServiceCollection()
+    {
+        // Arrange
+        var services = new Microsoft.Extensions.DependencyInjection.ServiceCollection();
+        var rabbitMqClient = new Mock<IRabbitMqClient>();
+        var customResolver = new Mock<IMessageTypeResolver>();
+        customResolver
+            .Setup(r => r.GetTypeIdentifier(typeof(TestMessage)))
+            .Returns("custom.di.test-message");
+
+        services.AddSingleton(rabbitMqClient.Object);
+        services.AddSingleton(customResolver.Object);
+        services.AddCarotte(c =>
+        {
+            c.AddBroker("test-broker", opt => opt.Host = "localhost");
+            c.AddAssemblies(typeof(RabbitMqPublisherTests).Assembly);
+        });
+
+        await using var sp = services.BuildServiceProvider();
+        var publisher = sp.GetRequiredService<IPublisher<TestMessage>>();
+
+        // Act
+        await publisher.PublishAsync(new TestMessage(), CancellationToken.None);
+
+        // Assert
+        rabbitMqClient.Verify(c => c.BasicPublishAsync<TestMessage>(
+            It.IsAny<string>(),
+            It.IsAny<string>(),
+            It.IsAny<byte[]>(),
+            It.Is<BasicProperties>(p => p.Type == "custom.di.test-message"),
+            true,
+            It.IsAny<CancellationToken>()), Times.Once);
+
+        customResolver.Verify(r => r.GetTypeIdentifier(typeof(TestMessage)), Times.Once);
     }
 
     private static void VerifyLog<T>(Mock<ILogger<T>> loggerMock, LogLevel level, string message)

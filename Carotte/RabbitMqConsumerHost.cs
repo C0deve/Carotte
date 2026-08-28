@@ -124,11 +124,16 @@ internal sealed class RabbitMqConsumerHost<TConsumer>(
         var targetMessageType = mediator.ResolveMessageType(ea);
         if (targetMessageType == null)
         {
+            var supportedTypes = string.Join(", ", mediator.GetHandledMessageTypes().Select(t => t.Name));
             logger.LogWarning(
-                "Unable to resolve message type for consumer {ConsumerType}. RabbitMQ Type property: {MessageType}. DeliveryTag: {DeliveryTag}. Nacking without requeue.",
+                "Unable to resolve message type for consumer {ConsumerType}. RabbitMQ Type property: {MessageType}. Exchange: {Exchange}. RoutingKey: {RoutingKey}. Queue: {Queue}. DeliveryTag: {DeliveryTag}. Supported types: [{SupportedTypes}]. Nacking without requeue.",
                 typeof(TConsumer).Name,
                 ea.BasicProperties.Type,
-                ea.DeliveryTag);
+                ea.Exchange,
+                ea.RoutingKey,
+                topology.Queue,
+                ea.DeliveryTag,
+                supportedTypes);
 
             await rabbitMqClient.BasicNackAsync(ea.DeliveryTag, false, false, cancellationToken: stoppingToken);
             return;
@@ -179,7 +184,7 @@ internal sealed class RabbitMqConsumerHost<TConsumer>(
 
                 return;
             }
-            catch (Exception ex) when (attempt < maxRetryAttempts)
+            catch (Exception ex) when (attempt < maxRetryAttempts && IsRetryable(ex))
             {
                 attempt++;
                 var delay = errorStrategy.GetRetryDelay(attempt);
@@ -198,5 +203,15 @@ internal sealed class RabbitMqConsumerHost<TConsumer>(
                 }
             }
         }
+    }
+
+    private static bool IsRetryable(Exception ex)
+    {
+        if (ex is System.Text.Json.JsonException)
+        {
+            return false;
+        }
+
+        return true;
     }
 }

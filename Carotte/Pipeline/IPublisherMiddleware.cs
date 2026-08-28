@@ -6,9 +6,13 @@ internal record PublisherContext<TMessage>(
     TMessage Message,
     string Exchange,
     string RoutingKey,
+    string? TypeIdentifier = null,
     CancellationToken CancellationToken = default) where TMessage : class
 {
-    public BasicProperties Properties { get; set; } = new() { Type = typeof(TMessage).Name };
+    public BasicProperties Properties { get; set; } = new()
+    {
+        Type = TypeIdentifier ?? MessageTypeResolver.Default.GetTypeIdentifier(typeof(TMessage))
+    };
     public byte[]? Body { get; set; }
 }
 
