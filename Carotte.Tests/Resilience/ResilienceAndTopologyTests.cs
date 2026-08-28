@@ -46,7 +46,7 @@ public class ResilienceAndTopologyTests
             DeadLetterExchange: "dlx.exchange",
             DeadLetterRoutingKey: "dlq.key");
 
-        var customArgs = new Dictionary<string, object?>
+        var customArgs = new Dictionary<string, object>
         {
             ["x-queue-type"] = "quorum",
             ["x-message-ttl"] = 60000,

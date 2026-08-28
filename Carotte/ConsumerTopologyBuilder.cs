@@ -157,16 +157,13 @@ internal static class ConsumerTopologyBuilder
 
     internal static IDictionary<string, object?>? CreateQueueArguments(
         ConsumerErrorStrategy errorStrategy,
-        IReadOnlyDictionary<string, object?>? customArguments = null)
+        IReadOnlyDictionary<string, object> customArguments)
     {
         var arguments = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
 
-        if (customArguments != null)
+        foreach (var (k, v) in customArguments)
         {
-            foreach (var (k, v) in customArguments)
-            {
-                arguments[k] = v;
-            }
+            arguments[k] = v;
         }
 
         if (!string.IsNullOrWhiteSpace(errorStrategy.DeadLetterExchange) && !arguments.ContainsKey("x-dead-letter-exchange"))

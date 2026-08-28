@@ -13,8 +13,7 @@ public class TopologyConfigurationTests
         var topology = new ConsumerAttributeTopology(
             Broker: "broker",
             Queue: "orders-queue",
-            Bindings:
-            [
+            Bindings: [
                 new BindingInfo(
                     "orders",
                     "order.*",
@@ -22,7 +21,7 @@ public class TopologyConfigurationTests
                     DeclareExchange: true,
                     Durable: false,
                     AutoDelete: true)
-            ],
+            ], Arguments: ReadOnlyDictionary<string, object>.Empty,
             ErrorStrategy: new ConsumerErrorStrategy(FailureAction: ConsumerFailureAction.Requeue),
             QueueDurable: false,
             QueueExclusive: true,
@@ -64,11 +63,10 @@ public class TopologyConfigurationTests
         var topology = new ConsumerAttributeTopology(
             Broker: "broker",
             Queue: "orders-queue",
-            Bindings:
-            [
+            Bindings: [
                 new BindingInfo("", "order.created"),
                 new BindingInfo("orders", "order.created")
-            ],
+            ], Arguments: ReadOnlyDictionary<string, object>.Empty,
             ErrorStrategy: new ConsumerErrorStrategy(FailureAction: ConsumerFailureAction.Requeue));
 
         await ConsumerTopologyBuilder.BuildAsync(rabbitMqClient.Object, topology, CancellationToken.None);
@@ -286,14 +284,14 @@ public class TopologyConfigurationTests
         var topology = new ConsumerAttributeTopology(
             Broker: "broker",
             Queue: "orders-queue",
-            Bindings:
-            [
+            Bindings: [
                 new BindingInfo(
                     "orders",
                     "order.*",
                     ExchangeType.Topic,
                     DeclareExchange: false)
             ],
+            Arguments: ReadOnlyDictionary<string, object>.Empty,
             ErrorStrategy: new ConsumerErrorStrategy(FailureAction: ConsumerFailureAction.Requeue));
 
         await ConsumerTopologyBuilder.BuildAsync(rabbitMqClient.Object, topology, CancellationToken.None);
@@ -315,6 +313,69 @@ public class TopologyConfigurationTests
             null,
             false,
             It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public void TopologyProvider_ShouldDefaultRoutingKeyToMessageType_WhenExchangeSpecifiedAndRoutingKeyNull()
+    {
+        var queueAttr = new QueueAttribute("orders-queue", broker: "broker", exchange: "orders");
+        var scanResult = new ConsumerScanResult(
+            typeof(TestConsumer),
+            new List<Type> { typeof(TestMessage) }.AsReadOnly(),
+            queueAttr,
+            new List<BindingAttribute>().AsReadOnly());
+
+        var settings = TopologyProvider.CreateSettings(
+            new Dictionary<string, RabbitMqOptions> { ["broker"] = new() },
+            new List<ConsumerScanResult> { scanResult }.AsReadOnly(),
+            new List<PublisherScanResult>().AsReadOnly());
+
+        var topology = settings.Consumers.Single().Topology.ShouldBeOfType<ConsumerAttributeTopology>();
+        var binding = topology.Bindings.Single();
+        binding.ExchangeSource.ShouldBe("orders");
+        binding.RoutingKey.ShouldBe(nameof(TestMessage));
+    }
+
+    [Fact]
+    public void TopologyProvider_ShouldDefaultRoutingKeyToAllMessageTypes_WhenMultipleMessageTypesAndRoutingKeyNull()
+    {
+        var queueAttr = new QueueAttribute("multi-queue", broker: "broker", exchange: "orders");
+        var scanResult = new ConsumerScanResult(
+            typeof(TestConsumer),
+            new List<Type> { typeof(TestMessage), typeof(OtherMessage) }.AsReadOnly(),
+            queueAttr,
+            new List<BindingAttribute>().AsReadOnly());
+
+        var settings = TopologyProvider.CreateSettings(
+            new Dictionary<string, RabbitMqOptions> { ["broker"] = new() },
+            new List<ConsumerScanResult> { scanResult }.AsReadOnly(),
+            new List<PublisherScanResult>().AsReadOnly());
+
+        var topology = settings.Consumers.Single().Topology.ShouldBeOfType<ConsumerAttributeTopology>();
+        topology.Bindings.Count.ShouldBe(2);
+        topology.Bindings.ShouldContain(b => b.ExchangeSource == "orders" && b.RoutingKey == nameof(TestMessage));
+        topology.Bindings.ShouldContain(b => b.ExchangeSource == "orders" && b.RoutingKey == nameof(OtherMessage));
+    }
+
+    [Fact]
+    public void TopologyProvider_ShouldUseExplicitEmptyRoutingKey_WhenEmptyStringSpecified()
+    {
+        var queueAttr = new QueueAttribute("orders-queue", broker: "broker", exchange: "orders", routingKey: "");
+        var scanResult = new ConsumerScanResult(
+            typeof(TestConsumer),
+            new List<Type> { typeof(TestMessage) }.AsReadOnly(),
+            queueAttr,
+            new List<BindingAttribute>().AsReadOnly());
+
+        var settings = TopologyProvider.CreateSettings(
+            new Dictionary<string, RabbitMqOptions> { ["broker"] = new() },
+            new List<ConsumerScanResult> { scanResult }.AsReadOnly(),
+            new List<PublisherScanResult>().AsReadOnly());
+
+        var topology = settings.Consumers.Single().Topology.ShouldBeOfType<ConsumerAttributeTopology>();
+        var binding = topology.Bindings.Single();
+        binding.ExchangeSource.ShouldBe("orders");
+        binding.RoutingKey.ShouldBe(string.Empty);
     }
 
     private sealed class TestMessage;

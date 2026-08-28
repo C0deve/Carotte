@@ -5,11 +5,10 @@ namespace Carotte;
 internal static class TopologyProvider
 {
     private static ConsumerSettingsOptions? FindConsumerSettings(
-        Dictionary<string, ConsumerSettingsOptions>? settings,
+        this Dictionary<string, ConsumerSettingsOptions> settings,
         Type consumerType,
         string? queueName)
     {
-        if (settings == null) return null;
         if (settings.TryGetValue(consumerType.Name, out var byName)) return byName;
         if (consumerType.FullName != null && settings.TryGetValue(consumerType.FullName, out var byFullName)) return byFullName;
         if (queueName != null && settings.TryGetValue(queueName, out var byQueue)) return byQueue;
@@ -57,19 +56,9 @@ internal static class TopologyProvider
                     InitialRetryInterval: initialInterval,
                     RetryBackoffMultiplier: backoffMultiplier).WithConventionDefaults(queueName);
 
-            var arguments = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
-            if (!string.IsNullOrWhiteSpace(overrideSettings?.QueueType))
-            {
-                arguments["x-queue-type"] = overrideSettings.QueueType;
-            }
-            if (overrideSettings?.Arguments != null)
-            {
-                foreach (var (k, v) in overrideSettings.Arguments)
-                {
-                    arguments[k] = v;
-                }
-            }
-            var readonlyArguments = arguments.Count > 0 ? new ReadOnlyDictionary<string, object?>(arguments) : null;
+            var readonlyArguments = overrideSettings is null
+                ? ReadOnlyDictionary<string, object>.Empty
+                : ConsumerScanResult.BuildConsumerArguments(overrideSettings);
 
             if (scan.QueueAttr == null && overrideSettings?.RoutingKey == null)
             {
@@ -81,13 +70,16 @@ internal static class TopologyProvider
                         .Select(m => m.Name.ToMessageExchangeName())
                         .ToList()
                         .AsReadOnly(),
+                    Arguments: readonlyArguments,
                     PrefetchCount: prefetchCount,
-                    ErrorStrategy: errorStrategy,
-                    Arguments: readonlyArguments);
+                    ErrorStrategy: errorStrategy);
             }
 
-            var routingKey = overrideSettings?.RoutingKey ?? scan.QueueAttr?.RoutingKey ?? string.Empty;
+            var explicitRoutingKey = overrideSettings?.RoutingKey ?? scan.QueueAttr?.RoutingKey;
             var exchange = scan.QueueAttr?.Exchange ?? string.Empty;
+
+            var queueBindings = scan.GenerateQueueBindings(explicitRoutingKey, exchange);
+
             var bindings = scan.BindingAttrs
                 .Select(b => new BindingInfo(
                     b.Exchange,
@@ -96,13 +88,7 @@ internal static class TopologyProvider
                     b.DeclareExchange,
                     b.Durable,
                     b.AutoDelete))
-                .Union([new BindingInfo(
-                    exchange,
-                    routingKey,
-                    scan.QueueAttr?.ExchangeType ?? ExchangeType.Direct,
-                    scan.QueueAttr?.DeclareExchange ?? true,
-                    scan.QueueAttr?.ExchangeDurable ?? true,
-                    scan.QueueAttr?.ExchangeAutoDelete ?? false)])
+                .Union(queueBindings)
                 .ToList()
                 .AsReadOnly();
 
@@ -110,12 +96,60 @@ internal static class TopologyProvider
                 Broker: brokerName,
                 Queue: queueName,
                 Bindings: bindings,
-                PrefetchCount: prefetchCount,
-                ErrorStrategy: errorStrategy,
-                QueueDurable: overrideSettings?.QueueDurable ?? scan.QueueAttr?.Durable ?? true,
-                QueueExclusive: overrideSettings?.QueueExclusive ?? scan.QueueAttr?.Exclusive ?? false,
-                QueueAutoDelete: overrideSettings?.QueueAutoDelete ?? scan.QueueAttr?.AutoDelete ?? false,
-                Arguments: readonlyArguments);
+                Arguments: readonlyArguments, PrefetchCount: prefetchCount, ErrorStrategy: errorStrategy, QueueDurable: overrideSettings?.QueueDurable ?? scan.QueueAttr?.Durable ?? true, QueueExclusive: overrideSettings?.QueueExclusive ?? scan.QueueAttr?.Exclusive ?? false, QueueAutoDelete: overrideSettings?.QueueAutoDelete ?? scan.QueueAttr?.AutoDelete ?? false);
+        }
+
+        private static ReadOnlyDictionary<string, object> BuildConsumerArguments(ConsumerSettingsOptions overrideSettings)
+        {
+            var arguments = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase);
+            if (!string.IsNullOrWhiteSpace(overrideSettings.QueueType))
+            {
+                arguments["x-queue-type"] = overrideSettings.QueueType;
+            }
+
+            foreach (var (k, v) in overrideSettings.Arguments)
+            {
+                arguments[k] = v;
+            }
+
+            return new ReadOnlyDictionary<string, object>(arguments);
+        }
+
+        private IEnumerable<BindingInfo> GenerateQueueBindings(string? explicitRoutingKey, string exchange)
+        {
+            IEnumerable<BindingInfo> queueBindings;
+            if (explicitRoutingKey != null)
+            {
+                queueBindings = [new BindingInfo(
+                    exchange,
+                    explicitRoutingKey,
+                    scan.QueueAttr?.ExchangeType ?? ExchangeType.Direct,
+                    scan.QueueAttr?.DeclareExchange ?? true,
+                    scan.QueueAttr?.ExchangeDurable ?? true,
+                    scan.QueueAttr?.ExchangeAutoDelete ?? false)];
+            }
+            else if (!string.IsNullOrWhiteSpace(exchange) && scan.MessageTypes.Count > 0)
+            {
+                queueBindings = scan.MessageTypes.Select(m => new BindingInfo(
+                    exchange,
+                    m.Name,
+                    scan.QueueAttr?.ExchangeType ?? ExchangeType.Direct,
+                    scan.QueueAttr?.DeclareExchange ?? true,
+                    scan.QueueAttr?.ExchangeDurable ?? true,
+                    scan.QueueAttr?.ExchangeAutoDelete ?? false));
+            }
+            else
+            {
+                queueBindings = [new BindingInfo(
+                    exchange,
+                    string.Empty,
+                    scan.QueueAttr?.ExchangeType ?? ExchangeType.Direct,
+                    scan.QueueAttr?.DeclareExchange ?? true,
+                    scan.QueueAttr?.ExchangeDurable ?? true,
+                    scan.QueueAttr?.ExchangeAutoDelete ?? false)];
+            }
+
+            return queueBindings;
         }
     }
 
@@ -155,7 +189,7 @@ internal static class TopologyProvider
                 .Select(sc =>
                 {
                     var initialQueueName = sc.QueueAttr?.Name ?? sc.ConsumerType.Name.ToConsumerQueueName(clientName);
-                    var overrideSetting = FindConsumerSettings(consumerSettings, sc.ConsumerType, initialQueueName);
+                    var overrideSetting = consumerSettings?.FindConsumerSettings(sc.ConsumerType, initialQueueName);
                     var brokerName = overrideSetting?.Broker ?? sc.QueueAttr?.Broker ?? firstBrokerName;
                     var prefetchCount = brokers.GetValueOrDefault(brokerName)?.DefaultPrefetchCount ?? 1;
                     return sc.ToConsumerInfo(clientName, prefetchCount, overrideSetting, brokerName);

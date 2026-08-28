@@ -1,6 +1,6 @@
 namespace Carotte;
 
-public class CarotteOptions
+public record CarotteOptions
 {
     public string? ClientName { get; set; }
     public Dictionary<string, RabbitMqOptions> Brokers { get; set; } = new(StringComparer.OrdinalIgnoreCase);
@@ -8,7 +8,7 @@ public class CarotteOptions
     public CarotteSerializationOptions? Serialization { get; set; }
 }
 
-public class ConsumerSettingsOptions
+public record ConsumerSettingsOptions
 {
     public ushort? PrefetchCount { get; set; }
     public int? MaxRetryAttempts { get; set; }
@@ -25,10 +25,10 @@ public class ConsumerSettingsOptions
     public bool? QueueExclusive { get; set; }
     public bool? QueueAutoDelete { get; set; }
     public string? QueueType { get; set; }
-    public Dictionary<string, object?> Arguments { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+    public Dictionary<string, object> Arguments { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 }
 
-public class CarotteSerializationOptions
+public record CarotteSerializationOptions
 {
-    public System.Text.Json.JsonSerializerOptions? JsonSerializerOptions { get; set; }
+    public System.Text.Json.JsonSerializerOptions? JsonSerializerOptions { get; init; }
 }

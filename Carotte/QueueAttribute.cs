@@ -11,7 +11,7 @@ public class QueueAttribute(
     string name,
     string? broker = null,
     string? exchange = null,
-    string? routingKey = "",
+    string? routingKey = null,
     ushort prefetchCount = 1,
     int maxRetryAttempts = -1,
     ConsumerFailureAction failureAction = ConsumerFailureAction.DeadLetter,
@@ -29,7 +29,7 @@ public class QueueAttribute(
     public string Name { get; } = name;
     public string? Broker { get; } = broker;
     public string? Exchange { get; } = exchange;
-    public string RoutingKey { get; } = routingKey ?? string.Empty;
+    public string? RoutingKey { get; } = routingKey;
     public ushort PrefetchCount { get; } = prefetchCount;
     public int? MaxRetryAttempts { get; } = maxRetryAttempts < 0 ? null : maxRetryAttempts;
     public ConsumerFailureAction FailureAction { get; } = failureAction;

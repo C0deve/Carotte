@@ -8,7 +8,7 @@ public interface IConsumerTopology
     string Broker { get; }
     ushort PrefetchCount { get; }
     ConsumerErrorStrategy ErrorStrategy { get; }
-    IReadOnlyDictionary<string, object?> Arguments { get; }
+    IReadOnlyDictionary<string, object> Arguments { get; }
 }
 
 public readonly record struct ConsumerErrorStrategy(
@@ -83,9 +83,9 @@ public record ConsumerConventionTopology(
     ReadOnlyCollection<string> MessageExchangeNames,
     ushort PrefetchCount = 1,
     ConsumerErrorStrategy ErrorStrategy = default,
-    IReadOnlyDictionary<string, object?>? Arguments = null) : IConsumerTopology
+    IReadOnlyDictionary<string, object>? Arguments = null) : IConsumerTopology
 {
-    public IReadOnlyDictionary<string, object?> Arguments { get; } = Arguments ?? ReadOnlyDictionary<string, object?>.Empty;
+    public IReadOnlyDictionary<string, object> Arguments { get; } = Arguments ?? ReadOnlyDictionary<string, object>.Empty;
 }
 
 public record ConsumerAttributeTopology(
@@ -97,9 +97,9 @@ public record ConsumerAttributeTopology(
     bool QueueDurable = true,
     bool QueueExclusive = false,
     bool QueueAutoDelete = false,
-    IReadOnlyDictionary<string, object?>? Arguments = null) : IConsumerTopology
+    IReadOnlyDictionary<string, object>? Arguments = null) : IConsumerTopology
 {
-    public IReadOnlyDictionary<string, object?> Arguments { get; } = Arguments ?? ReadOnlyDictionary<string, object?>.Empty;
+    public IReadOnlyDictionary<string, object> Arguments { get; } = Arguments ?? ReadOnlyDictionary<string, object>.Empty;
 }
 
 public readonly record struct ConsumerInfo(
