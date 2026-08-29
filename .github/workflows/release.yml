@@ -77,37 +77,16 @@ jobs:
           draft: false
           prerelease: ${{ contains(steps.get_version.outputs.VERSION, '-') }}
 
-      - name: NuGet Login (Trusted Publishing / OIDC)
-        if: ${{ vars.NUGET_USER != '' || vars.NUGET_USERNAME != '' || secrets.NUGET_USER != '' || secrets.NUGET_USERNAME != '' }}
+      - name: NuGet login (OIDC → temp API key)
         uses: NuGet/login@v1
         id: nuget_login
         with:
-          user: ${{ vars.NUGET_USER || vars.NUGET_USERNAME || secrets.NUGET_USER || secrets.NUGET_USERNAME }}
-
+          user: ${{ secrets.NUGET_USER }}
+    
       - name: Push to NuGet.org (Trusted Publishing)
         if: steps.nuget_login.outputs.NUGET_API_KEY != ''
         run: >
           dotnet nuget push "./artifacts/*.nupkg"
           --api-key "${{ steps.nuget_login.outputs.NUGET_API_KEY }}"
           --source "https://api.nuget.org/v3/index.json"
-          --skip-duplicate
-
-      - name: Push to NuGet.org (API Key Fallback)
-        if: steps.nuget_login.outputs.NUGET_API_KEY == '' && env.NUGET_API_KEY != ''
-        env:
-          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
-        run: >
-          dotnet nuget push "./artifacts/*.nupkg"
-          --api-key "${{ secrets.NUGET_API_KEY }}"
-          --source "https://api.nuget.org/v3/index.json"
-          --skip-duplicate
-
-      - name: Push to GitHub Packages
-        if: env.GITHUB_TOKEN != ''
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: >
-          dotnet nuget push "./artifacts/*.nupkg"
-          --api-key "${{ secrets.GITHUB_TOKEN }}"
-          --source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json"
           --skip-duplicate
