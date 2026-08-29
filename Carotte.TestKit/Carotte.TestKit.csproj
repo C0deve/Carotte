@@ -1,5 +1,10 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
+  <PropertyGroup>
+    <Description>Testing utilities, in-memory publishers, and consumer pipeline simulation for Carotte microservices.</Description>
+    <PackageTags>testing;testkit;mock;rabbitmq;carotte;in-memory</PackageTags>
+  </PropertyGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\Carotte\Carotte.csproj" />
   </ItemGroup>

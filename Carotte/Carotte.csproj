@@ -1,5 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk">
     
+    <PropertyGroup>
+      <Description>High-performance RabbitMQ client wrapper for .NET 10 microservices with built-in observability, convention topologies, and dead-letter queues.</Description>
+      <PackageTags>rabbitmq;messaging;microservices;opentelemetry;dotnet10</PackageTags>
+    </PropertyGroup>
+
     <ItemGroup>
       <InternalsVisibleTo Include="Carotte.Tests" />
     </ItemGroup>

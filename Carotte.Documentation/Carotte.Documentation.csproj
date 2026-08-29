@@ -1,5 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
+  <PropertyGroup>
+    <Description>Automated Markdown, AsyncAPI 3.0, and Mermaid topology documentation generator for Carotte microservices.</Description>
+    <PackageTags>asyncapi;mermaid;documentation;rabbitmq;carotte;markdown</PackageTags>
+  </PropertyGroup>
+
   <ItemGroup>
     <PackageReference Include="ByteBard.AsyncAPI.NET" />
     <PackageReference Include="ByteBard.AsyncAPI.NET.Bindings" />
