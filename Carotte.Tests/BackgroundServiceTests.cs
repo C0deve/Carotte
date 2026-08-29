@@ -16,7 +16,7 @@ public class BackgroundServiceTests
         {
             // Arrange
             var services = new ServiceCollection();
-        
+
             services.AddCarotte(builder =>
             {
                 builder.AddBroker("test-broker", options =>
@@ -33,7 +33,7 @@ public class BackgroundServiceTests
 
             // Act
             var backgroundService = sp.GetService<PublisherUsingBackgroundService>();
-        
+
             // Assert
             backgroundService.ShouldNotBeNull();
             backgroundService.Publisher.ShouldNotBeNull();

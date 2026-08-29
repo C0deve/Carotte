@@ -43,15 +43,48 @@ public class PublisherPipelineTests
             exchange,
             nameof(TestMessage),
             It.IsAny<byte[]>(),
-            It.IsAny<BasicProperties>(),
+            It.Is<BasicProperties>(p => p.Type == nameof(TestMessage)),
             true,
             It.IsAny<CancellationToken>()), Times.Once);
 
         // Verify that serialization took place
         serializerMock.Verify(s => s.Serialize(message), Times.Once);
-        
+
         await publisher.DisposeAsync();
         rabbitMqClientMock.Verify(c => c.DisposeAsync(), Times.Once);
+    }
+
+    [Fact]
+    public async Task PublishAsync_ShouldSetMessageTypeOnBasicProperties_EvenWhenRoutingKeyIsEmpty()
+    {
+        // Arrange
+        var rabbitMqClientMock = new Mock<IRabbitMqClient>();
+        var serializerMock = new Mock<ISerializer>();
+        serializerMock.Setup(s => s.Serialize(It.IsAny<TestMessage>())).Returns([1, 2, 3]);
+
+        var publisher = new RabbitMqPublisher<TestMessage>(
+            rabbitMqClientMock.Object,
+            serializerMock.Object,
+            Mock.Of<ILogger<RabbitMqPublisher<TestMessage>>>(),
+            "test-broker",
+            "x.pub.test",
+            "",
+            ExchangeType.Fanout,
+            declareExchange: true,
+            durable: true,
+            autoDelete: false);
+
+        // Act
+        await publisher.PublishAsync(new TestMessage("Hello"));
+
+        // Assert
+        rabbitMqClientMock.Verify(c => c.BasicPublishAsync<TestMessage>(
+            "x.pub.test",
+            "",
+            It.IsAny<byte[]>(),
+            It.Is<BasicProperties>(p => p.Type == nameof(TestMessage)),
+            true,
+            It.IsAny<CancellationToken>()), Times.Once);
     }
 
     public record TestMessage(string Content);

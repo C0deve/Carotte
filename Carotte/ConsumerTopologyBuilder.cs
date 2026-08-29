@@ -1,7 +1,14 @@
 namespace Carotte;
 
+/// <summary>
+/// Responsible for declaring RabbitMQ topology (exchanges, queues, bindings, and dead-letter entities)
+/// based on convention-based or attribute-based configurations.
+/// </summary>
 internal static class ConsumerTopologyBuilder
 {
+    /// <summary>
+    /// Builds and applies the RabbitMQ topology for the specified consumer topology definition.
+    /// </summary>
     public static async Task BuildAsync(
         IRabbitMqClient rabbitMqClient,
         IConsumerTopology topology,
@@ -18,12 +25,19 @@ internal static class ConsumerTopologyBuilder
         }
     }
 
+    /// <summary>
+    /// Configures convention-based topology:
+    /// - Creates consumer exchange (fanout) and message exchanges (fanout)
+    /// - Binds message exchanges to consumer exchange (exchange-to-exchange binding)
+    /// - Declares consumer queue with DLX arguments and binds it to consumer exchange
+    /// </summary>
     private static async Task SetupConventionTopologyAsync(IRabbitMqClient rabbitMqClient,
         ConsumerConventionTopology topology,
         CancellationToken cancellationToken)
     {
         var errorStrategy = topology.ErrorStrategy.WithConventionDefaults(topology.Queue);
 
+        // 1. Declare consumer-level exchange
         await rabbitMqClient.ExchangeDeclareAsync(
             exchange: topology.ConsumerExchangeName,
             type: "fanout",
@@ -31,8 +45,10 @@ internal static class ConsumerTopologyBuilder
             autoDelete: false,
             cancellationToken: cancellationToken);
 
+        // 2. Declare Dead Letter Exchange and Queue if required
         await SetupDeadLetterExchangeAsync(rabbitMqClient, errorStrategy, cancellationToken);
 
+        // 3. Declare consumer queue with dead letter arguments
         await rabbitMqClient.QueueDeclareAsync(
             queue: topology.Queue,
             durable: true,
@@ -41,12 +57,14 @@ internal static class ConsumerTopologyBuilder
             arguments: CreateQueueArguments(errorStrategy, topology.Arguments),
             cancellationToken: cancellationToken);
 
+        // 4. Bind consumer queue to consumer exchange
         await rabbitMqClient.QueueBindAsync(
             queue: topology.Queue,
             exchange: topology.ConsumerExchangeName,
             routingKey: "",
             cancellationToken: cancellationToken);
 
+        // 5. Declare message-type exchanges and bind each to the consumer exchange (E2E bindings)
         foreach (var messageExchange in topology.MessageExchangeNames)
         {
             await rabbitMqClient.ExchangeDeclareAsync(
@@ -69,6 +87,13 @@ internal static class ConsumerTopologyBuilder
         }
     }
 
+    /// <summary>
+    /// Configures attribute-based topology:
+    /// - Sets up dead-letter exchange/queue if applicable
+    /// - Declares all explicitly bound exchanges
+    /// - Declares consumer queue with custom/dead-letter arguments
+    /// - Sets up queue-to-exchange bindings
+    /// </summary>
     private static async Task SetupAttributeTopologyAsync(
         IRabbitMqClient rabbitMqClient,
         ConsumerAttributeTopology topology,
@@ -76,8 +101,10 @@ internal static class ConsumerTopologyBuilder
     {
         var errorStrategy = topology.ErrorStrategy.WithConventionDefaults(topology.Queue);
 
+        // 1. Declare Dead Letter Exchange and Queue if applicable
         await SetupDeadLetterExchangeAsync(rabbitMqClient, errorStrategy, cancellationToken);
 
+        // 2. Declare exchanges configured in bindings
         foreach (var exchange in topology.Bindings
                      .Where(binding => binding.DeclareExchange && !string.IsNullOrWhiteSpace(binding.ExchangeSource))
                      .DistinctBy(binding => binding.ExchangeSource))
@@ -93,6 +120,7 @@ internal static class ConsumerTopologyBuilder
                 cancellationToken: cancellationToken);
         }
 
+        // 3. Declare consumer queue
         await rabbitMqClient.QueueDeclareAsync(
             queue: topology.Queue,
             durable: topology.QueueDurable,
@@ -103,7 +131,8 @@ internal static class ConsumerTopologyBuilder
             noWait: false,
             cancellationToken: cancellationToken);
 
-        foreach (var binding in topology.Bindings)
+        // 4. Bind queue to declared exchanges
+        foreach (var binding in topology.Bindings.Where(binding => !string.IsNullOrWhiteSpace(binding.ExchangeSource)))
         {
             await rabbitMqClient.QueueBindAsync(
                 queue: topology.Queue,
@@ -115,12 +144,17 @@ internal static class ConsumerTopologyBuilder
         }
     }
 
+    /// <summary>
+    /// Declares dead-letter exchange, dead-letter queue and binds them together.
+    /// Skipped if failure action is set to Requeue or if dead-letter names are empty.
+    /// </summary>
     private static async Task SetupDeadLetterExchangeAsync(
         IRabbitMqClient rabbitMqClient,
         ConsumerErrorStrategy errorStrategy,
         CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(errorStrategy.DeadLetterExchange) ||
+        if (errorStrategy.FailureAction == ConsumerFailureAction.Requeue ||
+            string.IsNullOrWhiteSpace(errorStrategy.DeadLetterExchange) ||
             string.IsNullOrWhiteSpace(errorStrategy.DeadLetterQueue))
         {
             return;
@@ -155,28 +189,31 @@ internal static class ConsumerTopologyBuilder
             cancellationToken: cancellationToken);
     }
 
+    /// <summary>
+    /// Merges user-defined queue arguments with RabbitMQ dead-lettering headers (x-dead-letter-exchange, x-dead-letter-routing-key).
+    /// </summary>
     internal static IDictionary<string, object?>? CreateQueueArguments(
         ConsumerErrorStrategy errorStrategy,
-        IReadOnlyDictionary<string, object?>? customArguments = null)
+        IReadOnlyDictionary<string, object> customArguments)
     {
         var arguments = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
 
-        if (customArguments != null)
+        foreach (var (k, v) in customArguments)
         {
-            foreach (var (k, v) in customArguments)
+            arguments[k] = v;
+        }
+
+        if (errorStrategy.FailureAction != ConsumerFailureAction.Requeue)
+        {
+            if (!string.IsNullOrWhiteSpace(errorStrategy.DeadLetterExchange) && !arguments.ContainsKey("x-dead-letter-exchange"))
             {
-                arguments[k] = v;
+                arguments["x-dead-letter-exchange"] = errorStrategy.DeadLetterExchange;
             }
-        }
 
-        if (!string.IsNullOrWhiteSpace(errorStrategy.DeadLetterExchange) && !arguments.ContainsKey("x-dead-letter-exchange"))
-        {
-            arguments["x-dead-letter-exchange"] = errorStrategy.DeadLetterExchange;
-        }
-
-        if (!string.IsNullOrWhiteSpace(errorStrategy.DeadLetterRoutingKey) && !arguments.ContainsKey("x-dead-letter-routing-key"))
-        {
-            arguments["x-dead-letter-routing-key"] = errorStrategy.DeadLetterRoutingKey;
+            if (!string.IsNullOrWhiteSpace(errorStrategy.DeadLetterRoutingKey) && !arguments.ContainsKey("x-dead-letter-routing-key"))
+            {
+                arguments["x-dead-letter-routing-key"] = errorStrategy.DeadLetterRoutingKey;
+            }
         }
 
         return arguments.Count > 0 ? arguments : null;

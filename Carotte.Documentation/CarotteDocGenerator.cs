@@ -127,10 +127,10 @@ public sealed class CarotteDocGenerator(
         }
 
         return (from assembly in assemblies
-            where !string.IsNullOrEmpty(assembly.Location)
-            select Path.ChangeExtension(assembly.Location, ".xml")
+                where !string.IsNullOrEmpty(assembly.Location)
+                select Path.ChangeExtension(assembly.Location, ".xml")
             into xmlPath
-            where File.Exists(xmlPath)
-            select XmlDocumentationReader.FromFile(xmlPath)).FirstOrDefault();
+                where File.Exists(xmlPath)
+                select XmlDocumentationReader.FromFile(xmlPath)).FirstOrDefault();
     }
 }

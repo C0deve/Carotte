@@ -1,4 +1,5 @@
-﻿using Microsoft.Extensions.DependencyInjection;
+﻿using System.Collections.ObjectModel;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Moq;
 using RabbitMQ.Client;
@@ -20,7 +21,8 @@ public class RabbitMqConsumerHostTests
         IConsumerTopology topology = new ConsumerAttributeTopology(
             Broker: broker,
             Queue: "test-queue",
-            Bindings: [new BindingInfo("test-exchange", "test-key")]);
+            Bindings: [new BindingInfo("test-exchange", "test-key")],
+            Arguments: ReadOnlyDictionary<string, object>.Empty);
 
         var mediator = new ConsumerMediator(serviceProvider.Object);
         var loggerMock = new Mock<ILogger<RabbitMqConsumerHost<TestConsumer>>>();
@@ -88,7 +90,7 @@ public class RabbitMqConsumerHostTests
         IConsumerTopology topology = new ConsumerAttributeTopology(
             Broker: broker,
             Queue: "test-queue",
-            Bindings: [],
+            Bindings: [], Arguments: null,
             PrefetchCount: 1); // Default is now 1
 
         var mediator = new ConsumerMediator(serviceProvider.Object);
@@ -123,7 +125,7 @@ public class RabbitMqConsumerHostTests
         IConsumerTopology topology = new ConsumerAttributeTopology(
             Broker: broker,
             Queue: "test-queue",
-            Bindings: [],
+            Bindings: [], Arguments: null,
             PrefetchCount: 15);
 
         var mediator = new ConsumerMediator(serviceProvider.Object);
@@ -163,7 +165,7 @@ public class RabbitMqConsumerHostTests
             Bindings: [
                 new BindingInfo(testExchange, "key1"),
                 new BindingInfo(testExchange, "key2")
-            ]);
+            ], Arguments: null);
 
         var mediator = new ConsumerMediator(serviceProvider.Object);
         var loggerMock = new Mock<ILogger<RabbitMqConsumerHost<TestConsumer>>>();
@@ -236,7 +238,7 @@ public class RabbitMqConsumerHostTests
         IConsumerTopology topology = new ConsumerAttributeTopology(
             Broker: broker,
             Queue: queue,
-            Bindings: [],
+            Bindings: [], Arguments: null,
             ErrorStrategy: new ConsumerErrorStrategy(
                 DeadLetterExchange: deadLetterExchange,
                 DeadLetterRoutingKey: deadLetterRoutingKey));
@@ -300,7 +302,7 @@ public class RabbitMqConsumerHostTests
             serializer.Object,
             new Mock<ILogger<RabbitMqConsumerHost<TestConsumer>>>().Object,
             broker,
-            new ConsumerAttributeTopology(Broker: broker, Queue: queue, Bindings: []));
+            new ConsumerAttributeTopology(Broker: broker, Queue: queue, Bindings: [], Arguments: null));
 
         // Act
         await host.StartAsync(CancellationToken.None);
@@ -367,7 +369,7 @@ public class RabbitMqConsumerHostTests
             serializer.Object,
             loggerMock.Object,
             broker,
-            new ConsumerAttributeTopology(Broker: broker, Queue: "test-queue", Bindings: []));
+            new ConsumerAttributeTopology(Broker: broker, Queue: "test-queue", Bindings: [], Arguments: null));
 
         // Act
         await host.StopAsync(CancellationToken.None);
@@ -397,7 +399,7 @@ public class RabbitMqConsumerHostTests
             serializer.Object,
             loggerMock.Object,
             broker,
-            new ConsumerAttributeTopology(Broker: broker, Queue: "test-queue", Bindings: []));
+            new ConsumerAttributeTopology(Broker: broker, Queue: "test-queue", Bindings: [], Arguments: null));
 
         var deliveryArgs = CreateDeliveryArgs(deliveryTag, type: null);
 
@@ -433,7 +435,7 @@ public class RabbitMqConsumerHostTests
             new ConsumerAttributeTopology(
                 Broker: broker,
                 Queue: "test-queue",
-                Bindings: [],
+                Bindings: [], Arguments: null,
                 ErrorStrategy: new ConsumerErrorStrategy(MaxRetryAttempts: 2)));
 
         InvokeBuildPipeline(host);
@@ -471,7 +473,7 @@ public class RabbitMqConsumerHostTests
             new ConsumerAttributeTopology(
                 Broker: broker,
                 Queue: "test-queue",
-                Bindings: [],
+                Bindings: [], Arguments: null,
                 ErrorStrategy: new ConsumerErrorStrategy(
                     MaxRetryAttempts: 1,
                     FailureAction: ConsumerFailureAction.Requeue)));
@@ -484,6 +486,49 @@ public class RabbitMqConsumerHostTests
         // Assert
         consumer.Attempts.ShouldBe(2);
         rabbitMqClient.Verify(c => c.BasicNackAsync(deliveryTag, false, true, It.IsAny<CancellationToken>()), Times.Once);
+        rabbitMqClient.Verify(c => c.BasicAckAsync(It.IsAny<ulong>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task HandleMessageAsync_ShouldNotRetry_WhenExceptionIsJsonException()
+    {
+        // Arrange
+        var consumer = new TestConsumer();
+        var serviceProvider = new ServiceCollection()
+            .AddSingleton(consumer)
+            .BuildServiceProvider();
+        var rabbitMqClient = new Mock<IRabbitMqClient>();
+        var failingSerializer = new Mock<ISerializer>();
+        failingSerializer
+            .Setup(s => s.Deserialize<TestMessage>(It.IsAny<byte[]>()))
+            .Throws(new System.Text.Json.JsonException("Malformed JSON"));
+
+        const string broker = "test-broker";
+        const ulong deliveryTag = 46;
+
+        var mediator = new ConsumerMediator(serviceProvider);
+        mediator.Initialize<TestConsumer>();
+
+        var host = new RabbitMqConsumerHost<TestConsumer>(
+            mediator,
+            rabbitMqClient.Object,
+            failingSerializer.Object,
+            new Mock<ILogger<RabbitMqConsumerHost<TestConsumer>>>().Object,
+            broker,
+            new ConsumerAttributeTopology(
+                Broker: broker,
+                Queue: "test-queue",
+                Bindings: [], Arguments: null,
+                ErrorStrategy: new ConsumerErrorStrategy(MaxRetryAttempts: 3)));
+
+        InvokeBuildPipeline(host);
+
+        // Act
+        await InvokeHandleMessageAsync(host, CreateDeliveryArgs(deliveryTag, nameof(TestMessage)));
+
+        // Assert
+        failingSerializer.Verify(s => s.Deserialize<TestMessage>(It.IsAny<byte[]>()), Times.Once);
+        rabbitMqClient.Verify(c => c.BasicNackAsync(deliveryTag, false, false, It.IsAny<CancellationToken>()), Times.Once);
         rabbitMqClient.Verify(c => c.BasicAckAsync(It.IsAny<ulong>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
@@ -511,7 +556,7 @@ public class RabbitMqConsumerHostTests
             new ConsumerAttributeTopology(
                 Broker: broker,
                 Queue: "test-queue",
-                Bindings: [],
+                Bindings: [], Arguments: null,
                 ErrorStrategy: new ConsumerErrorStrategy(MaxRetryAttempts: 0)));
 
         InvokeBuildPipeline(host);
@@ -545,8 +590,8 @@ public class RabbitMqConsumerHostTests
         public Task HandleAsync(TestMessage message, CancellationToken cancellationToken)
         {
             Attempts++;
-            return Attempts <= failuresBeforeSuccess 
-                ? throw new InvalidOperationException("Simulated processing failure.") 
+            return Attempts <= failuresBeforeSuccess
+                ? throw new InvalidOperationException("Simulated processing failure.")
                 : Task.CompletedTask;
         }
     }

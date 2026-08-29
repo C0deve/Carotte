@@ -19,7 +19,7 @@ internal static class CarotteDiagnostics
         description: "Number of messages published");
     public static readonly Counter<long> MessageErrorsCounter = Meter.CreateCounter<long>("carotte_message_errors",
         description: "Number of message processing errors");
-    
+
     public static readonly Histogram<double> MessageProcessingDuration = Meter.CreateHistogram<double>(
         "carotte_message_processing_duration",
         unit: "ms",

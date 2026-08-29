@@ -8,7 +8,7 @@ public interface IConsumerTopology
     string Broker { get; }
     ushort PrefetchCount { get; }
     ConsumerErrorStrategy ErrorStrategy { get; }
-    IReadOnlyDictionary<string, object?> Arguments { get; }
+    IReadOnlyDictionary<string, object> Arguments { get; }
 }
 
 public readonly record struct ConsumerErrorStrategy(
@@ -47,7 +47,7 @@ public readonly record struct ConsumerErrorStrategy(
 
         if (UseJitter)
         {
-            var jitter = (Random.Shared.NextDouble() * 0.2) - 0.1; // +/- 10%
+            var jitter = Random.Shared.NextDouble() * 0.2 - 0.1; // +/- 10%
             delayMs = Math.Max(0, delayMs * (1 + jitter));
         }
 
@@ -64,15 +64,15 @@ public readonly record struct ConsumerErrorStrategy(
     public ConsumerErrorStrategy WithConventionDefaults(string queueName) => this with
     {
         MaxRetryAttempts = MaxRetryAttempts ?? DefaultMaxRetryAttempts,
-        DeadLetterExchange = string.IsNullOrWhiteSpace(DeadLetterExchange)
-            ? queueName.ToDeadLetterExchangeName()
-            : DeadLetterExchange,
-        DeadLetterRoutingKey = string.IsNullOrWhiteSpace(DeadLetterRoutingKey)
-            ? queueName
-            : DeadLetterRoutingKey,
-        DeadLetterQueue = string.IsNullOrWhiteSpace(DeadLetterQueue)
-            ? queueName.ToDeadLetterQueueName()
-            : DeadLetterQueue
+        DeadLetterExchange = FailureAction == ConsumerFailureAction.Requeue
+            ? null
+            : string.IsNullOrWhiteSpace(DeadLetterExchange) ? queueName.ToDeadLetterExchangeName() : DeadLetterExchange,
+        DeadLetterRoutingKey = FailureAction == ConsumerFailureAction.Requeue
+            ? null
+            : string.IsNullOrWhiteSpace(DeadLetterRoutingKey) ? queueName : DeadLetterRoutingKey,
+        DeadLetterQueue = FailureAction == ConsumerFailureAction.Requeue
+            ? null
+            : string.IsNullOrWhiteSpace(DeadLetterQueue) ? queueName.ToDeadLetterQueueName() : DeadLetterQueue
     };
 }
 
@@ -83,9 +83,9 @@ public record ConsumerConventionTopology(
     ReadOnlyCollection<string> MessageExchangeNames,
     ushort PrefetchCount = 1,
     ConsumerErrorStrategy ErrorStrategy = default,
-    IReadOnlyDictionary<string, object?>? Arguments = null) : IConsumerTopology
+    IReadOnlyDictionary<string, object>? Arguments = null) : IConsumerTopology
 {
-    public IReadOnlyDictionary<string, object?> Arguments { get; } = Arguments ?? ReadOnlyDictionary<string, object?>.Empty;
+    public IReadOnlyDictionary<string, object> Arguments { get; } = Arguments ?? ReadOnlyDictionary<string, object>.Empty;
 }
 
 public record ConsumerAttributeTopology(
@@ -97,9 +97,9 @@ public record ConsumerAttributeTopology(
     bool QueueDurable = true,
     bool QueueExclusive = false,
     bool QueueAutoDelete = false,
-    IReadOnlyDictionary<string, object?>? Arguments = null) : IConsumerTopology
+    IReadOnlyDictionary<string, object>? Arguments = null) : IConsumerTopology
 {
-    public IReadOnlyDictionary<string, object?> Arguments { get; } = Arguments ?? ReadOnlyDictionary<string, object?>.Empty;
+    public IReadOnlyDictionary<string, object> Arguments { get; } = Arguments ?? ReadOnlyDictionary<string, object>.Empty;
 }
 
 public readonly record struct ConsumerInfo(
@@ -118,7 +118,7 @@ public readonly record struct BindingInfo(
     string ExchangeSource,
     string RoutingKey,
     ExchangeType ExchangeType = ExchangeType.Direct,
-    bool DeclareExchange = false,
+    bool DeclareExchange = true,
     bool Durable = true,
     bool AutoDelete = false);
 

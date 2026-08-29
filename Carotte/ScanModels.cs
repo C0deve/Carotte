@@ -23,10 +23,10 @@ public abstract record ConfigurationError(string Message);
 
 public record NoBrokerRegistered() : ConfigurationError("No broker registered. At least one broker must be registered.");
 
-public record BrokerNotFoundForConsumer(string BrokerName, string ConsumerName) 
+public record BrokerNotFoundForConsumer(string BrokerName, string ConsumerName)
     : ConfigurationError($"No broker registered with name '{BrokerName}' for consumer '{ConsumerName}'");
 
-public record BrokerNotFoundForPublisher(string BrokerName, string MessageName) 
+public record BrokerNotFoundForPublisher(string BrokerName, string MessageName)
     : ConfigurationError($"No broker registered with name '{BrokerName}' for publisher of message '{MessageName}'");
 
 public record ConflictingExchangeDeclaration(string BrokerName, string ExchangeName)

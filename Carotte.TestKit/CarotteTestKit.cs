@@ -11,14 +11,14 @@ namespace Carotte;
 
 public class CarotteTestKit(IServiceProvider serviceProvider)
 {
-    public Task<TestDeliveryResult> SimulateReceiveAsync<TConsumer, TMessage>(TMessage message, CancellationToken cancellationToken = default) 
+    public Task<TestDeliveryResult> SimulateReceiveAsync<TConsumer, TMessage>(TMessage message, CancellationToken cancellationToken = default)
         where TConsumer : class, IConsumer<TMessage>
     {
         ArgumentNullException.ThrowIfNull(message);
         return SimulateReceiveInternalAsync(typeof(TConsumer), typeof(TMessage), message, cancellationToken);
     }
 
-    public Task<TestDeliveryResult> SimulateReceiveAsync<TConsumer>(object message, CancellationToken cancellationToken = default) 
+    public Task<TestDeliveryResult> SimulateReceiveAsync<TConsumer>(object message, CancellationToken cancellationToken = default)
         where TConsumer : class
     {
         ArgumentNullException.ThrowIfNull(message);
@@ -188,7 +188,7 @@ public class CarotteTestKit(IServiceProvider serviceProvider)
     private static bool IsInNamespace(Type type, HashSet<string> namespaces) =>
         namespaces.Count == 0 || (type.Namespace != null && namespaces.Any(ns => type.Namespace == ns || type.Namespace.StartsWith(ns + ".")));
 
-    public IReadOnlyList<TMessage> GetSentMessages<TMessage>() where TMessage : class => 
+    public IReadOnlyList<TMessage> GetSentMessages<TMessage>() where TMessage : class =>
         serviceProvider.GetRequiredService<MessageTestStore>().GetSentMessages<TMessage>();
 
     public void Clear() =>
@@ -253,7 +253,7 @@ public class CarotteTestKit(IServiceProvider serviceProvider)
 
         void Handler(object msg)
         {
-            if (msg is TMessage typedMsg && predicate(typedMsg)) 
+            if (msg is TMessage typedMsg && predicate(typedMsg))
                 tcs.TrySetResult(typedMsg);
         }
 

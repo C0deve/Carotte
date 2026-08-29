@@ -18,7 +18,7 @@ internal class MetricsMiddleware : IConsumerMiddleware
         catch (Exception)
         {
             CarotteDiagnostics.MessageErrorsCounter.Add(
-                1, 
+                1,
                 new KeyValuePair<string, object?>("queue", ea.RoutingKey));
             throw;
         }
@@ -26,7 +26,7 @@ internal class MetricsMiddleware : IConsumerMiddleware
         {
             stopwatch.Stop();
             CarotteDiagnostics.MessageProcessingDuration.Record(
-                stopwatch.Elapsed.TotalMilliseconds, 
+                stopwatch.Elapsed.TotalMilliseconds,
                 new KeyValuePair<string, object?>("queue", ea.RoutingKey));
         }
     }

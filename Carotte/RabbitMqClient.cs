@@ -1,6 +1,7 @@
 ﻿using Microsoft.Extensions.Logging;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
+using RabbitMQ.Client.Exceptions;
 
 namespace Carotte;
 
@@ -31,27 +32,57 @@ internal sealed class RabbitMqClient(IConnectionManager connectionManager, ILogg
 
     public async Task CloseAsync(CancellationToken cancellationToken = default)
     {
-        if (_channel != null)
-        {
-            if (_channel.IsOpen)
-            {
-                await _channel.CloseAsync(cancellationToken);
-            }
+        await CloseChannelAndDisposeAsync(cancellationToken);
 
-            await _channel.DisposeAsync();
-            _channel = null;
-            _consumer = null;
-        }
-
-        if (_registeredHost && _brokerName != null)
-        {
-            await connectionManager.UnregisterHostAsync(_brokerName);
-            _registeredHost = false;
-        }
+        await CloseHostConnectionAsync();
 
         _brokerName = null;
     }
-    
+
+    private async Task CloseHostConnectionAsync()
+    {
+        if (_registeredHost && _brokerName != null)
+        {
+            try
+            {
+                await connectionManager.UnregisterHostAsync(_brokerName);
+            }
+            catch (Exception ex) when (ex is ObjectDisposedException or AlreadyClosedException)
+            {
+            }
+
+            _registeredHost = false;
+        }
+    }
+
+    private async Task CloseChannelAndDisposeAsync(CancellationToken cancellationToken)
+    {
+        if (_channel != null)
+        {
+            try
+            {
+                if (_channel.IsOpen)
+                {
+                    await _channel.CloseAsync(cancellationToken);
+                }
+            }
+            catch (Exception ex) when (ex is ObjectDisposedException or AlreadyClosedException)
+            {
+            }
+
+            try
+            {
+                await _channel.DisposeAsync();
+            }
+            catch (Exception ex) when (ex is ObjectDisposedException or AlreadyClosedException)
+            {
+            }
+
+            _channel = null;
+            _consumer = null;
+        }
+    }
+
     public async ValueTask DisposeAsync()
     {
         await CloseAsync();

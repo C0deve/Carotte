@@ -1,4 +1,5 @@
-﻿using Microsoft.Extensions.DependencyInjection;
+﻿using System.Collections.ObjectModel;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Moq;
 using RabbitMQ.Client;
@@ -32,7 +33,10 @@ public class RabbitMqConsumerHostLifecycleTests
         // Arrange
         var services = new ServiceCollection();
         const string brokerName = "test-broker";
-        var topology = new ConsumerAttributeTopology(Broker: brokerName, Queue: "test-queue", Bindings: []);
+        var topology = new ConsumerAttributeTopology(Broker: brokerName,
+            Queue: "test-queue",
+            Bindings: [],
+            Arguments: ReadOnlyDictionary<string, object>.Empty);
 
         services.AddSingleton(_connectionManagerMock.Object);
         services.AddSingleton(_serializerMock.Object);
@@ -68,7 +72,10 @@ public class RabbitMqConsumerHostLifecycleTests
         // Arrange
         var services = new ServiceCollection();
         const string brokerName = "test-broker";
-        var topology = new ConsumerAttributeTopology(Broker: brokerName, Queue: "test-queue", Bindings: []);
+        var topology = new ConsumerAttributeTopology(Broker: brokerName,
+            Queue: "test-queue",
+            Bindings: [],
+            Arguments: ReadOnlyDictionary<string, object>.Empty);
 
         services.AddSingleton(_connectionManagerMock.Object);
         services.AddSingleton(_serializerMock.Object);

@@ -1,6 +1,7 @@
 ﻿using Microsoft.Extensions.Logging;
 using Moq;
 using RabbitMQ.Client;
+using RabbitMQ.Client.Events;
 
 namespace Carotte.Tests;
 
@@ -73,6 +74,40 @@ public class RabbitMqClientTests
 
         // Assert
         _connectionManagerMock.Verify(m => m.UnregisterHostAsync("test-broker"), Times.Once);
+    }
+
+    [Fact]
+    public async Task CloseAsync_ShouldNotThrow_WhenChannelThrowsObjectDisposedException()
+    {
+        // Arrange
+        var channel = new Mock<IChannel>();
+        channel.Setup(c => c.IsOpen).Returns(true);
+        channel.Setup(c => c.CloseAsync(It.IsAny<ushort>(), It.IsAny<string>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new ObjectDisposedException("AutorecoveringChannel"));
+        _connectionMock.Setup(c => c.CreateChannelAsync(It.IsAny<CreateChannelOptions>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(channel.Object);
+
+        await _client.ConnectAsync("test-broker");
+
+        // Act & Assert (should not throw)
+        await _client.CloseAsync();
+    }
+
+    [Fact]
+    public async Task CloseAsync_ShouldNotThrow_WhenChannelThrowsAlreadyClosedException()
+    {
+        // Arrange
+        var channel = new Mock<IChannel>();
+        channel.Setup(c => c.IsOpen).Returns(true);
+        channel.Setup(c => c.CloseAsync(It.IsAny<ushort>(), It.IsAny<string>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new RabbitMQ.Client.Exceptions.AlreadyClosedException(new ShutdownEventArgs(ShutdownInitiator.Peer, 200, "Closed")));
+        _connectionMock.Setup(c => c.CreateChannelAsync(It.IsAny<CreateChannelOptions>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(channel.Object);
+
+        await _client.ConnectAsync("test-broker");
+
+        // Act & Assert (should not throw)
+        await _client.CloseAsync();
     }
 
     [Fact]

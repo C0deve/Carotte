@@ -18,9 +18,6 @@ internal class PublisherTracingMiddleware<TMessage> : IPublisherMiddleware<TMess
 
         try
         {
-            context.Properties ??= new BasicProperties();
-            context.Properties.Type = context.RoutingKey;
-
             if (activity != null)
             {
                 var propagationContext = new PropagationContext(activity.Context, Baggage.Current);

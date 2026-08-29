@@ -27,23 +27,24 @@ public class ClientNameTests
         // Arrange
         var services = new ServiceCollection();
         var rabbitMqClient = new Mock<IRabbitMqClient>();
-        
-        services.AddCarotte(builder => {
+
+        services.AddCarotte(builder =>
+        {
             builder
                 .SetClientName("OrderApi")
                 .AddBroker("test-broker", _ => { })
                 .AddAssemblies(typeof(ClientNameTests).Assembly)
                 .AddNamespaces("Carotte.Tests");
         });
-        
+
         services.AddSingleton(rabbitMqClient.Object);
 
         var sp = services.BuildServiceProvider();
         var hostedServices = sp.GetServices<IHostedService>();
-        var host = hostedServices.FirstOrDefault(h => h.GetType().IsGenericType && 
+        var host = hostedServices.FirstOrDefault(h => h.GetType().IsGenericType &&
                                             h.GetType().GetGenericTypeDefinition() == typeof(RabbitMqConsumerHost<>) &&
                                             h.GetType().GetGenericArguments()[0] == typeof(ClientNameTestConsumer));
-        
+
         host.ShouldNotBeNull();
 
         // Act
@@ -53,7 +54,7 @@ public class ClientNameTests
         var expectedExchange = "x.sub.order-api.client-name-test-consumer";
         var expectedQueue = "q.order-api.client-name-test-consumer";
         var expectedDeadLetterExchange = "x.dlx.order-api.client-name-test-consumer";
-        
+
         // Verify exchange declaration
         rabbitMqClient.Verify(c => c.ExchangeDeclareAsync(
             expectedExchange,

@@ -32,9 +32,9 @@ public static class CarotteTestKitExtensions
             // Replace IRabbitMqClient to avoid any RabbitMQ calls
             var mockRabbitMqClient = new Mock<IRabbitMqClient>();
             services.Replace(ServiceDescriptor.Singleton(mockRabbitMqClient.Object));
-            
+
             // Remove any previously registered closed generic IPublisher<> descriptors
-            var publishers = services.Where(d => d.ServiceType.IsGenericType && 
+            var publishers = services.Where(d => d.ServiceType.IsGenericType &&
                                                  d.ServiceType.GetGenericTypeDefinition() == typeof(IPublisher<>))
                 .ToList();
 
@@ -52,10 +52,10 @@ public static class CarotteTestKitExtensions
         public IServiceCollection AddMockPublisher<TMessage>() where TMessage : class
         {
             var mock = new Mock<IPublisher<TMessage>>();
-        
+
             // Register both the Mock and the object for easy retrieval
             services.Replace(ServiceDescriptor.Singleton(mock));
-            services.Replace(ServiceDescriptor.Singleton<IPublisher<TMessage>>(sp => 
+            services.Replace(ServiceDescriptor.Singleton<IPublisher<TMessage>>(sp =>
             {
                 var store = sp.GetRequiredService<MessageTestStore>();
                 mock.Setup(p => p.PublishAsync(It.IsAny<TMessage>(), It.IsAny<CancellationToken>()))
@@ -68,6 +68,6 @@ public static class CarotteTestKitExtensions
         }
     }
 
-    public static Mock<IPublisher<TMessage>> GetMockPublisher<TMessage>(this IServiceProvider sp) where TMessage : class => 
+    public static Mock<IPublisher<TMessage>> GetMockPublisher<TMessage>(this IServiceProvider sp) where TMessage : class =>
         sp.GetRequiredService<Mock<IPublisher<TMessage>>>();
 }

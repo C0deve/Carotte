@@ -26,7 +26,7 @@ internal static class CarotteBuilderValidator
                 select new BrokerNotFoundForPublisher(producer.Broker, producer.MessageType.Name))
             .Cast<ConfigurationError>()
             .ToList();
-        
+
         return errors.Count == 0
             ? ValidationResult.Success()
             : ValidationResult.Failure(errors);
@@ -36,13 +36,13 @@ internal static class CarotteBuilderValidator
     {
         var errors =
             (from consumer in settings.Consumers
-                where !settings.Brokers.ContainsKey(consumer.Broker)
-                select new BrokerNotFoundForConsumer(consumer.Broker, consumer.ConsumerType.Name))
+             where !settings.Brokers.ContainsKey(consumer.Broker)
+             select new BrokerNotFoundForConsumer(consumer.Broker, consumer.ConsumerType.Name))
             .Cast<ConfigurationError>()
             .ToList();
 
-        return errors.Count == 0 
-            ? ValidationResult.Success() 
+        return errors.Count == 0
+            ? ValidationResult.Success()
             : ValidationResult.Failure(errors);
     }
 

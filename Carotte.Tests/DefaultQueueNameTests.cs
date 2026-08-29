@@ -14,22 +14,23 @@ public class DefaultQueueNameTests
         var services = new ServiceCollection();
 
         // Act
-        services.AddCarotte(builder => {
+        services.AddCarotte(builder =>
+        {
             builder
                 .AddBroker("test-broker", _ => { })
                 .AddAssemblies(typeof(DefaultQueueNameTests).Assembly);
         });
 
         var sp = services.BuildServiceProvider();
-        
+
         // Assert
         var hostedServices = sp.GetServices<IHostedService>();
-        var host = hostedServices.FirstOrDefault(h => h.GetType().IsGenericType && 
+        var host = hostedServices.FirstOrDefault(h => h.GetType().IsGenericType &&
                                             h.GetType().GetGenericTypeDefinition() == typeof(RabbitMqConsumerHost<>) &&
                                             h.GetType().GetGenericArguments()[0] == typeof(OrderConsumer));
-        
+
         host.ShouldNotBeNull();
-        
+
         // Inspect bindings via reflection because they are passed to RabbitMqConsumerHost's constructor
         var field = host.GetType().GetField("topology", BindingFlags.NonPublic | BindingFlags.Instance);
         if (field == null)
@@ -37,7 +38,7 @@ public class DefaultQueueNameTests
             // Maybe it is prefixed by _ in a compiled version or according to conventions
             field = host.GetType().GetField("_topology", BindingFlags.NonPublic | BindingFlags.Instance);
         }
-        
+
         // If still null, try to find the field that is of type IConsumerTopology
         if (field == null)
         {
@@ -47,7 +48,7 @@ public class DefaultQueueNameTests
 
         field.ShouldNotBeNull();
         var topology = (IConsumerTopology)field.GetValue(host)!;
-        
+
         topology.Queue.ShouldBe("q.order-consumer");
     }
 
