@@ -27,7 +27,7 @@ public class FailingExplicitConsumer : IConsumer<DeadLetterExplicitMessage>
     }
 }
 
-[Queue("custom-orders-dlq")]
+[Queue("custom-orders-dlq", failureAction: ConsumerFailureAction.Requeue)]
 public class ExplicitDeadLetterConsumer : IConsumer<DeadLetterExplicitMessage>
 {
     public static DeadLetterExplicitMessage? LastReceivedMessage { get; set; }

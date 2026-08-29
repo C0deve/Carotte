@@ -120,7 +120,8 @@ internal static class ConsumerTopologyBuilder
         ConsumerErrorStrategy errorStrategy,
         CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(errorStrategy.DeadLetterExchange) ||
+        if (errorStrategy.FailureAction == ConsumerFailureAction.Requeue ||
+            string.IsNullOrWhiteSpace(errorStrategy.DeadLetterExchange) ||
             string.IsNullOrWhiteSpace(errorStrategy.DeadLetterQueue))
         {
             return;
@@ -166,14 +167,17 @@ internal static class ConsumerTopologyBuilder
             arguments[k] = v;
         }
 
-        if (!string.IsNullOrWhiteSpace(errorStrategy.DeadLetterExchange) && !arguments.ContainsKey("x-dead-letter-exchange"))
+        if (errorStrategy.FailureAction != ConsumerFailureAction.Requeue)
         {
-            arguments["x-dead-letter-exchange"] = errorStrategy.DeadLetterExchange;
-        }
+            if (!string.IsNullOrWhiteSpace(errorStrategy.DeadLetterExchange) && !arguments.ContainsKey("x-dead-letter-exchange"))
+            {
+                arguments["x-dead-letter-exchange"] = errorStrategy.DeadLetterExchange;
+            }
 
-        if (!string.IsNullOrWhiteSpace(errorStrategy.DeadLetterRoutingKey) && !arguments.ContainsKey("x-dead-letter-routing-key"))
-        {
-            arguments["x-dead-letter-routing-key"] = errorStrategy.DeadLetterRoutingKey;
+            if (!string.IsNullOrWhiteSpace(errorStrategy.DeadLetterRoutingKey) && !arguments.ContainsKey("x-dead-letter-routing-key"))
+            {
+                arguments["x-dead-letter-routing-key"] = errorStrategy.DeadLetterRoutingKey;
+            }
         }
 
         return arguments.Count > 0 ? arguments : null;

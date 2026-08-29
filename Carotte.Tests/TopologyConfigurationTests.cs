@@ -378,6 +378,51 @@ public class TopologyConfigurationTests
         binding.RoutingKey.ShouldBe(string.Empty);
     }
 
+    [Fact]
+    public void ConsumerErrorStrategy_ShouldNotAddDeadLetterDefaults_WhenFailureActionIsRequeue()
+    {
+        var strategy = new ConsumerErrorStrategy(FailureAction: ConsumerFailureAction.Requeue);
+        var withDefaults = strategy.WithConventionDefaults("test-queue");
+
+        withDefaults.DeadLetterExchange.ShouldBeNull();
+        withDefaults.DeadLetterRoutingKey.ShouldBeNull();
+        withDefaults.DeadLetterQueue.ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task AttributeTopology_ShouldNotDeclareDeadLetterExchangeOrArguments_WhenFailureActionIsRequeue()
+    {
+        var rabbitMqClient = new Mock<IRabbitMqClient>();
+        var topology = new ConsumerAttributeTopology(
+            Broker: "broker",
+            Queue: "orders-queue",
+            Bindings: [],
+            Arguments: ReadOnlyDictionary<string, object>.Empty,
+            ErrorStrategy: new ConsumerErrorStrategy(FailureAction: ConsumerFailureAction.Requeue));
+
+        await ConsumerTopologyBuilder.BuildAsync(rabbitMqClient.Object, topology, CancellationToken.None);
+
+        rabbitMqClient.Verify(client => client.ExchangeDeclareAsync(
+            It.IsAny<string>(),
+            It.IsAny<string>(),
+            It.IsAny<bool>(),
+            It.IsAny<bool>(),
+            It.IsAny<IDictionary<string, object?>?>(),
+            It.IsAny<bool>(),
+            It.IsAny<bool>(),
+            It.IsAny<CancellationToken>()), Times.Never);
+
+        rabbitMqClient.Verify(client => client.QueueDeclareAsync(
+            "orders-queue",
+            true,
+            false,
+            false,
+            null,
+            false,
+            false,
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+
     private sealed class TestMessage;
     private sealed class OtherMessage;
     private sealed class TestConsumer : IConsumer<TestMessage>

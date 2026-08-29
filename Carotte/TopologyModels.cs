@@ -47,7 +47,7 @@ public readonly record struct ConsumerErrorStrategy(
 
         if (UseJitter)
         {
-            var jitter = (Random.Shared.NextDouble() * 0.2) - 0.1; // +/- 10%
+            var jitter = Random.Shared.NextDouble() * 0.2 - 0.1; // +/- 10%
             delayMs = Math.Max(0, delayMs * (1 + jitter));
         }
 
@@ -64,15 +64,15 @@ public readonly record struct ConsumerErrorStrategy(
     public ConsumerErrorStrategy WithConventionDefaults(string queueName) => this with
     {
         MaxRetryAttempts = MaxRetryAttempts ?? DefaultMaxRetryAttempts,
-        DeadLetterExchange = string.IsNullOrWhiteSpace(DeadLetterExchange)
-            ? queueName.ToDeadLetterExchangeName()
-            : DeadLetterExchange,
-        DeadLetterRoutingKey = string.IsNullOrWhiteSpace(DeadLetterRoutingKey)
-            ? queueName
-            : DeadLetterRoutingKey,
-        DeadLetterQueue = string.IsNullOrWhiteSpace(DeadLetterQueue)
-            ? queueName.ToDeadLetterQueueName()
-            : DeadLetterQueue
+        DeadLetterExchange = FailureAction == ConsumerFailureAction.Requeue
+            ? null
+            : string.IsNullOrWhiteSpace(DeadLetterExchange) ? queueName.ToDeadLetterExchangeName() : DeadLetterExchange,
+        DeadLetterRoutingKey = FailureAction == ConsumerFailureAction.Requeue
+            ? null
+            : string.IsNullOrWhiteSpace(DeadLetterRoutingKey) ? queueName : DeadLetterRoutingKey,
+        DeadLetterQueue = FailureAction == ConsumerFailureAction.Requeue
+            ? null
+            : string.IsNullOrWhiteSpace(DeadLetterQueue) ? queueName.ToDeadLetterQueueName() : DeadLetterQueue
     };
 }
 

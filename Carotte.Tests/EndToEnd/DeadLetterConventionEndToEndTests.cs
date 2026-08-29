@@ -19,7 +19,7 @@ public class FailingConventionConsumer : IConsumer<DeadLetterConventionMessage>
     }
 }
 
-[Queue("q.dlq.failing-convention-consumer")]
+[Queue("q.dlq.failing-convention-consumer", failureAction: ConsumerFailureAction.Requeue)]
 public class ConventionDeadLetterConsumer : IConsumer<DeadLetterConventionMessage>
 {
     public static DeadLetterConventionMessage? LastReceivedMessage { get; set; }

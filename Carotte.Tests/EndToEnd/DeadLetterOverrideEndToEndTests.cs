@@ -19,7 +19,7 @@ public class FailingOverrideConsumer : IConsumer<DeadLetterOverrideMessage>
     }
 }
 
-[Queue("configured-override-dlq")]
+[Queue("configured-override-dlq", failureAction: ConsumerFailureAction.Requeue)]
 public class OverrideDeadLetterConsumer : IConsumer<DeadLetterOverrideMessage>
 {
     public static DeadLetterOverrideMessage? LastReceivedMessage { get; set; }
