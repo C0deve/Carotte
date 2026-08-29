@@ -1,0 +1,89 @@
+name: Performance Benchmarks
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths:
+      - 'Carotte/**'
+      - 'Carotte.Benchmarks/**'
+      - '.github/workflows/benchmarks.yml'
+  pull_request:
+    branches: [ main, develop ]
+    paths:
+      - 'Carotte/**'
+      - 'Carotte.Benchmarks/**'
+      - '.github/workflows/benchmarks.yml'
+  workflow_dispatch:
+    inputs:
+      filter:
+        description: 'Benchmark filter expression'
+        required: false
+        default: '*MessageTypeResolver* *ConsumerMediator* *PipelineExecution*'
+        type: string
+      job:
+        description: 'BenchmarkDotNet Job profile (e.g. short, medium, default)'
+        required: false
+        default: 'short'
+        type: string
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+  pull-requests: write
+  deployments: write
+
+jobs:
+  benchmark:
+    name: Critical Path Benchmarks
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+          cache: true
+          cache-dependency-path: '**/Directory.Packages.props'
+
+      - name: Restore dependencies
+        run: dotnet restore Carotte.slnx
+
+      - name: Build Benchmarks
+        run: dotnet build Carotte.Benchmarks/Carotte.Benchmarks.csproj --configuration Release --no-restore
+
+      - name: Run Critical Path Benchmarks
+        run: >
+          dotnet run --project Carotte.Benchmarks/Carotte.Benchmarks.csproj
+          --configuration Release
+          --no-build
+          --
+          --filter "${{ inputs.filter || '*MessageTypeResolver* *ConsumerMediator* *PipelineExecution*' }}"
+          --job ${{ inputs.job || 'short' }}
+          --exporters json github
+
+      - name: Store & Compare Benchmark Results
+        uses: benchmark-action/github-action-benchmark@v1
+        with:
+          name: Carotte Critical Path Benchmarks
+          tool: 'benchmarkdotnet'
+          output-file-path: BenchmarkDotNet.Artifacts/results/Carotte.Benchmarks.*-report-brief.json
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          auto-push: ${{ github.ref == 'refs/heads/main' }}
+          alert-threshold: '115%'
+          comment-on-alert: true
+          fail-on-alert: false
+          summary-always: true
+
+      - name: Upload Benchmark Artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-results
+          path: BenchmarkDotNet.Artifacts/results/
+          retention-days: 14

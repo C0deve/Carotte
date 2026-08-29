@@ -17,6 +17,7 @@
     </ItemGroup>
     <ItemGroup>
         <InternalsVisibleTo Include="Carotte.Tests" />
+        <InternalsVisibleTo Include="Carotte.Benchmarks" />
         <InternalsVisibleTo Include="Carotte.TestKit" />
         <InternalsVisibleTo Include="Carotte.Documentation" />
         <InternalsVisibleTo Include="Carotte.Documentation.Tests" />
