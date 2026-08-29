@@ -24,7 +24,7 @@ internal sealed class RabbitMqPublisher<TMessage>(
     where TMessage : class
 {
     private readonly IMessageTypeResolver _messageTypeResolver = messageTypeResolver ?? MessageTypeResolver.Default;
-    
+
     // Assembled publication pipeline (Metrics -> Tracing -> Serialization -> RabbitMQ publish)
     private readonly PublisherPipeline<TMessage> _pipeline = new PublisherPipelineBuilder<TMessage>()
         .Use(new PublisherMetricsMiddleware<TMessage>())
@@ -32,7 +32,7 @@ internal sealed class RabbitMqPublisher<TMessage>(
         .Use(new SerializationMiddleware<TMessage>(serializer))
         .Use(new RabbitMqPublishMiddleware<TMessage>(rabbitMqClient))
         .Build();
-        
+
     private readonly SemaphoreSlim _semaphore = new(1, 1);
     private bool _initialized;
 

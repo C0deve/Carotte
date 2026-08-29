@@ -29,7 +29,7 @@ internal interface IMessageInvoker
 internal sealed class MessageInvoker<TMessage> : IMessageInvoker
 {
     /// <inheritdoc/>
-    public Task InvokeAsync(object consumer, object message, CancellationToken cancellationToken) => 
+    public Task InvokeAsync(object consumer, object message, CancellationToken cancellationToken) =>
         ((IConsumer<TMessage>)consumer).HandleAsync((TMessage)message, cancellationToken);
 }
 
@@ -75,9 +75,9 @@ internal sealed class ConsumerMediator(
         }
 
         // Set up the single-message fast-path if applicable
-        if (_invokers.Count != 1) 
+        if (_invokers.Count != 1)
             return;
-        
+
         var singlePair = _invokers.First();
         _singleMessageType = singlePair.Key;
         _singleInvoker = singlePair.Value;
@@ -99,7 +99,7 @@ internal sealed class ConsumerMediator(
     /// </summary>
     /// <param name="ea">The RabbitMQ basic delivery event args.</param>
     /// <returns>The resolved message type, or <c>null</c> if unrecognized.</returns>
-    public Type? ResolveMessageType(BasicDeliverEventArgs ea) => 
+    public Type? ResolveMessageType(BasicDeliverEventArgs ea) =>
         _messageTypeResolver.ResolveType(ea.BasicProperties.Type, _invokers.Keys);
 
     /// <summary>
