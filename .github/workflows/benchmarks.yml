@@ -58,21 +58,55 @@ jobs:
         run: dotnet build Carotte.Benchmarks/Carotte.Benchmarks.csproj --configuration Release --no-restore
 
       - name: Run Critical Path Benchmarks
-        run: >
-          dotnet run --project Carotte.Benchmarks/Carotte.Benchmarks.csproj
-          --configuration Release
-          --no-build
-          --
-          --filter "${{ inputs.filter || '*MessageTypeResolver* *ConsumerMediator* *PipelineExecution*' }}"
-          --job ${{ inputs.job || 'short' }}
-          --exporters json github
+        run: |
+          dotnet run --project Carotte.Benchmarks/Carotte.Benchmarks.csproj \
+            --configuration Release \
+            --no-build \
+            -- \
+            --filter ${{ inputs.filter || '*MessageTypeResolver* *ConsumerMediator* *PipelineExecution*' }} \
+            --job ${{ inputs.job || 'short' }} \
+            --exporters json github
+
+      - name: Merge Benchmark Results
+        run: |
+          node -e "
+          const fs = require('fs');
+          const path = require('path');
+          const resultsDir = path.join('BenchmarkDotNet.Artifacts', 'results');
+          if (!fs.existsSync(resultsDir)) {
+            console.error('Directory not found: ' + resultsDir);
+            process.exit(1);
+          }
+          let files = fs.readdirSync(resultsDir).filter(f => f.endsWith('-report-brief.json') && f !== 'combined-benchmark-report.json');
+          if (files.length === 0) {
+            files = fs.readdirSync(resultsDir).filter(f => (f.endsWith('-report-full.json') || f.endsWith('-report-full-compressed.json')) && f !== 'combined-benchmark-report.json');
+          }
+          if (files.length === 0) {
+            console.error('No benchmark JSON report files found in ' + resultsDir);
+            process.exit(1);
+          }
+          const combined = { Title: 'Carotte Critical Path Benchmarks', Benchmarks: [] };
+          for (const file of files) {
+            const content = fs.readFileSync(path.join(resultsDir, file), 'utf8');
+            const data = JSON.parse(content);
+            if (Array.isArray(data.Benchmarks)) {
+              combined.Benchmarks.push(...data.Benchmarks);
+              if (!combined.HostEnvironmentInfo && data.HostEnvironmentInfo) {
+                combined.HostEnvironmentInfo = data.HostEnvironmentInfo;
+              }
+            }
+          }
+          const outPath = path.join(resultsDir, 'combined-benchmark-report.json');
+          fs.writeFileSync(outPath, JSON.stringify(combined, null, 2));
+          console.log(\`Successfully merged \${combined.Benchmarks.length} benchmarks from \${files.length} files into \${outPath}\`);
+          "
 
       - name: Store & Compare Benchmark Results
         uses: benchmark-action/github-action-benchmark@v1
         with:
           name: Carotte Critical Path Benchmarks
           tool: 'benchmarkdotnet'
-          output-file-path: BenchmarkDotNet.Artifacts/results/Carotte.Benchmarks.*-report-brief.json
+          output-file-path: BenchmarkDotNet.Artifacts/results/combined-benchmark-report.json
           github-token: ${{ secrets.GITHUB_TOKEN }}
           auto-push: ${{ github.ref == 'refs/heads/main' }}
           alert-threshold: '115%'
