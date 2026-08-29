@@ -119,6 +119,86 @@ public class ConsumerMediatorTests
         messageType.ShouldBe(typeof(AliasedMessage));
     }
 
+    [Fact]
+    public async Task InvokeAsync_ShouldDispatchToSingleMessageConsumer()
+    {
+        // Arrange
+        var services = new ServiceCollection();
+        var consumer = new RecordingSingleConsumer();
+        services.AddSingleton(consumer);
+        var sp = services.BuildServiceProvider();
+
+        var mediator = new ConsumerMediator(sp);
+        mediator.Initialize<RecordingSingleConsumer>();
+
+        var message = new FirstMessage();
+
+        // Act
+        await mediator.InvokeAsync(sp, typeof(FirstMessage), message, CancellationToken.None);
+
+        // Assert
+        consumer.ReceivedMessages.ShouldContain(message);
+    }
+
+    [Fact]
+    public async Task InvokeAsync_ShouldDispatchToMultiMessageConsumer_ForSpecificMessage()
+    {
+        // Arrange
+        var services = new ServiceCollection();
+        var consumer = new RecordingMultiConsumer();
+        services.AddSingleton(consumer);
+        var sp = services.BuildServiceProvider();
+
+        var mediator = new ConsumerMediator(sp);
+        mediator.Initialize<RecordingMultiConsumer>();
+
+        var second = new SecondMessage();
+
+        // Act
+        await mediator.InvokeAsync(sp, typeof(SecondMessage), second, CancellationToken.None);
+
+        // Assert
+        consumer.ReceivedSecondMessages.ShouldContain(second);
+        consumer.ReceivedFirstMessages.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task InvokeAsync_ShouldPropagateExceptionDirectly_WithoutTargetInvocationException()
+    {
+        // Arrange
+        var services = new ServiceCollection();
+        services.AddSingleton<FailingConsumer>();
+        var sp = services.BuildServiceProvider();
+
+        var mediator = new ConsumerMediator(sp);
+        mediator.Initialize<FailingConsumer>();
+
+        // Act & Assert
+        var ex = await Should.ThrowAsync<InvalidOperationException>(() =>
+            mediator.InvokeAsync(sp, typeof(FirstMessage), new FirstMessage(), CancellationToken.None));
+
+        ex.Message.ShouldBe("Consumer processing failed");
+    }
+
+    [Fact]
+    public async Task InvokeAsync_ShouldComplete_WhenMessageTypeIsUnhandled()
+    {
+        // Arrange
+        var services = new ServiceCollection();
+        services.AddSingleton<RecordingSingleConsumer>();
+        var sp = services.BuildServiceProvider();
+
+        var mediator = new ConsumerMediator(sp);
+        mediator.Initialize<RecordingSingleConsumer>();
+
+        // Act
+        var task = mediator.InvokeAsync(sp, typeof(SecondMessage), new SecondMessage(), CancellationToken.None);
+
+        // Assert
+        await task;
+        task.IsCompletedSuccessfully.ShouldBeTrue();
+    }
+
     private static ConsumerMediator CreateMediator<TConsumer>()
         where TConsumer : class
     {
@@ -163,6 +243,43 @@ public class ConsumerMediatorTests
         public Task HandleAsync(FirstMessage message, CancellationToken cancellationToken) => Task.CompletedTask;
 
         public Task HandleAsync(SecondMessage message, CancellationToken cancellationToken) => Task.CompletedTask;
+    }
+
+    public class RecordingSingleConsumer : IConsumer<FirstMessage>
+    {
+        public List<FirstMessage> ReceivedMessages { get; } = [];
+
+        public Task HandleAsync(FirstMessage message, CancellationToken cancellationToken)
+        {
+            ReceivedMessages.Add(message);
+            return Task.CompletedTask;
+        }
+    }
+
+    public class RecordingMultiConsumer : IConsumer<FirstMessage>, IConsumer<SecondMessage>
+    {
+        public List<FirstMessage> ReceivedFirstMessages { get; } = [];
+        public List<SecondMessage> ReceivedSecondMessages { get; } = [];
+
+        public Task HandleAsync(FirstMessage message, CancellationToken cancellationToken)
+        {
+            ReceivedFirstMessages.Add(message);
+            return Task.CompletedTask;
+        }
+
+        public Task HandleAsync(SecondMessage message, CancellationToken cancellationToken)
+        {
+            ReceivedSecondMessages.Add(message);
+            return Task.CompletedTask;
+        }
+    }
+
+    public class FailingConsumer : IConsumer<FirstMessage>
+    {
+        public Task HandleAsync(FirstMessage message, CancellationToken cancellationToken)
+        {
+            throw new InvalidOperationException("Consumer processing failed");
+        }
     }
 
     [MessageType("custom.message.type")]
