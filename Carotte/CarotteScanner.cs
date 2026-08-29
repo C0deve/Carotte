@@ -3,8 +3,15 @@ using System.Reflection;
 
 namespace Carotte;
 
+/// <summary>
+/// Scans specified assemblies for consumers implementing <see cref="IConsumer{TMessage}"/> and messages decorated with <see cref="PublisherAttribute"/>.
+/// </summary>
 internal static class CarotteScanner
 {
+    /// <summary>
+    /// Scans the provided assemblies and extracts all consumer and publisher declarations.
+    /// Filters types by namespace (if specified) and excludes abstract classes.
+    /// </summary>
     public static (ReadOnlyCollection<ConsumerScanResult>, ReadOnlyCollection<PublisherScanResult>) Scan(
         this HashSet<Assembly> assemblies,
         IReadOnlyCollection<string>? namespaces = null)
@@ -37,6 +44,9 @@ internal static class CarotteScanner
         return (consumerScanResults, producerScanResults);
     }
 
+    /// <summary>
+    /// Scans types for classes implementing <see cref="IConsumer{TMessage}"/> and extracts their <see cref="QueueAttribute"/> and <see cref="BindingAttribute"/> metadata.
+    /// </summary>
     private static ReadOnlyCollection<ConsumerScanResult> ScanConsumers(IReadOnlyList<Type> types)
     {
         var consumerTypeAndInterfaces =
@@ -63,6 +73,9 @@ internal static class CarotteScanner
         return consumerScanResult.ToList().AsReadOnly();
     }
 
+    /// <summary>
+    /// Scans types for message contracts decorated with <see cref="PublisherAttribute"/>.
+    /// </summary>
     private static ReadOnlyCollection<PublisherScanResult> ScanProducers(IReadOnlyList<Type> types)
     {
         // Scan for messages marked with [Publisher]
@@ -76,10 +89,16 @@ internal static class CarotteScanner
     }
 }
 
+/// <summary>
+/// Holds scanned metadata for a consumer class.
+/// </summary>
 internal readonly record struct ConsumerScanResult(
     Type ConsumerType,
     ReadOnlyCollection<Type> MessageTypes,
     QueueAttribute? QueueAttr,
     ReadOnlyCollection<BindingAttribute> BindingAttrs);
 
+/// <summary>
+/// Holds scanned metadata for a message type configured for publishing.
+/// </summary>
 internal readonly record struct PublisherScanResult(Type MessageType, PublisherAttribute PublisherAttribute);

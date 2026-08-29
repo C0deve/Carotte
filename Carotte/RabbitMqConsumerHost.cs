@@ -5,6 +5,12 @@ using Carotte.pipeline;
 
 namespace Carotte;
 
+/// <summary>
+/// Hosted background service managing the lifecycle and message consumption for a specific consumer <typeparamref name="TConsumer"/>.
+/// Handles connection setup, topology provisioning, QoS prefetch configuration, pipeline execution,
+/// scoped service resolution, retry policies, and ACK/NACK error strategies (dead-lettering or requeueing).
+/// </summary>
+/// <typeparam name="TConsumer">The consumer class implementing one or more <see cref="IConsumer{TMessage}"/> interfaces.</typeparam>
 internal sealed class RabbitMqConsumerHost<TConsumer>(
     ConsumerMediator mediator,
     IRabbitMqClient rabbitMqClient,
@@ -17,6 +23,7 @@ internal sealed class RabbitMqConsumerHost<TConsumer>(
 {
     private ConsumerPipeline? _pipeline;
 
+    /// <inheritdoc/>
     public override async Task StartAsync(CancellationToken cancellationToken)
     {
         mediator.Initialize<TConsumer>();
@@ -34,15 +41,19 @@ internal sealed class RabbitMqConsumerHost<TConsumer>(
 
         await rabbitMqClient.ConnectAsync(topology.Broker, cancellationToken);
 
+        // Configure prefetch count (QoS)
         await rabbitMqClient.BasicQosAsync(0, topology.PrefetchCount, false, cancellationToken);
 
+        // Hook incoming message handler
         rabbitMqClient.ReceivedAsync += (_, ea) => HandleMessageAsync(ea, CancellationToken.None);
 
+        // Declare topology (exchanges, queues, DLX, bindings)
         await SetupTopologyAsync(cancellationToken);
 
         await base.StartAsync(cancellationToken);
     }
 
+    /// <inheritdoc/>
     public override async Task StopAsync(CancellationToken cancellationToken)
     {
         logger.LogStoppingRabbitmqConsumerHost(typeof(TConsumer).Name);
@@ -68,6 +79,10 @@ internal sealed class RabbitMqConsumerHost<TConsumer>(
         await base.StopAsync(cancellationToken);
     }
 
+    /// <summary>
+    /// Background execution loop that maintains active consumption from the RabbitMQ queue.
+    /// In case of transient connection losses or unexpected exceptions, retries after a 5-second delay.
+    /// </summary>
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         while (!stoppingToken.IsCancellationRequested)
@@ -78,7 +93,7 @@ internal sealed class RabbitMqConsumerHost<TConsumer>(
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {
-                // Normal exit
+                // Graceful cancellation on host shutdown
             }
             catch (Exception ex)
             {
@@ -88,6 +103,11 @@ internal sealed class RabbitMqConsumerHost<TConsumer>(
         }
     }
 
+    /// <summary>
+    /// Builds the middleware execution pipeline for incoming messages.
+    /// Middlewares execute in the following order:
+    /// Metrics -> Tracing (OTel) -> Deserialization (JSON) -> Consumer Invocation (Mediator).
+    /// </summary>
     private void BuildPipeline()
     {
         _pipeline = new ConsumerPipelineBuilder()
@@ -98,6 +118,9 @@ internal sealed class RabbitMqConsumerHost<TConsumer>(
             .Build();
     }
 
+    /// <summary>
+    /// Starts basic consuming on the queue and pauses indefinitely until cancellation is requested.
+    /// </summary>
     private async Task ConsumeAsync(CancellationToken stoppingToken)
     {
         await rabbitMqClient.BasicConsumeAsync(
@@ -112,12 +135,22 @@ internal sealed class RabbitMqConsumerHost<TConsumer>(
         await Task.Delay(Timeout.Infinite, stoppingToken);
     }
 
+    /// <summary>
+    /// Declares the full RabbitMQ topology for this consumer.
+    /// </summary>
     private async Task SetupTopologyAsync(CancellationToken stoppingToken)
     {
         logger.LogSettingUpTopology(typeof(TConsumer).Name);
         await ConsumerTopologyBuilder.BuildAsync(rabbitMqClient, topology, stoppingToken);
     }
 
+    /// <summary>
+    /// Handles a delivered message from RabbitMQ:
+    /// 1. Resolves target message type from metadata/properties.
+    /// 2. Creates an isolated async service scope for resolving dependencies.
+    /// 3. Executes the consumer pipeline with retry.
+    /// 4. ACKs the message on success or NACKs on unrecoverable failure (routing to DLQ or requeuing).
+    /// </summary>
     private async Task HandleMessageAsync(BasicDeliverEventArgs ea, CancellationToken stoppingToken)
     {
         var errorStrategy = topology.ErrorStrategy.WithConventionDefaults(topology.Queue);
@@ -167,6 +200,10 @@ internal sealed class RabbitMqConsumerHost<TConsumer>(
         }
     }
 
+    /// <summary>
+    /// Executes the consumer pipeline, applying retry intervals and exponential backoff
+    /// based on the configured error strategy when transient errors occur.
+    /// </summary>
     private async Task ExecutePipelineWithRetryAsync(ConsumerContext context)
     {
         var errorStrategy = topology.ErrorStrategy.WithConventionDefaults(topology.Queue);
@@ -205,6 +242,10 @@ internal sealed class RabbitMqConsumerHost<TConsumer>(
         }
     }
 
+    /// <summary>
+    /// Determines whether an exception is transient and eligible for in-memory retry.
+    /// Non-transient errors (like JSON deserialization failure) skip in-memory retry and proceed to DLQ/NACK immediately.
+    /// </summary>
     private static bool IsRetryable(Exception ex)
     {
         if (ex is System.Text.Json.JsonException)

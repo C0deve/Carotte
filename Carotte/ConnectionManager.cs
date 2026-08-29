@@ -3,14 +3,25 @@ using RabbitMQ.Client;
 
 namespace Carotte;
 
+/// <summary>
+/// Manages RabbitMQ broker connections with thread-safe pooling, host reference counting,
+/// and automated connection lifecycle management.
+/// </summary>
 internal sealed class ConnectionManager(IDictionary<string, RabbitMqOptions> options) : IConnectionManager
 {
     private readonly IDictionary<string, IConnection> _connections = new Dictionary<string, IConnection>();
     private readonly Dictionary<string, int> _activeHosts = new();
     private readonly SemaphoreSlim _semaphore = new(1, 1);
 
+    /// <summary>
+    /// Gets an open <see cref="IConnection"/> for the specified broker name.
+    /// Reuses existing open connections or creates a new connection asynchronously.
+    /// </summary>
+    /// <param name="brokerName">The configured broker name.</param>
+    /// <returns>An active <see cref="IConnection"/>.</returns>
     public async ValueTask<IConnection> GetConnectionAsync(string brokerName)
     {
+        // Fast-path: return existing open connection
         if (_connections.TryGetValue(brokerName, out var connection) && connection.IsOpen)
         {
             return connection;
@@ -62,6 +73,10 @@ internal sealed class ConnectionManager(IDictionary<string, RabbitMqOptions> opt
         }
     }
 
+    /// <summary>
+    /// Builds a configured <see cref="ConnectionFactory"/> from the provided <see cref="RabbitMqOptions"/>.
+    /// Supports URI connection strings, individual host/port credentials, SSL/TLS, and timeouts.
+    /// </summary>
     internal static ConnectionFactory CreateConnectionFactory(RabbitMqOptions opt)
     {
         var factory = new ConnectionFactory();
@@ -126,6 +141,9 @@ internal sealed class ConnectionManager(IDictionary<string, RabbitMqOptions> opt
         return factory;
     }
 
+    /// <summary>
+    /// Increments the active consumer/publisher host reference count for a broker.
+    /// </summary>
     public async Task RegisterHostAsync(string brokerName)
     {
         await _semaphore.WaitAsync();
@@ -140,6 +158,10 @@ internal sealed class ConnectionManager(IDictionary<string, RabbitMqOptions> opt
         }
     }
 
+    /// <summary>
+    /// Decrements the active consumer/publisher host reference count for a broker.
+    /// Automatically closes and removes the underlying connection when the count drops to zero.
+    /// </summary>
     public async Task UnregisterHostAsync(string brokerName)
     {
         await _semaphore.WaitAsync();
@@ -180,6 +202,9 @@ internal sealed class ConnectionManager(IDictionary<string, RabbitMqOptions> opt
         }
     }
 
+    /// <summary>
+    /// Closes and disposes all managed connections.
+    /// </summary>
     public void Dispose()
     {
         foreach (var connection in _connections.Values)

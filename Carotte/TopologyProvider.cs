@@ -2,8 +2,15 @@ using System.Collections.ObjectModel;
 
 namespace Carotte;
 
+/// <summary>
+/// Provides factory and mapping methods to convert reflection scan results and configuration options
+/// into strongly-typed topology models (<see cref="MessageBrokerSettings"/>, <see cref="ConsumerInfo"/>, <see cref="ProducerInfo"/>).
+/// </summary>
 internal static class TopologyProvider
 {
+    /// <summary>
+    /// Looks up consumer override settings by simple type name, full type name, or queue name.
+    /// </summary>
     private static ConsumerSettingsOptions? FindConsumerSettings(
         this Dictionary<string, ConsumerSettingsOptions> settings,
         Type consumerType,
@@ -17,6 +24,9 @@ internal static class TopologyProvider
 
     extension(ConsumerScanResult scan)
     {
+        /// <summary>
+        /// Converts a scanned consumer result into a <see cref="ConsumerInfo"/> descriptor.
+        /// </summary>
         private ConsumerInfo ToConsumerInfo(string? clientName,
             ushort defaultPrefetchCount,
             ConsumerSettingsOptions? overrideSettings,
@@ -30,6 +40,9 @@ internal static class TopologyProvider
             );
         }
 
+        /// <summary>
+        /// Translates scanned attributes and programmatic overrides into runtime topology (<see cref="ConsumerConventionTopology"/> or <see cref="ConsumerAttributeTopology"/>).
+        /// </summary>
         private IConsumerTopology ToConsumerTopology(string? clientName,
             ushort defaultPrefetchCount,
             ConsumerSettingsOptions? overrideSettings,
@@ -60,6 +73,7 @@ internal static class TopologyProvider
                 ? ReadOnlyDictionary<string, object>.Empty
                 : ConsumerScanResult.BuildConsumerArguments(overrideSettings);
 
+            // If no QueueAttribute and no override routing key, use convention-based topology (Exchange-to-Exchange fanout)
             if (scan.QueueAttr == null && overrideSettings?.RoutingKey == null)
             {
                 return new ConsumerConventionTopology(
@@ -96,9 +110,17 @@ internal static class TopologyProvider
                 Broker: brokerName,
                 Queue: queueName,
                 Bindings: bindings,
-                Arguments: readonlyArguments, PrefetchCount: prefetchCount, ErrorStrategy: errorStrategy, QueueDurable: overrideSettings?.QueueDurable ?? scan.QueueAttr?.Durable ?? true, QueueExclusive: overrideSettings?.QueueExclusive ?? scan.QueueAttr?.Exclusive ?? false, QueueAutoDelete: overrideSettings?.QueueAutoDelete ?? scan.QueueAttr?.AutoDelete ?? false);
+                Arguments: readonlyArguments,
+                PrefetchCount: prefetchCount,
+                ErrorStrategy: errorStrategy,
+                QueueDurable: overrideSettings?.QueueDurable ?? scan.QueueAttr?.Durable ?? true,
+                QueueExclusive: overrideSettings?.QueueExclusive ?? scan.QueueAttr?.Exclusive ?? false,
+                QueueAutoDelete: overrideSettings?.QueueAutoDelete ?? scan.QueueAttr?.AutoDelete ?? false);
         }
 
+        /// <summary>
+        /// Builds queue arguments dictionary from consumer override options.
+        /// </summary>
         private static ReadOnlyDictionary<string, object> BuildConsumerArguments(ConsumerSettingsOptions overrideSettings)
         {
             var arguments = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase);
@@ -115,6 +137,9 @@ internal static class TopologyProvider
             return new ReadOnlyDictionary<string, object>(arguments);
         }
 
+        /// <summary>
+        /// Generates queue-to-exchange bindings based on explicit routing keys, message type conventions, or default empty keys.
+        /// </summary>
         private IEnumerable<BindingInfo> GenerateQueueBindings(string? explicitRoutingKey, string exchange)
         {
             IEnumerable<BindingInfo> queueBindings;
@@ -153,6 +178,9 @@ internal static class TopologyProvider
         }
     }
 
+    /// <summary>
+    /// Converts a scanned publisher result into a <see cref="ProducerInfo"/> runtime descriptor.
+    /// </summary>
     private static ProducerInfo ToProducerInfo(this PublisherScanResult scan)
     {
         var usesConvention = string.IsNullOrWhiteSpace(scan.PublisherAttribute.Exchange);
@@ -170,6 +198,9 @@ internal static class TopologyProvider
             scan.PublisherAttribute.AutoDelete);
     }
 
+    /// <summary>
+    /// Aggregates scanned consumers, publishers, and broker configurations into a unified <see cref="MessageBrokerSettings"/> object.
+    /// </summary>
     public static MessageBrokerSettings CreateSettings(
         Dictionary<string, RabbitMqOptions> brokers,
         ReadOnlyCollection<ConsumerScanResult> consumerScanResults,

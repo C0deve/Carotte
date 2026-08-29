@@ -3,6 +3,11 @@ using Microsoft.Extensions.Logging;
 
 namespace Carotte;
 
+/// <summary>
+/// Default implementation of <see cref="IPublisher{TMessage}"/> managing message publication to RabbitMQ.
+/// Encapsulates lazy connection management, exchange declaration, and the execution of the publication pipeline.
+/// </summary>
+/// <typeparam name="TMessage">The type of the message to publish.</typeparam>
 internal sealed class RabbitMqPublisher<TMessage>(
     IRabbitMqClient rabbitMqClient,
     ISerializer serializer,
@@ -19,15 +24,21 @@ internal sealed class RabbitMqPublisher<TMessage>(
     where TMessage : class
 {
     private readonly IMessageTypeResolver _messageTypeResolver = messageTypeResolver ?? MessageTypeResolver.Default;
+    
+    // Assembled publication pipeline (Metrics -> Tracing -> Serialization -> RabbitMQ publish)
     private readonly PublisherPipeline<TMessage> _pipeline = new PublisherPipelineBuilder<TMessage>()
         .Use(new PublisherMetricsMiddleware<TMessage>())
         .Use(new PublisherTracingMiddleware<TMessage>())
         .Use(new SerializationMiddleware<TMessage>(serializer))
         .Use(new RabbitMqPublishMiddleware<TMessage>(rabbitMqClient))
         .Build();
+        
     private readonly SemaphoreSlim _semaphore = new(1, 1);
     private bool _initialized;
 
+    /// <summary>
+    /// Initializes a new instance of <see cref="RabbitMqPublisher{TMessage}"/> with default convention-based topology.
+    /// </summary>
     public RabbitMqPublisher(
         IRabbitMqClient rabbitMqClient,
         ISerializer serializer,
@@ -50,8 +61,10 @@ internal sealed class RabbitMqPublisher<TMessage>(
     {
     }
 
+    /// <inheritdoc/>
     public async Task PublishAsync(TMessage message, CancellationToken cancellationToken = default)
     {
+        // Thread-safe lazy initialization of connection and exchange
         if (!_initialized)
         {
             await _semaphore.WaitAsync(cancellationToken);
@@ -81,6 +94,7 @@ internal sealed class RabbitMqPublisher<TMessage>(
             }
         }
 
+        // Create publisher context with resolved message type header and execute pipeline
         var context = new PublisherContext<TMessage>(
             message,
             exchange,
@@ -90,6 +104,7 @@ internal sealed class RabbitMqPublisher<TMessage>(
         await _pipeline.ExecuteAsync(context);
     }
 
+    /// <inheritdoc/>
     public async ValueTask DisposeAsync()
     {
         await rabbitMqClient.DisposeAsync();
