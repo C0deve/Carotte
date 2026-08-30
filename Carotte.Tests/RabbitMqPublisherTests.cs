@@ -7,7 +7,7 @@ namespace Carotte.Tests;
 
 public class RabbitMqPublisherTests
 {
-    [Publisher]
+    [Published]
     public class TestMessage;
 
     [Fact]

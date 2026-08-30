@@ -4,7 +4,7 @@ using System.Reflection;
 namespace Carotte;
 
 /// <summary>
-/// Scans specified assemblies for consumers implementing <see cref="IConsumer{TMessage}"/> and messages decorated with <see cref="PublisherAttribute"/>.
+/// Scans specified assemblies for consumers implementing <see cref="IConsumer{TMessage}"/> and messages decorated with <see cref="PublishedAttribute"/>.
 /// </summary>
 internal static class CarotteScanner
 {
@@ -74,16 +74,16 @@ internal static class CarotteScanner
     }
 
     /// <summary>
-    /// Scans types for message contracts decorated with <see cref="PublisherAttribute"/>.
+    /// Scans types for message contracts decorated with <see cref="PublishedAttribute"/>.
     /// </summary>
     private static ReadOnlyCollection<PublisherScanResult> ScanProducers(IReadOnlyList<Type> types)
     {
-        // Scan for messages marked with [Publisher]
+        // Scan for messages marked with [Published]
         var messagesWithAttr =
             from type in types
-            let publisherAttr = type.GetCustomAttribute<PublisherAttribute>()
-            where publisherAttr != null
-            select new PublisherScanResult(type, publisherAttr!);
+            let publishedAttr = type.GetCustomAttribute<PublishedAttribute>()
+            where publishedAttr != null
+            select new PublisherScanResult(type, publishedAttr!);
 
         return messagesWithAttr.ToList().AsReadOnly();
     }
@@ -101,4 +101,4 @@ internal readonly record struct ConsumerScanResult(
 /// <summary>
 /// Holds scanned metadata for a message type configured for publishing.
 /// </summary>
-internal readonly record struct PublisherScanResult(Type MessageType, PublisherAttribute PublisherAttribute);
+internal readonly record struct PublisherScanResult(Type MessageType, PublishedAttribute PublishedAttribute);

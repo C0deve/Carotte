@@ -4,7 +4,7 @@ namespace Carotte.Tests;
 
 public class PublisherScanTests
 {
-    [Publisher(broker: "test-broker", exchange: "scanned-exchange")]
+    [Published(broker: "test-broker", exchange: "scanned-exchange")]
     public class ScannedMessage;
 
     public class ConsumedOnlyMessage;
@@ -32,7 +32,7 @@ public class PublisherScanTests
     }
 
     [Fact]
-    public void AddAssemblies_ShouldNotRegisterPublisherForConsumedMessageWithoutPublisherAttribute()
+    public void AddAssemblies_ShouldNotRegisterPublisherForConsumedMessageWithoutPublishedAttribute()
     {
         // Act
         var serviceProvider = new ServiceCollection()
@@ -46,7 +46,7 @@ public class PublisherScanTests
         Assert.Null(publisher);
     }
 
-    [Publisher]
+    [Published]
     public class MessageWithDefaultBroker;
 
     [Fact]

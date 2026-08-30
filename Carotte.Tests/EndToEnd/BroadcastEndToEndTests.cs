@@ -5,7 +5,7 @@ using Testcontainers.RabbitMq;
 
 namespace Carotte.Tests.EndToEnd.Broadcast;
 
-[Publisher]
+[Published]
 public record BroadcastOrderMessage(string OrderId);
 
 public class BroadcastAuditConsumer : IConsumer<BroadcastOrderMessage>

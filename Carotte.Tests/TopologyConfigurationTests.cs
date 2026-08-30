@@ -90,7 +90,7 @@ public class TopologyConfigurationTests
     [Fact]
     public void TopologyProvider_ShouldPreservePublisherConfiguration()
     {
-        var attribute = new PublisherAttribute(
+        var attribute = new PublishedAttribute(
             broker: "broker",
             exchange: "orders",
             routingKey: "order.created",
@@ -210,7 +210,7 @@ public class TopologyConfigurationTests
     [Fact]
     public void Attributes_ShouldHaveDeclareExchangeTrueByDefault()
     {
-        var publisherAttr = new PublisherAttribute();
+        var publisherAttr = new PublishedAttribute();
         publisherAttr.DeclareExchange.ShouldBeTrue();
 
         var queueAttr = new QueueAttribute("test-queue");
@@ -226,7 +226,7 @@ public class TopologyConfigurationTests
     [Fact]
     public void TopologyProvider_ShouldDefaultDeclareExchangeToTrue_WhenNotSpecified()
     {
-        var publisherAttr = new PublisherAttribute(broker: "broker", exchange: "orders");
+        var publisherAttr = new PublishedAttribute(broker: "broker", exchange: "orders");
         var queueAttr = new QueueAttribute("orders-queue", broker: "broker", exchange: "orders");
         var bindingAttr = new BindingAttribute("other-exchange", "other.key");
 
@@ -253,7 +253,7 @@ public class TopologyConfigurationTests
     [Fact]
     public void TopologyProvider_ShouldRespectDeclareExchangeFalse_WhenSpecified()
     {
-        var publisherAttr = new PublisherAttribute(broker: "broker", exchange: "orders", declareExchange: false);
+        var publisherAttr = new PublishedAttribute(broker: "broker", exchange: "orders", declareExchange: false);
         var queueAttr = new QueueAttribute("orders-queue", broker: "broker", exchange: "orders", declareExchange: false);
         var bindingAttr = new BindingAttribute("other-exchange", "other.key", declareExchange: false);
 

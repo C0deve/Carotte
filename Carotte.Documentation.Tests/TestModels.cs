@@ -1,9 +1,9 @@
 namespace Carotte.Documentation.Tests;
 
-[Publisher("primary-broker", "orders.exchange", routingKey: "order.created", exchangeType: ExchangeType.Topic)]
+[Published("primary-broker", "orders.exchange", routingKey: "order.created", exchangeType: ExchangeType.Topic)]
 public record OrderCreatedMessage(Guid OrderId, string CustomerName, decimal Amount, DateTime CreatedAtUtc);
 
-[Publisher("primary-broker")]
+[Published("primary-broker")]
 public record DefaultConventionMessage(string Id, string Content);
 
 [Queue("orders-queue", broker: "primary-broker", exchange: "orders.exchange", routingKey: "order.created", maxRetryAttempts: 5, deadLetterExchange: "orders.dlx")]

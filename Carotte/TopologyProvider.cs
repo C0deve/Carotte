@@ -183,19 +183,19 @@ internal static class TopologyProvider
     /// </summary>
     private static ProducerInfo ToProducerInfo(this PublisherScanResult scan)
     {
-        var usesConvention = string.IsNullOrWhiteSpace(scan.PublisherAttribute.Exchange);
+        var usesConvention = string.IsNullOrWhiteSpace(scan.PublishedAttribute.Exchange);
 
         return new ProducerInfo(
             scan.MessageType,
-            scan.PublisherAttribute.Broker ?? string.Empty,
+            scan.PublishedAttribute.Broker ?? string.Empty,
             usesConvention
                 ? scan.MessageType.Name.ToDefaultExchangeName()
-                : scan.PublisherAttribute.Exchange!,
-            scan.PublisherAttribute.RoutingKey ?? (usesConvention ? string.Empty : scan.MessageType.Name),
-            usesConvention ? ExchangeType.Fanout : scan.PublisherAttribute.ExchangeType,
-            usesConvention || scan.PublisherAttribute.DeclareExchange,
-            scan.PublisherAttribute.Durable,
-            scan.PublisherAttribute.AutoDelete);
+                : scan.PublishedAttribute.Exchange!,
+            scan.PublishedAttribute.RoutingKey ?? (usesConvention ? string.Empty : scan.MessageType.Name),
+            usesConvention ? ExchangeType.Fanout : scan.PublishedAttribute.ExchangeType,
+            usesConvention || scan.PublishedAttribute.DeclareExchange,
+            scan.PublishedAttribute.Durable,
+            scan.PublishedAttribute.AutoDelete);
     }
 
     /// <summary>

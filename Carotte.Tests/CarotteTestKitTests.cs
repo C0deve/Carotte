@@ -9,7 +9,7 @@ public class CarotteTestKitTests
 {
     public record TestMessage(string Content);
 
-    [Publisher]
+    [Published]
     public record ResponseMessage(string Content);
 
     public record UnregisteredMessage(string Info);

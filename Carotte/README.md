@@ -66,7 +66,7 @@ builder.Services.AddCarotte(carotte =>
     // Optional: Prefix queues and exchanges with client/service name
     carotte.SetClientName("order-service");
 
-    // Scan assembly for IConsumer<T> handlers and [Publisher] message types
+    // Scan assembly for IConsumer<T> handlers and [Published] message types
     carotte.AddAssemblies(typeof(Program).Assembly);
 
     // Optional: Configure OpenTelemetry OTLP Exporter
@@ -100,10 +100,10 @@ public class OrderConsumer(ILogger<OrderConsumer> logger) : IConsumer<OrderCreat
 
 ### 3. Publish Messages
 
-Mark messages with `[Publisher]` to enable publishing:
+Mark messages with `[Published]` to enable publishing:
 
 ```csharp
-[Publisher]
+[Published]
 public record CreateOrderCommand(Guid OrderId, string CustomerName, decimal Amount);
 
 public class OrderService(IPublisher<CreateOrderCommand> publisher)

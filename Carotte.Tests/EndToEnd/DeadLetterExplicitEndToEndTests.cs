@@ -5,7 +5,7 @@ using Testcontainers.RabbitMq;
 
 namespace Carotte.Tests.EndToEnd.DeadLetterExplicit;
 
-[Publisher(exchange: "explicit-dl-exchange", routingKey: "order.create")]
+[Published(exchange: "explicit-dl-exchange", routingKey: "order.create")]
 public record DeadLetterExplicitMessage(string OrderId, decimal Amount);
 
 [Queue(

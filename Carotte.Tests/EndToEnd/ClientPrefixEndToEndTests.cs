@@ -5,7 +5,7 @@ using Testcontainers.RabbitMq;
 
 namespace Carotte.Tests.EndToEnd.ClientPrefix;
 
-[Publisher]
+[Published]
 public record ClientPrefixMessage(string Data);
 
 public class ClientPrefixConsumer : IConsumer<ClientPrefixMessage>

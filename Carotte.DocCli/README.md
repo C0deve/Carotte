@@ -2,7 +2,7 @@
 
 `Carotte.DocCli` est un outil en ligne de commande permettant de générer automatiquement une spécification complète au format **Markdown** ou **AsyncAPI** (YAML / JSON) de la topologie de messagerie d'un microservice basé sur **Carotte**.
 
-Il analyse les métadonnées de vos assemblies .NET compilés (producteurs marqués par `[Publisher]`, consommateurs implémentant `IConsumer<T>`, topologies `[Queue]` / `[Binding]` ou conventions automatiques) ainsi que les commentaires XML de documentation (`/// <summary>`) pour produire une documentation claire, vivante et synchronisée avec le code.
+Il analyse les métadonnées de vos assemblies .NET compilés (producteurs marqués par `[Published]`, consommateurs implémentant `IConsumer<T>`, topologies `[Queue]` / `[Binding]` ou conventions automatiques) ainsi que les commentaires XML de documentation (`/// <summary>`) pour produire une documentation claire, vivante et synchronisée avec le code.
 
 ---
 

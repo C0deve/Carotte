@@ -1,7 +1,7 @@
-﻿namespace Carotte;
+namespace Carotte;
 
 [AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct)]
-public class PublisherAttribute(
+public class PublishedAttribute(
     string? broker = null,
     string? exchange = null,
     string? routingKey = null,

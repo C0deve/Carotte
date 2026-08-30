@@ -6,7 +6,7 @@ namespace Carotte.Tests;
 
 public class BackgroundServiceTests
 {
-    [Publisher]
+    [Published]
     public class TestMessage;
 
     [Fact]

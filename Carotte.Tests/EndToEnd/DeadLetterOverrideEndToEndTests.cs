@@ -5,7 +5,7 @@ using Testcontainers.RabbitMq;
 
 namespace Carotte.Tests.EndToEnd.DeadLetterOverride;
 
-[Publisher]
+[Published]
 public record DeadLetterOverrideMessage(string Key, string Value);
 
 public class FailingOverrideConsumer : IConsumer<DeadLetterOverrideMessage>

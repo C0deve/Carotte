@@ -33,7 +33,7 @@ public class CarotteScannerTest
             .ShouldContain(typeof(TestPublishedMessage));
 
         var testPublisher = publishers.Single(p => p.MessageType == typeof(TestPublishedMessage));
-        testPublisher.PublisherAttribute.Exchange.ShouldBe("pub-exchange");
+        testPublisher.PublishedAttribute.Exchange.ShouldBe("pub-exchange");
     }
 
     [Fact]
@@ -150,7 +150,7 @@ public class CarotteScannerTest
         public abstract Task HandleAsync(TestMessage message, CancellationToken cancellationToken);
     }
 
-    [Publisher(exchange: "pub-exchange")]
+    [Published(exchange: "pub-exchange")]
     public class TestPublishedMessage
     {
     }

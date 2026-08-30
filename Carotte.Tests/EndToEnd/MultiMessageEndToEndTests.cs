@@ -5,10 +5,10 @@ using Testcontainers.RabbitMq;
 
 namespace Carotte.Tests.EndToEnd.MultiMessage;
 
-[Publisher]
+[Published]
 public record ItemCreatedMessage(Guid ItemId, string Name);
 
-[Publisher]
+[Published]
 public record ItemUpdatedMessage(Guid ItemId, string NewName);
 
 public class MultiMessageConventionConsumer : IConsumer<ItemCreatedMessage>, IConsumer<ItemUpdatedMessage>

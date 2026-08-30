@@ -5,7 +5,7 @@ using Testcontainers.RabbitMq;
 
 namespace Carotte.Tests.EndToEnd.Convention;
 
-[Publisher]
+[Published]
 public record ConventionMessage(string Content);
 
 public class ConventionConsumer : IConsumer<ConventionMessage>
