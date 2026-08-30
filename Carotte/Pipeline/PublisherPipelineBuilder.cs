@@ -4,7 +4,7 @@
 /// Builds an execution pipeline for publishing outgoing messages by chaining <see cref="IPublisherMiddleware{TMessage}"/> instances.
 /// </summary>
 /// <typeparam name="TMessage">The type of the message being published.</typeparam>
-internal class PublisherPipelineBuilder<TMessage> where TMessage : class
+internal class PublisherPipelineBuilder<TMessage>
 {
     private readonly List<IPublisherMiddleware<TMessage>> _middlewares = [];
 

@@ -10,7 +10,7 @@ public class MessageTestStore
 
     public IReadOnlyList<object> SentMessages => _messages.ToList();
 
-    public IReadOnlyList<T> GetSentMessages<T>() where T : class => _messages.OfType<T>().ToList();
+    public IReadOnlyList<T> GetSentMessages<T>() => _messages.OfType<T>().ToList();
 
     public void Add(object message)
     {

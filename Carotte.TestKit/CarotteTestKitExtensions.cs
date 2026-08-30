@@ -49,7 +49,7 @@ public static class CarotteTestKitExtensions
             return services;
         }
 
-        public IServiceCollection AddMockPublisher<TMessage>() where TMessage : class
+        public IServiceCollection AddMockPublisher<TMessage>()
         {
             var mock = new Mock<IPublisher<TMessage>>();
 
@@ -59,7 +59,7 @@ public static class CarotteTestKitExtensions
             {
                 var store = sp.GetRequiredService<MessageTestStore>();
                 mock.Setup(p => p.PublishAsync(It.IsAny<TMessage>(), It.IsAny<CancellationToken>()))
-                    .Callback<TMessage, CancellationToken>((msg, _) => store.Add(msg))
+                    .Callback<TMessage, CancellationToken>((msg, _) => store.Add(msg!))
                     .Returns(Task.CompletedTask);
                 return mock.Object;
             }));
@@ -68,6 +68,6 @@ public static class CarotteTestKitExtensions
         }
     }
 
-    public static Mock<IPublisher<TMessage>> GetMockPublisher<TMessage>(this IServiceProvider sp) where TMessage : class =>
+    public static Mock<IPublisher<TMessage>> GetMockPublisher<TMessage>(this IServiceProvider sp) =>
         sp.GetRequiredService<Mock<IPublisher<TMessage>>>();
 }

@@ -21,7 +21,6 @@ internal sealed class RabbitMqPublisher<TMessage>(
     bool autoDelete,
     IMessageTypeResolver? messageTypeResolver = null)
     : IPublisher<TMessage>, IAsyncDisposable
-    where TMessage : class
 {
     private readonly IMessageTypeResolver _messageTypeResolver = messageTypeResolver ?? MessageTypeResolver.Default;
 

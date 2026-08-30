@@ -104,4 +104,22 @@ public class PublisherScanTests
         var brokerValue = brokerField.GetValue(rbPublisher);
         Assert.Equal("test-broker", brokerValue);
     }
+
+    [Published]
+    public readonly record struct ScannedStructMessage(int Id, string Text);
+
+    [Fact]
+    public void AddAssemblies_ShouldRegisterPublisherForStructMessage()
+    {
+        // Act
+        var serviceProvider = new ServiceCollection()
+            .AddCarotte(carotte => carotte
+                .AddBroker("test-broker", _ => { })
+                .AddAssemblies(typeof(PublisherScanTests).Assembly))
+            .BuildServiceProvider();
+
+        // Assert
+        var publisher = serviceProvider.GetService<IPublisher<ScannedStructMessage>>();
+        Assert.NotNull(publisher);
+    }
 }

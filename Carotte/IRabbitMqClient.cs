@@ -15,7 +15,7 @@ public interface IRabbitMqClient : IAsyncDisposable
         byte[] body,
         BasicProperties properties,
         bool mandatory = true,
-        CancellationToken cancellationToken = default) where TMessage : class;
+        CancellationToken cancellationToken = default);
 
     Task<string> BasicConsumeAsync(
         string queue,

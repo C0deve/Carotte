@@ -188,13 +188,13 @@ public class CarotteTestKit(IServiceProvider serviceProvider)
     private static bool IsInNamespace(Type type, HashSet<string> namespaces) =>
         namespaces.Count == 0 || (type.Namespace != null && namespaces.Any(ns => type.Namespace == ns || type.Namespace.StartsWith(ns + ".")));
 
-    public IReadOnlyList<TMessage> GetSentMessages<TMessage>() where TMessage : class =>
+    public IReadOnlyList<TMessage> GetSentMessages<TMessage>() =>
         serviceProvider.GetRequiredService<MessageTestStore>().GetSentMessages<TMessage>();
 
     public void Clear() =>
         serviceProvider.GetRequiredService<MessageTestStore>().Clear();
 
-    public TMessage ShouldHavePublished<TMessage>(Func<TMessage, bool>? predicate = null) where TMessage : class
+    public TMessage ShouldHavePublished<TMessage>(Func<TMessage, bool>? predicate = null)
     {
         var messages = GetSentMessages<TMessage>();
 
@@ -214,7 +214,7 @@ public class CarotteTestKit(IServiceProvider serviceProvider)
                    $"Expected a message of type '{typeof(TMessage).Name}' matching the predicate to be published, but none was found.");
     }
 
-    public void ShouldNotHavePublished<TMessage>(Func<TMessage, bool>? predicate = null) where TMessage : class
+    public void ShouldNotHavePublished<TMessage>(Func<TMessage, bool>? predicate = null)
     {
         var messages = GetSentMessages<TMessage>();
 
@@ -236,7 +236,7 @@ public class CarotteTestKit(IServiceProvider serviceProvider)
     public async Task<TMessage> WaitForPublishedMessageAsync<TMessage>(
         Func<TMessage, bool>? predicate = null,
         TimeSpan? timeout = null,
-        CancellationToken cancellationToken = default) where TMessage : class
+        CancellationToken cancellationToken = default)
     {
         var store = serviceProvider.GetRequiredService<MessageTestStore>();
         predicate ??= _ => true;
@@ -284,12 +284,12 @@ public class CarotteTestKit(IServiceProvider serviceProvider)
 
     public Task<TMessage> WaitForPublishedMessageAsync<TMessage>(
         TimeSpan timeout,
-        CancellationToken cancellationToken = default) where TMessage : class =>
+        CancellationToken cancellationToken = default) =>
         WaitForPublishedMessageAsync<TMessage>(predicate: null, timeout: (TimeSpan?)timeout, cancellationToken: cancellationToken);
 
     public Task<TMessage> WaitForPublishedMessageAsync<TMessage>(
         Func<TMessage, bool> predicate,
         TimeSpan timeout,
-        CancellationToken cancellationToken = default) where TMessage : class =>
+        CancellationToken cancellationToken = default) =>
         WaitForPublishedMessageAsync(predicate, (TimeSpan?)timeout, cancellationToken);
 }

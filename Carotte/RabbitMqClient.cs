@@ -94,7 +94,7 @@ internal sealed class RabbitMqClient(IConnectionManager connectionManager, ILogg
         byte[] body,
         BasicProperties properties,
         bool mandatory = true,
-        CancellationToken cancellationToken = default) where TMessage : class
+        CancellationToken cancellationToken = default)
     {
         var channel = await EnsureChannelAsync(cancellationToken);
         logger.LogPublishingMessage(typeof(TMessage).Name, exchange, routingKey, string.Empty);

@@ -1,6 +1,6 @@
 ﻿namespace Carotte;
 
-public interface IPublisher<in TMessage> where TMessage : class
+public interface IPublisher<in TMessage>
 {
     Task PublishAsync(TMessage message, CancellationToken cancellationToken = default);
 }
