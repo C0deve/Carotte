@@ -212,12 +212,18 @@ public class TopologyConfigurationTests
     {
         var publisherAttr = new PublishedAttribute();
         publisherAttr.DeclareExchange.ShouldBeTrue();
+        publisherAttr.ExchangeDurable.ShouldBeTrue();
+        publisherAttr.ExchangeAutoDelete.ShouldBeFalse();
 
         var queueAttr = new QueueAttribute("test-queue");
         queueAttr.DeclareExchange.ShouldBeTrue();
+        queueAttr.ExchangeDurable.ShouldBeTrue();
+        queueAttr.ExchangeAutoDelete.ShouldBeFalse();
 
         var bindingAttr = new BindingAttribute("test-exchange");
         bindingAttr.DeclareExchange.ShouldBeTrue();
+        bindingAttr.ExchangeDurable.ShouldBeTrue();
+        bindingAttr.ExchangeAutoDelete.ShouldBeFalse();
 
         var bindingInfo = new BindingInfo("test-exchange", "test-key");
         bindingInfo.DeclareExchange.ShouldBeTrue();

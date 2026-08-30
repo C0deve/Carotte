@@ -100,8 +100,8 @@ internal static class TopologyProvider
                     b.RoutingKey,
                     b.ExchangeType,
                     b.DeclareExchange,
-                    b.Durable,
-                    b.AutoDelete))
+                    b.ExchangeDurable,
+                    b.ExchangeAutoDelete))
                 .Union(queueBindings)
                 .ToList()
                 .AsReadOnly();
