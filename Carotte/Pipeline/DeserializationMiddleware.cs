@@ -1,7 +1,7 @@
 using System.Reflection;
 using System.Runtime.ExceptionServices;
 
-namespace Carotte.pipeline;
+namespace Carotte.Pipeline;
 
 internal class DeserializationMiddleware(ISerializer serializer) : IConsumerMiddleware
 {

@@ -1,4 +1,4 @@
-﻿namespace Carotte.pipeline;
+namespace Carotte.Pipeline;
 
 internal class ConsumerInvocationMiddleware(ConsumerMediator mediator) : IConsumerMiddleware
 {

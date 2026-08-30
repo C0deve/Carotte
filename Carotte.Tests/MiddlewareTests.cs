@@ -2,7 +2,7 @@
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
 using Shouldly;
-using Carotte.pipeline;
+using Carotte.Pipeline;
 
 namespace Carotte.Tests;
 

@@ -1,4 +1,4 @@
-﻿namespace Carotte.pipeline;
+namespace Carotte.Pipeline;
 
 internal delegate Task ConsumerDelegate(ConsumerContext context);
 

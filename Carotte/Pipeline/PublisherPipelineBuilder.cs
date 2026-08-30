@@ -1,4 +1,4 @@
-﻿namespace Carotte.pipeline;
+namespace Carotte.Pipeline;
 
 /// <summary>
 /// Builds an execution pipeline for publishing outgoing messages by chaining <see cref="IPublisherMiddleware{TMessage}"/> instances.

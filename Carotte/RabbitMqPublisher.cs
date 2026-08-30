@@ -1,4 +1,4 @@
-using Carotte.pipeline;
+using Carotte.Pipeline;
 using Microsoft.Extensions.Logging;
 
 namespace Carotte;

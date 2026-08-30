@@ -1,4 +1,4 @@
-﻿namespace Carotte.pipeline;
+namespace Carotte.Pipeline;
 
 internal class PublisherPipeline<TMessage>(PublisherDelegate<TMessage> pipeline)
 {

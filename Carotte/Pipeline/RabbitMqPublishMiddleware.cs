@@ -1,6 +1,6 @@
-﻿using RabbitMQ.Client;
+using RabbitMQ.Client;
 
-namespace Carotte.pipeline;
+namespace Carotte.Pipeline;
 
 internal class RabbitMqPublishMiddleware<TMessage>(IRabbitMqClient rabbitMqClient)
     : IPublisherMiddleware<TMessage>

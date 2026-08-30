@@ -4,7 +4,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
-using Carotte.pipeline;
+using Carotte.Pipeline;
 
 // ReSharper disable once CheckNamespace
 namespace Carotte;

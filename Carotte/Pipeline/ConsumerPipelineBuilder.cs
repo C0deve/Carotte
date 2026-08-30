@@ -1,4 +1,4 @@
-﻿namespace Carotte.pipeline;
+namespace Carotte.Pipeline;
 
 /// <summary>
 /// Builds an execution pipeline for incoming consumer messages by chaining <see cref="IConsumerMiddleware"/> instances.

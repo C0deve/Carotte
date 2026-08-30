@@ -1,6 +1,6 @@
 ﻿using RabbitMQ.Client.Events;
 
-namespace Carotte.pipeline;
+namespace Carotte.Pipeline;
 
 /// <summary>
 /// Context passed through the consumer middleware pipeline, carrying RabbitMQ delivery arguments,

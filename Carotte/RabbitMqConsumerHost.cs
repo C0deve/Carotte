@@ -1,7 +1,7 @@
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using RabbitMQ.Client.Events;
-using Carotte.pipeline;
+using Carotte.Pipeline;
 
 namespace Carotte;
 

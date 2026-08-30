@@ -1,6 +1,6 @@
-﻿using RabbitMQ.Client;
+using RabbitMQ.Client;
 
-namespace Carotte.pipeline;
+namespace Carotte.Pipeline;
 
 /// <summary>
 /// Context passed through the publisher middleware pipeline, containing message payload,

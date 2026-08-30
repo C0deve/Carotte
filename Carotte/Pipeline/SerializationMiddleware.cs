@@ -1,4 +1,4 @@
-﻿namespace Carotte.pipeline;
+namespace Carotte.Pipeline;
 
 internal class SerializationMiddleware<TMessage>(ISerializer serializer) : IPublisherMiddleware<TMessage>
 {
