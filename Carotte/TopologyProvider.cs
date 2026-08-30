@@ -194,8 +194,8 @@ internal static class TopologyProvider
             scan.PublishedAttribute.RoutingKey ?? (usesConvention ? string.Empty : scan.MessageType.Name),
             usesConvention ? ExchangeType.Fanout : scan.PublishedAttribute.ExchangeType,
             usesConvention || scan.PublishedAttribute.DeclareExchange,
-            scan.PublishedAttribute.Durable,
-            scan.PublishedAttribute.AutoDelete);
+            scan.PublishedAttribute.ExchangeDurable,
+            scan.PublishedAttribute.ExchangeAutoDelete);
     }
 
     /// <summary>

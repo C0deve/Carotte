@@ -161,7 +161,7 @@ For advanced scenarios, you can customize your consumers and messages using attr
 - `[Published(...)]`: Configures the broker, exchange, publication routing key, exchange type, and exchange declaration flags.
 - `[MessageType("alias")]`: Overrides the default message type identifier for interoperability or versioning.
 
-Exchanges are declared automatically by default (`declareExchange: true`). Set `declareExchange: false` when targeting pre-existing exchanges or running in environments with restricted permissions. The available exchange flags are `exchangeType`, `durable`, and `autoDelete`; queue flags are `durable`, `exclusive`, and `autoDelete`.
+Exchanges are declared automatically by default (`declareExchange: true`). Set `declareExchange: false` when targeting pre-existing exchanges or running in environments with restricted permissions. The available exchange flags are `exchangeType`, `exchangeDurable` (or `durable`), and `exchangeAutoDelete` (or `autoDelete`); queue flags are `durable`, `exclusive`, and `autoDelete`.
 
 > [!NOTE]
 > In the current implementation, applying `[Queue]` switches the consumer to attribute-based topology. If you want the default E2E convention (`x.pub.*` -> `x.sub.*` -> `q.*`), do not add `[Queue]` to the consumer.
@@ -241,7 +241,7 @@ Carotte uses a **"Convention over Configuration"** approach to simplify RabbitMQ
 - **Simplicity**: Fewer attributes to write.
 
 #### Publisher Side (Publication)
-For a message type annotated with `[Publisher]`, Carotte registers `IPublisher<TMessage>`. By default, the publisher publishes to a `fanout` exchange whose name is derived from the message class name (kebab-case) with an `x.pub.` prefix. Common suffixes like `Message`, `Event`, or `Command` are automatically removed.
+For a message type annotated with `[Published]`, Carotte registers `IPublisher<TMessage>`. By default, the publisher publishes to a `fanout` exchange whose name is derived from the message class name (kebab-case) with an `x.pub.` prefix. Common suffixes like `Message`, `Event`, or `Command` are automatically removed.
 - **Message**: `CreateOrderCommand`
 - **Exchange**: `x.pub.create-order`
 - **Routing Key**: Empty (since it's a `fanout`).

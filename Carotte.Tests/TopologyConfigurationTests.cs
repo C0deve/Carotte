@@ -96,8 +96,8 @@ public class TopologyConfigurationTests
             routingKey: "order.created",
             exchangeType: ExchangeType.Topic,
             declareExchange: true,
-            durable: false,
-            autoDelete: true);
+            exchangeDurable: false,
+            exchangeAutoDelete: true);
 
         var settings = TopologyProvider.CreateSettings(
             new Dictionary<string, RabbitMqOptions> { ["broker"] = new() },
