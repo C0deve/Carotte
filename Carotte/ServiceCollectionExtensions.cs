@@ -53,6 +53,11 @@ public static class ServiceCollectionExtensions
                 .AddPublishers(messageBrokerSettings)
                 .TryAddSingleton(builder);
 
+            foreach (var configurator in builder.ServiceConfigurators)
+            {
+                configurator(services);
+            }
+
             return services;
         }
 

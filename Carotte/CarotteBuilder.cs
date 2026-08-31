@@ -1,5 +1,6 @@
 using System.Reflection;
 using System.Text.Json;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Carotte;
 
@@ -9,6 +10,7 @@ public class CarotteBuilder
     internal Dictionary<string, ConsumerSettingsOptions> ConsumerSettings { get; } = new(StringComparer.OrdinalIgnoreCase);
     internal HashSet<Assembly> Assemblies { get; } = [];
     internal HashSet<string> Namespaces { get; } = [];
+    internal List<Action<IServiceCollection>> ServiceConfigurators { get; } = [];
     internal Uri? OtlpEndpoint { get; private set; }
     public string? ServiceName { get; private set; }
     public JsonSerializerOptions? CustomJsonSerializerOptions { get; private set; }
@@ -125,5 +127,12 @@ public class CarotteBuilder
             throw new InvalidOperationException($"Type {typeof(T).FullName} does not have a namespace.");
         }
         return ScanNamespace(ns);
+    }
+
+    public CarotteBuilder AddCustomServiceConfigurator(Action<IServiceCollection> configure)
+    {
+        ArgumentNullException.ThrowIfNull(configure);
+        ServiceConfigurators.Add(configure);
+        return this;
     }
 }

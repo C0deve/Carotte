@@ -166,6 +166,29 @@ public class CarotteTestKitTests
     }
 
     [Fact]
+    public async Task AddCarotte_WithUseTestKitFluentBuilder_ShouldConfigureTestKitSuccessfully()
+    {
+        // Arrange
+        var sp = new ServiceCollection()
+            .AddCarotte(c => c
+                .AddBroker("test-broker", _ => { })
+                .ScanAssemblies(typeof(TestConsumer).Assembly)
+                .UseTestKit())
+            .BuildServiceProvider();
+
+        var testKit = sp.GetRequiredService<CarotteTestKit>();
+        var testMessage = new TestMessage("Hello Fluent TestKit");
+
+        // Act
+        await testKit.SimulateReceiveAsync<TestConsumer, TestMessage>(testMessage);
+
+        // Assert
+        var sentMessages = testKit.GetSentMessages<ResponseMessage>();
+        sentMessages.Count.ShouldBe(1);
+        sentMessages[0].Content.ShouldBe("Received: Hello Fluent TestKit");
+    }
+
+    [Fact]
     public async Task Publisher_ShouldBeMockable_WithMoq()
     {
         // Arrange

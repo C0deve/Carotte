@@ -33,6 +33,8 @@ dotnet add package Carotte.TestKit
 
 ### 1. Register Carotte TestKit in Your Test Host
 
+You can register Carotte TestKit directly inside `AddCarotte` with `UseTestKit()` or via `services.AddCarotteTestKit()`:
+
 ```csharp
 using Carotte;
 using Microsoft.Extensions.DependencyInjection;
@@ -45,10 +47,8 @@ var hostBuilder = Host.CreateDefaultBuilder()
         {
             carotte.AddBroker("test-broker", _ => { });
             carotte.ScanAssemblies(typeof(OrderConsumer).Assembly);
+            carotte.UseTestKit(); // Fluent integration
         });
-
-        // Replaces RabbitMQ client and publishers with TestKit in-memory equivalents
-        services.AddCarotteTestKit();
     });
 
 var host = hostBuilder.Build();

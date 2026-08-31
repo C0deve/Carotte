@@ -73,4 +73,13 @@ public static class CarotteTestKitExtensions
         public Mock<IPublisher<TMessage>> GetMockPublisher<TMessage>() =>
             sp.GetRequiredService<Mock<IPublisher<TMessage>>>();
     }
+
+    extension(CarotteBuilder builder)
+    {
+        public CarotteBuilder UseTestKit()
+        {
+            builder.AddCustomServiceConfigurator(services => services.AddCarotteTestKit());
+            return builder;
+        }
+    }
 }
