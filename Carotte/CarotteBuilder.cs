@@ -60,10 +60,6 @@ public class CarotteBuilder
         return this;
     }
 
-    public CarotteBuilder AddOtlpExporter(string endpoint) => WithOtlpExporter(endpoint);
-
-    public CarotteBuilder AddOtlpExporter(Uri endpoint) => WithOtlpExporter(endpoint);
-
     public CarotteBuilder AddBroker(string name, Action<RabbitMqOptions> configure)
     {
         var options = new RabbitMqOptions();

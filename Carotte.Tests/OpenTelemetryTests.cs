@@ -12,14 +12,14 @@ public class OpenTelemetryTests
     {
         // Arrange
         var services = new ServiceCollection();
-        var endpoint = "http://localhost:4317";
+        const string endpoint = "http://localhost:4317";
 
         // Act
         services.AddCarotte(builder =>
         {
             builder
                 .AddBroker("test-broker", _ => { })
-                .AddOtlpExporter(endpoint);
+                .WithOtlpExporter(endpoint);
         });
 
         // Assert

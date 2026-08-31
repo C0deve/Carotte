@@ -18,7 +18,7 @@ builder.Services.AddCarotte(carotte =>
     var otlpEndpoint = builder.Configuration["OpenTelemetry:OtlpEndpoint"];
     if (!string.IsNullOrWhiteSpace(otlpEndpoint))
     {
-        carotte.AddOtlpExporter(otlpEndpoint);
+        carotte.WithOtlpExporter(otlpEndpoint);
     }
 });
 
