@@ -27,7 +27,7 @@ internal static class TopologyProvider
         /// <summary>
         /// Converts a scanned consumer result into a <see cref="ConsumerInfo"/> descriptor.
         /// </summary>
-        private ConsumerInfo ToConsumerInfo(string? clientName,
+        private ConsumerInfo ToConsumerInfo(string? serviceName,
             ushort defaultPrefetchCount,
             ConsumerSettingsOptions? overrideSettings,
             string brokerName)
@@ -36,20 +36,20 @@ internal static class TopologyProvider
                 scan.ConsumerType,
                 [.. scan.MessageTypes],
                 brokerName,
-                scan.ToConsumerTopology(clientName, defaultPrefetchCount, overrideSettings, brokerName)
+                scan.ToConsumerTopology(serviceName, defaultPrefetchCount, overrideSettings, brokerName)
             );
         }
 
         /// <summary>
         /// Translates scanned attributes and programmatic overrides into runtime topology (<see cref="ConsumerConventionTopology"/> or <see cref="ConsumerAttributeTopology"/>).
         /// </summary>
-        private IConsumerTopology ToConsumerTopology(string? clientName,
+        private IConsumerTopology ToConsumerTopology(string? serviceName,
             ushort defaultPrefetchCount,
             ConsumerSettingsOptions? overrideSettings,
             string brokerName)
         {
             var prefetchCount = overrideSettings?.PrefetchCount ?? scan.QueueAttr?.PrefetchCount ?? defaultPrefetchCount;
-            var queueName = overrideSettings?.QueueName ?? scan.QueueAttr?.Name ?? scan.ConsumerType.Name.ToConsumerQueueName(clientName);
+            var queueName = overrideSettings?.QueueName ?? scan.QueueAttr?.Name ?? scan.ConsumerType.Name.ToConsumerQueueName(serviceName);
             var maxRetries = overrideSettings?.MaxRetryAttempts ?? scan.QueueAttr?.MaxRetryAttempts;
             var failureAction = overrideSettings?.FailureAction ?? scan.QueueAttr?.FailureAction ?? ConsumerFailureAction.DeadLetter;
             var dlx = overrideSettings?.DeadLetterExchange ?? scan.QueueAttr?.DeadLetterExchange;
@@ -79,7 +79,7 @@ internal static class TopologyProvider
                 return new ConsumerConventionTopology(
                     Broker: brokerName,
                     Queue: queueName,
-                    ConsumerExchangeName: scan.ConsumerType.Name.ToConsumerExchangeName(clientName),
+                    ConsumerExchangeName: scan.ConsumerType.Name.ToConsumerExchangeName(serviceName),
                     MessageExchangeNames: scan.MessageTypes
                         .Select(m => m.Name.ToMessageExchangeName())
                         .ToList()
@@ -205,7 +205,7 @@ internal static class TopologyProvider
         Dictionary<string, RabbitMqOptions> brokers,
         ReadOnlyCollection<ConsumerScanResult> consumerScanResults,
         ReadOnlyCollection<PublisherScanResult> publisherScanResults,
-        string? clientName = null,
+        string? serviceName = null,
         Dictionary<string, ConsumerSettingsOptions>? consumerSettings = null)
     {
         var firstBrokerName = brokers.Keys.FirstOrDefault() ?? string.Empty;
@@ -219,11 +219,11 @@ internal static class TopologyProvider
             consumerScanResults
                 .Select(sc =>
                 {
-                    var initialQueueName = sc.QueueAttr?.Name ?? sc.ConsumerType.Name.ToConsumerQueueName(clientName);
+                    var initialQueueName = sc.QueueAttr?.Name ?? sc.ConsumerType.Name.ToConsumerQueueName(serviceName);
                     var overrideSetting = consumerSettings?.FindConsumerSettings(sc.ConsumerType, initialQueueName);
                     var brokerName = overrideSetting?.Broker ?? sc.QueueAttr?.Broker ?? firstBrokerName;
                     var prefetchCount = brokers.GetValueOrDefault(brokerName)?.DefaultPrefetchCount ?? 1;
-                    return sc.ToConsumerInfo(clientName, prefetchCount, overrideSetting, brokerName);
+                    return sc.ToConsumerInfo(serviceName, prefetchCount, overrideSetting, brokerName);
                 })
                 .ToList()
                 .AsReadOnly();

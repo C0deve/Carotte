@@ -26,7 +26,7 @@ public sealed partial class AsyncApiGenerator(
             brokers,
             consumerScanResults,
             publisherScanResults,
-            options.ClientName,
+            options.ServiceName,
             options.ConsumerSettings);
 
         var xmlReader = ResolveXmlReader(assemblies, options.XmlDocumentationPath);
@@ -45,7 +45,7 @@ public sealed partial class AsyncApiGenerator(
             builder.Brokers,
             consumerScanResults,
             publisherScanResults,
-            builder.ClientName,
+            builder.ServiceName,
             builder.ConsumerSettings);
 
         var xmlReader = ResolveXmlReader(builder.Assemblies, options.XmlDocumentationPath);

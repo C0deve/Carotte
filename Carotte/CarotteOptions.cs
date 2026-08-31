@@ -2,7 +2,8 @@ namespace Carotte;
 
 public record CarotteOptions
 {
-    public string? ClientName { get; set; }
+    public string? ServiceName { get; set; }
+
     public Dictionary<string, RabbitMqOptions> Brokers { get; set; } = new(StringComparer.OrdinalIgnoreCase);
     public Dictionary<string, ConsumerSettingsOptions> Consumers { get; set; } = new(StringComparer.OrdinalIgnoreCase);
     public Dictionary<string, PublisherSettingsOptions> Publishers { get; set; } = new(StringComparer.OrdinalIgnoreCase);

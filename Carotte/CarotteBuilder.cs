@@ -10,14 +10,33 @@ public class CarotteBuilder
     internal HashSet<Assembly> Assemblies { get; } = [];
     internal HashSet<string> Namespaces { get; } = [];
     internal Uri? OtlpEndpoint { get; private set; }
-    public string? ClientName { get; private set; }
+    public string? ServiceName { get; private set; }
     public JsonSerializerOptions? CustomJsonSerializerOptions { get; private set; }
 
-    public CarotteBuilder WithClientName(string name)
+    public CarotteBuilder WithServiceName(string serviceName)
     {
-        ClientName = name;
+        ServiceName = serviceName;
         return this;
     }
+
+    public CarotteBuilder WithServiceNameFromEntryAssembly()
+    {
+        var assembly = Assembly.GetEntryAssembly() ?? Assembly.GetCallingAssembly();
+        return WithServiceNameFrom(assembly);
+    }
+
+    public CarotteBuilder WithServiceNameFrom(Assembly assembly)
+    {
+        ArgumentNullException.ThrowIfNull(assembly);
+        var name = assembly.GetName().Name;
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            throw new InvalidOperationException("Could not determine service name from assembly.");
+        }
+        return WithServiceName(name);
+    }
+
+    public CarotteBuilder WithServiceNameFrom<T>() => WithServiceNameFrom(typeof(T).Assembly);
 
     public CarotteBuilder WithJsonSerializerOptions(JsonSerializerOptions options)
     {

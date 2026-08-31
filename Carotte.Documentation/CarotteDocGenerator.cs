@@ -28,7 +28,7 @@ public sealed class CarotteDocGenerator(
             brokers,
             consumerScanResults,
             publisherScanResults,
-            options.ClientName,
+            options.ServiceName,
             options.ConsumerSettings);
 
         var xmlReader = ResolveXmlReader(assemblies, options.XmlDocumentationPath);
@@ -47,7 +47,7 @@ public sealed class CarotteDocGenerator(
             builder.Brokers,
             consumerScanResults,
             publisherScanResults,
-            builder.ClientName,
+            builder.ServiceName,
             builder.ConsumerSettings);
 
         var xmlReader = ResolveXmlReader(builder.Assemblies, options.XmlDocumentationPath);

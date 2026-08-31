@@ -8,7 +8,7 @@ public sealed record CarotteAsyncApiOptions
     public AsyncApiFormat Format { get; init; } = AsyncApiFormat.Yaml;
     public string? XmlDocumentationPath { get; init; }
     public IReadOnlyCollection<string> Namespaces { get; init; } = [];
-    public string? ClientName { get; init; }
+    public string? ServiceName { get; init; }
     public Dictionary<string, RabbitMqOptions>? Brokers { get; init; }
     public Dictionary<string, ConsumerSettingsOptions>? ConsumerSettings { get; init; }
 }

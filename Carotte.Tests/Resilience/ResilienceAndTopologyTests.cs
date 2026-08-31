@@ -107,7 +107,7 @@ public class ResilienceAndTopologyTests
             builder.Brokers,
             consumers,
             [],
-            builder.ClientName,
+            builder.ServiceName,
             builder.ConsumerSettings);
 
         var consumer = settings.Consumers.Single(c => c.ConsumerType == typeof(ResilienceConsumer));

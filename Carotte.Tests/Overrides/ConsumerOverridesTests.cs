@@ -61,7 +61,7 @@ public class ConsumerOverridesTests
             builder.Brokers,
             consumers,
             [],
-            builder.ClientName,
+            builder.ServiceName,
             builder.ConsumerSettings);
 
         var consumer = settings.Consumers.Single(c => c.ConsumerType == typeof(ConfigurableConsumer));
@@ -111,7 +111,7 @@ public class ConsumerOverridesTests
             builder.Brokers,
             consumers,
             [],
-            builder.ClientName,
+            builder.ServiceName,
             builder.ConsumerSettings);
 
         var consumer = settings.Consumers.Single(c => c.ConsumerType == typeof(ConventionConsumer));

@@ -63,8 +63,10 @@ builder.Services.AddCarotte(carotte =>
         options.DefaultPrefetchCount = 10; // Optional: Default is 1 (strict FIFO)
     });
 
-    // Optional: Prefix queues and exchanges with client/service name
-    carotte.WithClientName("order-service");
+    // Optional: Prefix queues and exchanges with service name (explicit or automatic from assembly)
+    carotte.WithServiceName("order-service");
+    // carotte.WithServiceNameFromEntryAssembly(); // automatically infers from entry assembly
+    // carotte.WithServiceNameFrom<Program>(); // automatically infers from specified type/assembly
 
     // Scan assembly for IConsumer<T> handlers and [Published] message types
     carotte.AddAssemblies(typeof(Program).Assembly);

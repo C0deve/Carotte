@@ -67,7 +67,7 @@ public static class ServiceCollectionExtensions
             {
                 var defaultOptions = new CarotteOptions
                 {
-                    ClientName = builder.ClientName,
+                    ServiceName = builder.ServiceName,
                     Brokers = new Dictionary<string, RabbitMqOptions>(builder.Brokers, StringComparer.OrdinalIgnoreCase),
                     Consumers = new Dictionary<string, ConsumerSettingsOptions>(builder.ConsumerSettings, StringComparer.OrdinalIgnoreCase),
                     Serialization = builder.CustomJsonSerializerOptions != null
@@ -171,9 +171,10 @@ public static class ServiceCollectionExtensions
 
         if (options != null)
         {
-            if (!string.IsNullOrWhiteSpace(options.ClientName))
+            var serviceName = options.ServiceName;
+            if (!string.IsNullOrWhiteSpace(serviceName))
             {
-                builder.WithClientName(options.ClientName);
+                builder.WithServiceName(serviceName);
             }
 
             foreach (var (brokerName, brokerOptions) in options.Brokers)
@@ -204,7 +205,7 @@ public static class ServiceCollectionExtensions
             builder.Brokers,
             consumerScanResults,
             publisherScanResults,
-            builder.ClientName,
+            builder.ServiceName,
             builder.ConsumerSettings);
 
         var validationResult = CarotteBuilderValidator.Validate(messageBrokerSettings);

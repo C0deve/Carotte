@@ -71,7 +71,7 @@ public class RabbitMqConsumerHostTests
                 string.Empty,
                 false,
                 false,
-                It.IsAny<IDictionary<string, object?>?>(),
+                null,
                 It.IsAny<CancellationToken>()),
             Times.Once);
 

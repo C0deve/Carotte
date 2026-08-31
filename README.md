@@ -83,8 +83,10 @@ builder.Services.AddCarotte(carotte =>
         options.DefaultPrefetchCount = 10; // Optional: Default is 1
     });
 
-    // Optional: Set a client name for prefixing queues and exchanges
-    carotte.WithClientName("order-service");
+    // Optional: Set a service name for prefixing queues and exchanges (explicit or automatic from assembly)
+    carotte.WithServiceName("order-service");
+    // carotte.WithServiceNameFromEntryAssembly(); // automatically infers from entry assembly
+    // carotte.WithServiceNameFrom<Program>(); // automatically infers from specified type/assembly
 
     // Register consumers and [Published] message types from this assembly
     carotte.AddAssemblies(typeof(Program).Assembly);
@@ -134,7 +136,7 @@ Carotte favors **Convention over Configuration**. By default, any class implemen
 #### Configuration Rules
 - **Automatic Registration**: All classes implementing `IConsumer<T>` are automatically picked up via `AddAssemblies`.
 - **Explicit Producer Registration**: A message type is publishable only when it is annotated with `[Published]`. Consuming `TMessage` does not register `IPublisher<TMessage>`.
-- **Default Queue Name**: The queue name defaults to the consumer's class name in kebab-case, formatted as `q.class-name` (or `q.client-name.class-name` if `ClientName` is set).
+- **Default Queue Name**: The queue name defaults to the consumer's class name in kebab-case, formatted as `q.class-name` (or `q.service-name.class-name` if `ServiceName` is set).
 - **Parallelism & Ordering**: By default, the `PrefetchCount` is set to **1**. This ensures strict message ordering (FIFO) and avoids concurrent processing of multiple messages by the same consumer instance.
 - **Automatic Topology**: Carotte creates the necessary exchanges and bindings based on the message type.
 - **Broker Assignment**: Consumers and publishers are assigned to the default broker unless specified otherwise via attributes.
@@ -249,11 +251,11 @@ For a message type annotated with `[Published]`, Carotte registers `IPublisher<T
 #### Consumer Side (Reception)
 Carotte automatically creates a two-level mesh:
 1. **Message Exchange (Source)**: A global exchange for the message type. Its name is the kebab-case version of the message class prefixed by `x.pub.` (e.g., `x.pub.order-created`).
-2. **Consumer Exchange (Destination)**: An internal exchange named after the consumer class in kebab-case, prefixed by `x.sub.`. If a `ClientName` is configured, it is included in the prefix: `x.sub.{client-name}.{consumer-name}`.
+2. **Consumer Exchange (Destination)**: An internal exchange named after the consumer class in kebab-case, prefixed by `x.sub.`. If a `ServiceName` is configured, it is included in the prefix: `x.sub.{service-name}.{consumer-name}`.
 3. **The Mesh (E2E)**: Carotte binds the message exchange to the consumer exchange.
-4. **The Queue**: The consumer exchange is bound to the final queue: `q.{consumer-name}` (or `q.{client-name}.{consumer-name}`).
+4. **The Queue**: The consumer exchange is bound to the final queue: `q.{consumer-name}` (or `q.{service-name}.{consumer-name}`).
 
-**Example of generated topology (without ClientName):**
+**Example of generated topology (without ServiceName):**
 `[Exchange: x.pub.order-created]` --(E2E)--> `[Exchange: x.sub.order-consumer]` --(Binding)--> `[Queue: q.order-consumer]`
 
 #### Naming Reference
@@ -264,9 +266,9 @@ Carotte automatically creates a two-level mesh:
 | Message `OrderCreatedEvent` | `x.pub.order-created` |
 | Message `CreateOrderCommand` | `x.pub.create-order` |
 | Consumer `OrderConsumer` | `x.sub.order-consumer` |
-| Consumer `OrderConsumer` with `ClientName = "order-service"` | `x.sub.order-service.order-consumer` |
+| Consumer `OrderConsumer` with `ServiceName = "order-service"` | `x.sub.order-service.order-consumer` |
 | Queue for `OrderConsumer` | `q.order-consumer` |
-| Queue for `OrderConsumer` with `ClientName = "order-service"` | `q.order-service.order-consumer` |
+| Queue for `OrderConsumer` with `ServiceName = "order-service"` | `q.order-service.order-consumer` |
 
 #### RabbitMQ Declaration Defaults
 
