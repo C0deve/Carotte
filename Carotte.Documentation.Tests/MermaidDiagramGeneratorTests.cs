@@ -12,7 +12,7 @@ public class MermaidDiagramGeneratorTests
     {
         // Arrange
         var settings = new MessageBrokerSettings(
-            ReadOnlyDictionary<string, BrokerInfos>.Empty,
+            ReadOnlyDictionary<string, BrokerInfo>.Empty,
             ReadOnlyCollection<ConsumerInfo>.Empty,
             ReadOnlyCollection<ProducerInfo>.Empty);
 
@@ -29,7 +29,7 @@ public class MermaidDiagramGeneratorTests
         // Arrange
         var producer = new ProducerInfo(typeof(OrderCreatedMessage), "primary-broker", "orders.exchange", "order.created", ExchangeType.Topic, true, true, false);
         var settings = new MessageBrokerSettings(
-            ReadOnlyDictionary<string, BrokerInfos>.Empty,
+            ReadOnlyDictionary<string, BrokerInfo>.Empty,
             ReadOnlyCollection<ConsumerInfo>.Empty,
             [producer]);
 
@@ -46,7 +46,7 @@ public class MermaidDiagramGeneratorTests
         // Arrange
         var producer = new ProducerInfo(typeof(OrderCreatedMessage), "primary-broker", "orders.exchange", "order.created", ExchangeType.Topic, true, true, false);
         var settings = new MessageBrokerSettings(
-            ReadOnlyDictionary<string, BrokerInfos>.Empty,
+            ReadOnlyDictionary<string, BrokerInfo>.Empty,
             ReadOnlyCollection<ConsumerInfo>.Empty,
             [producer]);
 
@@ -69,7 +69,7 @@ public class MermaidDiagramGeneratorTests
 
         var consumer = new ConsumerInfo(typeof(OrderCreatedConsumer), [typeof(OrderCreatedMessage)], "primary-broker", topology);
         var settings = new MessageBrokerSettings(
-            ReadOnlyDictionary<string, BrokerInfos>.Empty,
+            ReadOnlyDictionary<string, BrokerInfo>.Empty,
             [consumer],
             ReadOnlyCollection<ProducerInfo>.Empty);
 

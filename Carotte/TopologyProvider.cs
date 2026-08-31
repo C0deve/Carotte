@@ -212,7 +212,7 @@ internal static class TopologyProvider
 
         var brokerInfos = brokers.ToDictionary(
             kvp => kvp.Key,
-            kvp => new BrokerInfos(kvp.Value.Host, kvp.Value.Port, kvp.Value.UserName, kvp.Value.Password)
+            kvp => new BrokerInfo(kvp.Value.Host, kvp.Value.Port, kvp.Value.UserName, kvp.Value.Password)
         );
 
         var consumers =

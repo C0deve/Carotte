@@ -155,8 +155,8 @@ public class TopologyConfigurationTests
     [Fact]
     public void Validator_ShouldRejectConflictingExchangeDeclarations()
     {
-        var brokers = new ReadOnlyDictionary<string, BrokerInfos>(
-            new Dictionary<string, BrokerInfos> { ["broker"] = BrokerInfos.Default });
+        var brokers = new ReadOnlyDictionary<string, BrokerInfo>(
+            new Dictionary<string, BrokerInfo> { ["broker"] = BrokerInfo.Default });
         var producers = new List<ProducerInfo>
         {
             new(typeof(TestMessage), "broker", "orders", "", ExchangeType.Topic, true, true, false),
