@@ -2,7 +2,7 @@ using System.Security.Authentication;
 
 namespace Carotte;
 
-public class RabbitMqSslOptions
+public record RabbitMqSslOptions
 {
     public bool Enabled { get; set; }
     public string? ServerName { get; set; }
