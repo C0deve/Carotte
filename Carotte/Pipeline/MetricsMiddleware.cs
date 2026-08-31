@@ -1,6 +1,6 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
 
-namespace Carotte.pipeline;
+namespace Carotte.Pipeline;
 
 internal class MetricsMiddleware : IConsumerMiddleware
 {

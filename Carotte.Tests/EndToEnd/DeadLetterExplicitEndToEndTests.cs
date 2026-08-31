@@ -5,7 +5,7 @@ using Testcontainers.RabbitMq;
 
 namespace Carotte.Tests.EndToEnd.DeadLetterExplicit;
 
-[Publisher(exchange: "explicit-dl-exchange", routingKey: "order.create")]
+[Published(exchange: "explicit-dl-exchange", routingKey: "order.create")]
 public record DeadLetterExplicitMessage(string OrderId, decimal Amount);
 
 [Queue(
@@ -66,8 +66,8 @@ public class DeadLetterExplicitEndToEndTests : EndToEndTestBase
                     options.UserName = RabbitMqBuilder.DefaultUsername;
                     options.Password = RabbitMqBuilder.DefaultPassword;
                 });
-                builder.AddAssemblies(typeof(FailingExplicitConsumer).Assembly)
-                    .AddNamespaces("Carotte.Tests.EndToEnd.DeadLetterExplicit");
+                builder.ScanAssemblies(typeof(FailingExplicitConsumer).Assembly)
+                    .ScanNamespaces("Carotte.Tests.EndToEnd.DeadLetterExplicit");
             });
 
             var serviceProvider = services.BuildServiceProvider();

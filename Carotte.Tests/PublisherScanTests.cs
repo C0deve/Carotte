@@ -4,7 +4,7 @@ namespace Carotte.Tests;
 
 public class PublisherScanTests
 {
-    [Publisher(broker: "test-broker", exchange: "scanned-exchange")]
+    [Published(broker: "test-broker", exchange: "scanned-exchange")]
     public class ScannedMessage;
 
     public class ConsumedOnlyMessage;
@@ -16,14 +16,14 @@ public class PublisherScanTests
     }
 
     [Fact]
-    public void AddAssemblies_ShouldRegisterMessagesWithAttribute()
+    public void ScanAssemblies_ShouldRegisterMessagesWithAttribute()
     {
         // Act
         var serviceProvider = new ServiceCollection()
             .AddCarotte(carotte => carotte
                 .AddBroker("test-broker", _ => { })
                 .AddBroker("scanned-broker", _ => { })
-                .AddAssemblies(typeof(PublisherScanTests).Assembly))
+                .ScanAssemblies(typeof(PublisherScanTests).Assembly))
             .BuildServiceProvider();
 
         // Assert
@@ -32,13 +32,13 @@ public class PublisherScanTests
     }
 
     [Fact]
-    public void AddAssemblies_ShouldNotRegisterPublisherForConsumedMessageWithoutPublisherAttribute()
+    public void ScanAssemblies_ShouldNotRegisterPublisherForConsumedMessageWithoutPublishedAttribute()
     {
         // Act
         var serviceProvider = new ServiceCollection()
             .AddCarotte(carotte => carotte
                 .AddBroker("test-broker", _ => { })
-                .AddAssemblies(typeof(PublisherScanTests).Assembly))
+                .ScanAssemblies(typeof(PublisherScanTests).Assembly))
             .BuildServiceProvider();
 
         // Assert
@@ -46,11 +46,11 @@ public class PublisherScanTests
         Assert.Null(publisher);
     }
 
-    [Publisher]
+    [Published]
     public class MessageWithDefaultBroker;
 
     [Fact]
-    public void AddAssemblies_ShouldRegisterPublisherWithDefaultBroker()
+    public void ScanAssemblies_ShouldRegisterPublisherWithDefaultBroker()
     {
         // Arrange
         var services = new ServiceCollection();
@@ -61,7 +61,7 @@ public class PublisherScanTests
             carotte
                 .AddBroker("test-broker", _ => { })
                 .AddBroker("scanned-broker", _ => { });
-            carotte.AddAssemblies(typeof(PublisherScanTests).Assembly);
+            carotte.ScanAssemblies(typeof(PublisherScanTests).Assembly);
         });
 
         var serviceProvider = services.BuildServiceProvider();
@@ -82,7 +82,7 @@ public class PublisherScanTests
         {
             carotte.AddBroker("test-broker", _ => { });
             carotte.AddBroker("broker2", _ => { });
-            carotte.AddAssemblies(typeof(PublisherScanTests).Assembly);
+            carotte.ScanAssemblies(typeof(PublisherScanTests).Assembly);
         });
 
         var serviceProvider = services.BuildServiceProvider();
@@ -103,5 +103,23 @@ public class PublisherScanTests
         Assert.NotNull(brokerField);
         var brokerValue = brokerField.GetValue(rbPublisher);
         Assert.Equal("test-broker", brokerValue);
+    }
+
+    [Published]
+    public readonly record struct ScannedStructMessage(int Id, string Text);
+
+    [Fact]
+    public void ScanAssemblies_ShouldRegisterPublisherForStructMessage()
+    {
+        // Act
+        var serviceProvider = new ServiceCollection()
+            .AddCarotte(carotte => carotte
+                .AddBroker("test-broker", _ => { })
+                .ScanAssemblies(typeof(PublisherScanTests).Assembly))
+            .BuildServiceProvider();
+
+        // Assert
+        var publisher = serviceProvider.GetService<IPublisher<ScannedStructMessage>>();
+        Assert.NotNull(publisher);
     }
 }

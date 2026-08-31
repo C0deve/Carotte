@@ -5,7 +5,7 @@ using Testcontainers.RabbitMq;
 
 namespace Carotte.Tests.EndToEnd.Broadcast;
 
-[Publisher]
+[Published]
 public record BroadcastOrderMessage(string OrderId);
 
 public class BroadcastAuditConsumer : IConsumer<BroadcastOrderMessage>
@@ -60,8 +60,8 @@ public class BroadcastEndToEndTests : EndToEndTestBase
                     options.UserName = RabbitMqBuilder.DefaultUsername;
                     options.Password = RabbitMqBuilder.DefaultPassword;
                 });
-                builder.AddAssemblies(typeof(BroadcastAuditConsumer).Assembly)
-                    .AddNamespaces("Carotte.Tests.EndToEnd.Broadcast");
+                builder.ScanAssemblies(typeof(BroadcastAuditConsumer).Assembly)
+                    .ScanNamespaces("Carotte.Tests.EndToEnd.Broadcast");
             });
 
             var serviceProvider = services.BuildServiceProvider();

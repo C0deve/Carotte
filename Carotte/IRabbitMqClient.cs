@@ -15,7 +15,7 @@ public interface IRabbitMqClient : IAsyncDisposable
         byte[] body,
         BasicProperties properties,
         bool mandatory = true,
-        CancellationToken cancellationToken = default) where TMessage : class;
+        CancellationToken cancellationToken = default);
 
     Task<string> BasicConsumeAsync(
         string queue,
@@ -39,6 +39,16 @@ public interface IRabbitMqClient : IAsyncDisposable
     Task ExchangeDeclareAsync(
         string exchange,
         string type = "topic",
+        bool durable = true,
+        bool autoDelete = false,
+        IDictionary<string, object?>? arguments = null,
+        bool passive = false,
+        bool noWait = false,
+        CancellationToken cancellationToken = default);
+
+    Task ExchangeDeclareAsync(
+        string exchange,
+        ExchangeType type,
         bool durable = true,
         bool autoDelete = false,
         IDictionary<string, object?>? arguments = null,

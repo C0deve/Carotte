@@ -18,7 +18,7 @@ public class DefaultQueueNameTests
         {
             builder
                 .AddBroker("test-broker", _ => { })
-                .AddAssemblies(typeof(DefaultQueueNameTests).Assembly);
+                .ScanAssemblies(typeof(DefaultQueueNameTests).Assembly);
         });
 
         var sp = services.BuildServiceProvider();

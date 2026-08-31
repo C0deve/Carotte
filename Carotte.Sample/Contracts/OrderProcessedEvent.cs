@@ -8,7 +8,7 @@ namespace Carotte.Sample.Contracts;
 /// <param name="CustomerEmail">The email address of the customer.</param>
 /// <param name="TotalAmount">The total amount processed.</param>
 /// <param name="ProcessedAt">The timestamp when the order was processed.</param>
-[Publisher]
+[Published]
 public sealed record OrderProcessedEvent(
     Guid OrderId,
     Guid CustomerId,

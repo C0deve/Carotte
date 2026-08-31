@@ -1,6 +1,6 @@
-﻿namespace Carotte.pipeline;
+namespace Carotte.Pipeline;
 
-internal class SerializationMiddleware<TMessage>(ISerializer serializer) : IPublisherMiddleware<TMessage> where TMessage : class
+internal class SerializationMiddleware<TMessage>(ISerializer serializer) : IPublisherMiddleware<TMessage>
 {
     public async Task InvokeAsync(PublisherContext<TMessage> context, PublisherDelegate<TMessage> next)
     {

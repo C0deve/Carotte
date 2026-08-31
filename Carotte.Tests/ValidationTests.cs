@@ -29,7 +29,7 @@ public class ValidationTests
         services.AddCarotte(builder => builder
             .AddBroker("test-broker", _ => { })
             .AddBroker("scanned-broker", _ => { })
-            .AddAssemblies(typeof(ValidationTests).Assembly));
+            .ScanAssemblies(typeof(ValidationTests).Assembly));
 
         // Assert
         // Should not throw, verification of bindings would require deeper inspection or a functional test
@@ -45,7 +45,7 @@ public class ValidationTests
         services.AddCarotte(builder => builder
             .AddBroker("test-broker", _ => { })
             .AddBroker("scanned-broker", _ => { })
-            .AddAssemblies(typeof(ValidationTests).Assembly));
+            .ScanAssemblies(typeof(ValidationTests).Assembly));
 
         // Assert
         // Should not throw CarotteConfigurationException for BindingWithoutQueueConsumer
@@ -61,7 +61,7 @@ public class ValidationTests
         services.AddCarotte(builder => builder
             .AddBroker("test-broker", _ => { })
             .AddBroker("scanned-broker", _ => { })
-            .AddAssemblies(typeof(ValidationTests).Assembly));
+            .ScanAssemblies(typeof(ValidationTests).Assembly));
 
         // Assert
         // Should not throw, NoAttributeConsumer is now automatically configured with its class name as queue.
@@ -78,7 +78,7 @@ public class ValidationTests
         {
             services.AddCarotte(builder =>
             {
-                builder.AddAssemblies(typeof(ValidationTests).Assembly);
+                builder.ScanAssemblies(typeof(ValidationTests).Assembly);
                 // No broker added
             });
         });
@@ -104,7 +104,7 @@ public class ValidationTests
             services
                 .AddCarotte(builder => builder
                     .AddBroker("other-broker", _ => { })
-                    .AddAssemblies(typeof(ValidationTests).Assembly)));
+                    .ScanAssemblies(typeof(ValidationTests).Assembly)));
 
         ex.Message.ShouldContain("No broker registered with name 'test-broker' for consumer 'TestConsumer'");
     }

@@ -1,11 +1,11 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
 using OpenTelemetry;
 using OpenTelemetry.Context.Propagation;
 using RabbitMQ.Client;
 
-namespace Carotte.pipeline;
+namespace Carotte.Pipeline;
 
-internal class PublisherTracingMiddleware<TMessage> : IPublisherMiddleware<TMessage> where TMessage : class
+internal class PublisherTracingMiddleware<TMessage> : IPublisherMiddleware<TMessage>
 {
     public async Task InvokeAsync(PublisherContext<TMessage> context, PublisherDelegate<TMessage> next)
     {

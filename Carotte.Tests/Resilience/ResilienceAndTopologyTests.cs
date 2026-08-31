@@ -99,15 +99,15 @@ public class ResilienceAndTopologyTests
 
         foreach (var (k, v) in options.Brokers) builder.AddBroker(k, v);
         foreach (var (k, v) in options.Consumers) builder.ConsumerSettings[k] = v;
-        builder.AddAssemblies(typeof(ResilienceAndTopologyTests).Assembly)
-            .AddNamespaces("Carotte.Tests.Resilience");
+        builder.ScanAssemblies(typeof(ResilienceAndTopologyTests).Assembly)
+            .ScanNamespaces("Carotte.Tests.Resilience");
 
         var (consumers, _) = builder.Assemblies.Scan(builder.Namespaces);
         var settings = TopologyProvider.CreateSettings(
             builder.Brokers,
             consumers,
             [],
-            builder.ClientName,
+            builder.ServiceName,
             builder.ConsumerSettings);
 
         var consumer = settings.Consumers.Single(c => c.ConsumerType == typeof(ResilienceConsumer));

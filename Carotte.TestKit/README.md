@@ -11,7 +11,7 @@
 ## 🚀 Key Features
 
 - ⚡ **Zero-Broker Execution**: Run hundreds of unit and integration tests in milliseconds without spinning up Docker or RabbitMQ.
-- 🎯 **Full Pipeline Simulation**: `SimulateReceiveAsync` executes the real consumer pipeline (middleware, serialization, error strategies, retries, and DI scopes).
+- 🎯 **Full Pipeline Simulation**: `ConsumeAsync` executes the real consumer pipeline (middleware, serialization, error strategies, retries, and DI scopes).
 - 📊 **Detailed Delivery Inspection**: `TestDeliveryResult` provides exact metrics on execution time, retry attempts, ACK / NACK status, requeue flags, and unhandled exceptions.
 - 📬 **In-Memory Publishing & Interception**: Replaces `IPublisher<T>` with an in-memory test store (`MessageTestStore`) to capture and inspect published messages.
 - 🔍 **Fluent Assertions**: Assert published messages with LINQ predicates (`ShouldHavePublished<T>`, `ShouldNotHavePublished<T>`).
@@ -33,6 +33,8 @@ dotnet add package Carotte.TestKit
 
 ### 1. Register Carotte TestKit in Your Test Host
 
+You can register Carotte TestKit directly inside `AddCarotte` with `UseTestKit()` or via `services.AddCarotteTestKit()`:
+
 ```csharp
 using Carotte;
 using Microsoft.Extensions.DependencyInjection;
@@ -44,11 +46,9 @@ var hostBuilder = Host.CreateDefaultBuilder()
         services.AddCarotte(carotte =>
         {
             carotte.AddBroker("test-broker", _ => { });
-            carotte.AddAssemblies(typeof(OrderConsumer).Assembly);
+            carotte.ScanAssemblies(typeof(OrderConsumer).Assembly);
+            carotte.UseTestKit(); // Fluent integration
         });
-
-        // Replaces RabbitMQ client and publishers with TestKit in-memory equivalents
-        services.AddCarotteTestKit();
     });
 
 var host = hostBuilder.Build();
@@ -65,7 +65,7 @@ Simulate incoming messages through the complete consumer pipeline:
 var orderMessage = new OrderCreatedEvent(Guid.NewGuid(), "Alice", 99.99m);
 
 // Simulate receipt by a specific consumer
-TestDeliveryResult result = await testKit.SimulateReceiveAsync<OrderConsumer, OrderCreatedEvent>(orderMessage);
+TestDeliveryResult result = await testKit.ConsumeAsync<OrderConsumer, OrderCreatedEvent>(orderMessage);
 
 // Assert the message was acknowledged
 Assert.True(result.IsAcked);
@@ -89,7 +89,7 @@ var published = testKit.ShouldHavePublished<OrderConfirmationSent>(msg => msg.Or
 testKit.ShouldNotHavePublished<OrderFailedEvent>();
 
 // Get all published messages of a type
-IReadOnlyList<OrderConfirmationSent> allSent = testKit.GetSentMessages<OrderConfirmationSent>();
+IReadOnlyList<OrderConfirmationSent> allSent = testKit.GetPublishedMessages<OrderConfirmationSent>();
 
 // Reset recorded messages between tests
 testKit.Clear();

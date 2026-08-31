@@ -6,13 +6,13 @@ public class BindingAttribute(
     string routingKey = "",
     ExchangeType exchangeType = ExchangeType.Direct,
     bool declareExchange = true,
-    bool durable = true,
-    bool autoDelete = false) : Attribute
+    bool exchangeDurable = true,
+    bool exchangeAutoDelete = false) : Attribute
 {
     public string Exchange { get; } = exchange;
     public string RoutingKey { get; } = routingKey;
     public ExchangeType ExchangeType { get; } = exchangeType;
     public bool DeclareExchange { get; } = declareExchange;
-    public bool Durable { get; } = durable;
-    public bool AutoDelete { get; } = autoDelete;
+    public bool ExchangeDurable { get; } = exchangeDurable;
+    public bool ExchangeAutoDelete { get; } = exchangeAutoDelete;
 }

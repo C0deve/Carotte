@@ -36,20 +36,20 @@ internal static partial class StringExtensions
             return $"x.pub.{cleaned.ToKebabCase()}";
         }
 
-        public string ToConsumerExchangeName(string? clientName = null)
+        public string ToConsumerExchangeName(string? serviceName = null)
         {
             var kebabName = name.ToKebabCase();
-            return string.IsNullOrEmpty(clientName)
+            return string.IsNullOrEmpty(serviceName)
                 ? $"x.sub.{kebabName}"
-                : $"x.sub.{clientName.ToKebabCase()}.{kebabName}";
+                : $"x.sub.{serviceName.ToKebabCase()}.{kebabName}";
         }
 
-        public string ToConsumerQueueName(string? clientName = null)
+        public string ToConsumerQueueName(string? serviceName = null)
         {
             var kebabName = name.ToKebabCase();
-            return string.IsNullOrEmpty(clientName)
+            return string.IsNullOrEmpty(serviceName)
                 ? $"q.{kebabName}"
-                : $"q.{clientName.ToKebabCase()}.{kebabName}";
+                : $"q.{serviceName.ToKebabCase()}.{kebabName}";
         }
 
         public string ToDefaultExchangeName() => name.ToMessageExchangeName();

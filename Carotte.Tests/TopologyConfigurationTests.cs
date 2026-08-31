@@ -90,27 +90,27 @@ public class TopologyConfigurationTests
     [Fact]
     public void TopologyProvider_ShouldPreservePublisherConfiguration()
     {
-        var attribute = new PublisherAttribute(
+        var attribute = new PublishedAttribute(
             broker: "broker",
             exchange: "orders",
             routingKey: "order.created",
             exchangeType: ExchangeType.Topic,
             declareExchange: true,
-            durable: false,
-            autoDelete: true);
+            exchangeDurable: false,
+            exchangeAutoDelete: true);
 
         var settings = TopologyProvider.CreateSettings(
             new Dictionary<string, RabbitMqOptions> { ["broker"] = new() },
             new List<ConsumerScanResult>().AsReadOnly(),
             new List<PublisherScanResult> { new(typeof(TestMessage), attribute) }.AsReadOnly());
 
-        var producer = settings.Producers.Single();
-        producer.ExchangePublication.ShouldBe("orders");
-        producer.RoutingKey.ShouldBe("order.created");
-        producer.ExchangeType.ShouldBe(ExchangeType.Topic);
-        producer.DeclareExchange.ShouldBeTrue();
-        producer.Durable.ShouldBeFalse();
-        producer.AutoDelete.ShouldBeTrue();
+        var publisher = settings.Publishers.Single();
+        publisher.ExchangePublication.ShouldBe("orders");
+        publisher.RoutingKey.ShouldBe("order.created");
+        publisher.ExchangeType.ShouldBe(ExchangeType.Topic);
+        publisher.DeclareExchange.ShouldBeTrue();
+        publisher.Durable.ShouldBeFalse();
+        publisher.AutoDelete.ShouldBeTrue();
     }
 
     [Fact]
@@ -155,14 +155,14 @@ public class TopologyConfigurationTests
     [Fact]
     public void Validator_ShouldRejectConflictingExchangeDeclarations()
     {
-        var brokers = new ReadOnlyDictionary<string, BrokerInfos>(
-            new Dictionary<string, BrokerInfos> { ["broker"] = BrokerInfos.Default });
-        var producers = new List<ProducerInfo>
+        var brokers = new ReadOnlyDictionary<string, BrokerInfo>(
+            new Dictionary<string, BrokerInfo> { ["broker"] = BrokerInfo.Default });
+        var publishers = new List<PublisherInfo>
         {
             new(typeof(TestMessage), "broker", "orders", "", ExchangeType.Topic, true, true, false),
             new(typeof(OtherMessage), "broker", "orders", "", ExchangeType.Fanout, true, true, false)
         }.AsReadOnly();
-        var settings = new MessageBrokerSettings(brokers, new List<ConsumerInfo>().AsReadOnly(), producers);
+        var settings = new MessageBrokerSettings(brokers, new List<ConsumerInfo>().AsReadOnly(), publishers);
 
         var result = CarotteBuilderValidator.Validate(settings);
 
@@ -210,14 +210,20 @@ public class TopologyConfigurationTests
     [Fact]
     public void Attributes_ShouldHaveDeclareExchangeTrueByDefault()
     {
-        var publisherAttr = new PublisherAttribute();
+        var publisherAttr = new PublishedAttribute();
         publisherAttr.DeclareExchange.ShouldBeTrue();
+        publisherAttr.ExchangeDurable.ShouldBeTrue();
+        publisherAttr.ExchangeAutoDelete.ShouldBeFalse();
 
         var queueAttr = new QueueAttribute("test-queue");
         queueAttr.DeclareExchange.ShouldBeTrue();
+        queueAttr.ExchangeDurable.ShouldBeTrue();
+        queueAttr.ExchangeAutoDelete.ShouldBeFalse();
 
         var bindingAttr = new BindingAttribute("test-exchange");
         bindingAttr.DeclareExchange.ShouldBeTrue();
+        bindingAttr.ExchangeDurable.ShouldBeTrue();
+        bindingAttr.ExchangeAutoDelete.ShouldBeFalse();
 
         var bindingInfo = new BindingInfo("test-exchange", "test-key");
         bindingInfo.DeclareExchange.ShouldBeTrue();
@@ -226,7 +232,7 @@ public class TopologyConfigurationTests
     [Fact]
     public void TopologyProvider_ShouldDefaultDeclareExchangeToTrue_WhenNotSpecified()
     {
-        var publisherAttr = new PublisherAttribute(broker: "broker", exchange: "orders");
+        var publisherAttr = new PublishedAttribute(broker: "broker", exchange: "orders");
         var queueAttr = new QueueAttribute("orders-queue", broker: "broker", exchange: "orders");
         var bindingAttr = new BindingAttribute("other-exchange", "other.key");
 
@@ -241,8 +247,8 @@ public class TopologyConfigurationTests
             new List<ConsumerScanResult> { scanResult }.AsReadOnly(),
             new List<PublisherScanResult> { new(typeof(TestMessage), publisherAttr) }.AsReadOnly());
 
-        var producer = settings.Producers.Single();
-        producer.DeclareExchange.ShouldBeTrue();
+        var publisher = settings.Publishers.Single();
+        publisher.DeclareExchange.ShouldBeTrue();
 
         var topology = settings.Consumers.Single().Topology.ShouldBeOfType<ConsumerAttributeTopology>();
         topology.Bindings.Count.ShouldBe(2);
@@ -253,7 +259,7 @@ public class TopologyConfigurationTests
     [Fact]
     public void TopologyProvider_ShouldRespectDeclareExchangeFalse_WhenSpecified()
     {
-        var publisherAttr = new PublisherAttribute(broker: "broker", exchange: "orders", declareExchange: false);
+        var publisherAttr = new PublishedAttribute(broker: "broker", exchange: "orders", declareExchange: false);
         var queueAttr = new QueueAttribute("orders-queue", broker: "broker", exchange: "orders", declareExchange: false);
         var bindingAttr = new BindingAttribute("other-exchange", "other.key", declareExchange: false);
 
@@ -268,8 +274,8 @@ public class TopologyConfigurationTests
             new List<ConsumerScanResult> { scanResult }.AsReadOnly(),
             new List<PublisherScanResult> { new(typeof(TestMessage), publisherAttr) }.AsReadOnly());
 
-        var producer = settings.Producers.Single();
-        producer.DeclareExchange.ShouldBeFalse();
+        var publisher = settings.Publishers.Single();
+        publisher.DeclareExchange.ShouldBeFalse();
 
         var topology = settings.Consumers.Single().Topology.ShouldBeOfType<ConsumerAttributeTopology>();
         topology.Bindings.Count.ShouldBe(2);

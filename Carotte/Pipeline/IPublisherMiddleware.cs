@@ -1,6 +1,6 @@
-﻿using RabbitMQ.Client;
+using RabbitMQ.Client;
 
-namespace Carotte.pipeline;
+namespace Carotte.Pipeline;
 
 /// <summary>
 /// Context passed through the publisher middleware pipeline, containing message payload,
@@ -12,7 +12,7 @@ internal record PublisherContext<TMessage>(
     string Exchange,
     string RoutingKey,
     string? TypeIdentifier = null,
-    CancellationToken CancellationToken = default) where TMessage : class
+    CancellationToken CancellationToken = default)
 {
     /// <summary>
     /// AMQP message properties, initialized with resolved type identifier.
@@ -31,13 +31,13 @@ internal record PublisherContext<TMessage>(
 /// <summary>
 /// Delegate representing the next step in the publisher pipeline.
 /// </summary>
-internal delegate Task PublisherDelegate<TMessage>(PublisherContext<TMessage> context) where TMessage : class;
+internal delegate Task PublisherDelegate<TMessage>(PublisherContext<TMessage> context);
 
 /// <summary>
 /// Middleware interface for intercepting outgoing messages in the publisher pipeline.
 /// </summary>
 /// <typeparam name="TMessage">The type of message being published.</typeparam>
-internal interface IPublisherMiddleware<TMessage> where TMessage : class
+internal interface IPublisherMiddleware<TMessage>
 {
     /// <summary>
     /// Invokes the middleware logic and passes control to the next delegate in the pipeline.

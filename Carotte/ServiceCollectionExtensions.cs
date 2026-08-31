@@ -53,6 +53,11 @@ public static class ServiceCollectionExtensions
                 .AddPublishers(messageBrokerSettings)
                 .TryAddSingleton(builder);
 
+            foreach (var configurator in builder.ServiceConfigurators)
+            {
+                configurator(services);
+            }
+
             return services;
         }
 
@@ -67,7 +72,7 @@ public static class ServiceCollectionExtensions
             {
                 var defaultOptions = new CarotteOptions
                 {
-                    ClientName = builder.ClientName,
+                    ServiceName = builder.ServiceName,
                     Brokers = new Dictionary<string, RabbitMqOptions>(builder.Brokers, StringComparer.OrdinalIgnoreCase),
                     Consumers = new Dictionary<string, ConsumerSettingsOptions>(builder.ConsumerSettings, StringComparer.OrdinalIgnoreCase),
                     Serialization = builder.CustomJsonSerializerOptions != null
@@ -141,23 +146,23 @@ public static class ServiceCollectionExtensions
 
         private IServiceCollection AddPublishers(MessageBrokerSettings messageBrokerSettings)
         {
-            foreach (var producer in messageBrokerSettings.Producers)
+            foreach (var publisher in messageBrokerSettings.Publishers)
             {
-                var interfaceTypeToRegister = typeof(IPublisher<>).MakeGenericType(producer.MessageType);
+                var interfaceTypeToRegister = typeof(IPublisher<>).MakeGenericType(publisher.MessageType);
                 services.TryAddSingleton(interfaceTypeToRegister, sp =>
                 {
-                    var implementationType = typeof(RabbitMqPublisher<>).MakeGenericType(producer.MessageType);
+                    var implementationType = typeof(RabbitMqPublisher<>).MakeGenericType(publisher.MessageType);
 
                     return ActivatorUtilities.CreateInstance(
                         sp,
                         implementationType,
-                        producer.Broker,
-                        producer.ExchangePublication,
-                        producer.RoutingKey,
-                        producer.ExchangeType,
-                        producer.DeclareExchange,
-                        producer.Durable,
-                        producer.AutoDelete);
+                        publisher.Broker,
+                        publisher.ExchangePublication,
+                        publisher.RoutingKey,
+                        publisher.ExchangeType,
+                        publisher.DeclareExchange,
+                        publisher.Durable,
+                        publisher.AutoDelete);
                 });
             }
 
@@ -171,9 +176,10 @@ public static class ServiceCollectionExtensions
 
         if (options != null)
         {
-            if (!string.IsNullOrWhiteSpace(options.ClientName))
+            var serviceName = options.ServiceName;
+            if (!string.IsNullOrWhiteSpace(serviceName))
             {
-                builder.SetClientName(options.ClientName);
+                builder.WithServiceName(serviceName);
             }
 
             foreach (var (brokerName, brokerOptions) in options.Brokers)
@@ -188,7 +194,7 @@ public static class ServiceCollectionExtensions
 
             if (options.Serialization?.JsonSerializerOptions != null)
             {
-                builder.SetJsonSerializerOptions(options.Serialization.JsonSerializerOptions);
+                builder.WithJsonSerializerOptions(options.Serialization.JsonSerializerOptions);
             }
         }
 
@@ -204,7 +210,7 @@ public static class ServiceCollectionExtensions
             builder.Brokers,
             consumerScanResults,
             publisherScanResults,
-            builder.ClientName,
+            builder.ServiceName,
             builder.ConsumerSettings);
 
         var validationResult = CarotteBuilderValidator.Validate(messageBrokerSettings);

@@ -4,7 +4,7 @@ namespace Carotte;
 
 /// <summary>
 /// Provides factory and mapping methods to convert reflection scan results and configuration options
-/// into strongly-typed topology models (<see cref="MessageBrokerSettings"/>, <see cref="ConsumerInfo"/>, <see cref="ProducerInfo"/>).
+/// into strongly-typed topology models (<see cref="MessageBrokerSettings"/>, <see cref="ConsumerInfo"/>, <see cref="PublisherInfo"/>).
 /// </summary>
 internal static class TopologyProvider
 {
@@ -27,7 +27,7 @@ internal static class TopologyProvider
         /// <summary>
         /// Converts a scanned consumer result into a <see cref="ConsumerInfo"/> descriptor.
         /// </summary>
-        private ConsumerInfo ToConsumerInfo(string? clientName,
+        private ConsumerInfo ToConsumerInfo(string? serviceName,
             ushort defaultPrefetchCount,
             ConsumerSettingsOptions? overrideSettings,
             string brokerName)
@@ -36,20 +36,20 @@ internal static class TopologyProvider
                 scan.ConsumerType,
                 [.. scan.MessageTypes],
                 brokerName,
-                scan.ToConsumerTopology(clientName, defaultPrefetchCount, overrideSettings, brokerName)
+                scan.ToConsumerTopology(serviceName, defaultPrefetchCount, overrideSettings, brokerName)
             );
         }
 
         /// <summary>
         /// Translates scanned attributes and programmatic overrides into runtime topology (<see cref="ConsumerConventionTopology"/> or <see cref="ConsumerAttributeTopology"/>).
         /// </summary>
-        private IConsumerTopology ToConsumerTopology(string? clientName,
+        private IConsumerTopology ToConsumerTopology(string? serviceName,
             ushort defaultPrefetchCount,
             ConsumerSettingsOptions? overrideSettings,
             string brokerName)
         {
             var prefetchCount = overrideSettings?.PrefetchCount ?? scan.QueueAttr?.PrefetchCount ?? defaultPrefetchCount;
-            var queueName = overrideSettings?.QueueName ?? scan.QueueAttr?.Name ?? scan.ConsumerType.Name.ToConsumerQueueName(clientName);
+            var queueName = overrideSettings?.QueueName ?? scan.QueueAttr?.Name ?? scan.ConsumerType.Name.ToConsumerQueueName(serviceName);
             var maxRetries = overrideSettings?.MaxRetryAttempts ?? scan.QueueAttr?.MaxRetryAttempts;
             var failureAction = overrideSettings?.FailureAction ?? scan.QueueAttr?.FailureAction ?? ConsumerFailureAction.DeadLetter;
             var dlx = overrideSettings?.DeadLetterExchange ?? scan.QueueAttr?.DeadLetterExchange;
@@ -79,7 +79,7 @@ internal static class TopologyProvider
                 return new ConsumerConventionTopology(
                     Broker: brokerName,
                     Queue: queueName,
-                    ConsumerExchangeName: scan.ConsumerType.Name.ToConsumerExchangeName(clientName),
+                    ConsumerExchangeName: scan.ConsumerType.Name.ToConsumerExchangeName(serviceName),
                     MessageExchangeNames: scan.MessageTypes
                         .Select(m => m.Name.ToMessageExchangeName())
                         .ToList()
@@ -100,8 +100,8 @@ internal static class TopologyProvider
                     b.RoutingKey,
                     b.ExchangeType,
                     b.DeclareExchange,
-                    b.Durable,
-                    b.AutoDelete))
+                    b.ExchangeDurable,
+                    b.ExchangeAutoDelete))
                 .Union(queueBindings)
                 .ToList()
                 .AsReadOnly();
@@ -179,23 +179,23 @@ internal static class TopologyProvider
     }
 
     /// <summary>
-    /// Converts a scanned publisher result into a <see cref="ProducerInfo"/> runtime descriptor.
+    /// Converts a scanned publisher result into a <see cref="PublisherInfo"/> runtime descriptor.
     /// </summary>
-    private static ProducerInfo ToProducerInfo(this PublisherScanResult scan)
+    private static PublisherInfo ToPublisherInfo(this PublisherScanResult scan)
     {
-        var usesConvention = string.IsNullOrWhiteSpace(scan.PublisherAttribute.Exchange);
+        var usesConvention = string.IsNullOrWhiteSpace(scan.PublishedAttribute.Exchange);
 
-        return new ProducerInfo(
+        return new PublisherInfo(
             scan.MessageType,
-            scan.PublisherAttribute.Broker ?? string.Empty,
+            scan.PublishedAttribute.Broker ?? string.Empty,
             usesConvention
                 ? scan.MessageType.Name.ToDefaultExchangeName()
-                : scan.PublisherAttribute.Exchange!,
-            scan.PublisherAttribute.RoutingKey ?? (usesConvention ? string.Empty : scan.MessageType.Name),
-            usesConvention ? ExchangeType.Fanout : scan.PublisherAttribute.ExchangeType,
-            usesConvention || scan.PublisherAttribute.DeclareExchange,
-            scan.PublisherAttribute.Durable,
-            scan.PublisherAttribute.AutoDelete);
+                : scan.PublishedAttribute.Exchange!,
+            scan.PublishedAttribute.RoutingKey ?? (usesConvention ? string.Empty : scan.MessageType.Name),
+            usesConvention ? ExchangeType.Fanout : scan.PublishedAttribute.ExchangeType,
+            usesConvention || scan.PublishedAttribute.DeclareExchange,
+            scan.PublishedAttribute.ExchangeDurable,
+            scan.PublishedAttribute.ExchangeAutoDelete);
     }
 
     /// <summary>
@@ -205,31 +205,31 @@ internal static class TopologyProvider
         Dictionary<string, RabbitMqOptions> brokers,
         ReadOnlyCollection<ConsumerScanResult> consumerScanResults,
         ReadOnlyCollection<PublisherScanResult> publisherScanResults,
-        string? clientName = null,
+        string? serviceName = null,
         Dictionary<string, ConsumerSettingsOptions>? consumerSettings = null)
     {
         var firstBrokerName = brokers.Keys.FirstOrDefault() ?? string.Empty;
 
         var brokerInfos = brokers.ToDictionary(
             kvp => kvp.Key,
-            kvp => new BrokerInfos(kvp.Value.Host, kvp.Value.Port, kvp.Value.UserName, kvp.Value.Password)
+            kvp => new BrokerInfo(kvp.Value.Host, kvp.Value.Port, kvp.Value.UserName, kvp.Value.Password)
         );
 
         var consumers =
             consumerScanResults
                 .Select(sc =>
                 {
-                    var initialQueueName = sc.QueueAttr?.Name ?? sc.ConsumerType.Name.ToConsumerQueueName(clientName);
+                    var initialQueueName = sc.QueueAttr?.Name ?? sc.ConsumerType.Name.ToConsumerQueueName(serviceName);
                     var overrideSetting = consumerSettings?.FindConsumerSettings(sc.ConsumerType, initialQueueName);
                     var brokerName = overrideSetting?.Broker ?? sc.QueueAttr?.Broker ?? firstBrokerName;
                     var prefetchCount = brokers.GetValueOrDefault(brokerName)?.DefaultPrefetchCount ?? 1;
-                    return sc.ToConsumerInfo(clientName, prefetchCount, overrideSetting, brokerName);
+                    return sc.ToConsumerInfo(serviceName, prefetchCount, overrideSetting, brokerName);
                 })
                 .ToList()
                 .AsReadOnly();
 
-        var producers = publisherScanResults
-            .Select(sc => sc.ToProducerInfo())
+        var publishers = publisherScanResults
+            .Select(sc => sc.ToPublisherInfo())
             .Select(info => string.IsNullOrEmpty(info.Broker)
                 ? info with { Broker = firstBrokerName }
                 : info)
@@ -239,7 +239,7 @@ internal static class TopologyProvider
         return new MessageBrokerSettings(
             brokerInfos.AsReadOnly(),
             consumers,
-            producers
+            publishers
         );
     }
 }

@@ -1,7 +1,7 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
 using System.Text;
 
-namespace Carotte.pipeline;
+namespace Carotte.Pipeline;
 
 internal class TracingMiddleware : IConsumerMiddleware
 {

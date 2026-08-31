@@ -1,7 +1,7 @@
 using BenchmarkDotNet.Attributes;
 using Carotte.Benchmarks.Config;
 using Carotte.Benchmarks.Messages;
-using Carotte.pipeline;
+using Carotte.Pipeline;
 using Microsoft.Extensions.DependencyInjection;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;

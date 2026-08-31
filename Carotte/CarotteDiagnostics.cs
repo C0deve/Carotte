@@ -4,11 +4,11 @@ using OpenTelemetry.Context.Propagation;
 
 namespace Carotte;
 
-internal static class CarotteDiagnostics
+public static class CarotteDiagnostics
 {
     public const string ServiceName = "Carotte";
     public static readonly ActivitySource ActivitySource = new(ServiceName);
-    private static readonly Meter Meter = new(ServiceName);
+    public static readonly Meter Meter = new(ServiceName);
     public static readonly TextMapPropagator Propagator = Propagators.DefaultTextMapPropagator;
 
     public static readonly Counter<long> MessagesConsumedCounter = Meter.CreateCounter<long>(

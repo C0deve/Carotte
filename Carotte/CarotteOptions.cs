@@ -2,10 +2,23 @@ namespace Carotte;
 
 public record CarotteOptions
 {
-    public string? ClientName { get; set; }
+    public string? ServiceName { get; set; }
+
     public Dictionary<string, RabbitMqOptions> Brokers { get; set; } = new(StringComparer.OrdinalIgnoreCase);
     public Dictionary<string, ConsumerSettingsOptions> Consumers { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+    public Dictionary<string, PublisherSettingsOptions> Publishers { get; set; } = new(StringComparer.OrdinalIgnoreCase);
     public CarotteSerializationOptions? Serialization { get; set; }
+}
+
+public record PublisherSettingsOptions
+{
+    public string? Broker { get; set; }
+    public string? Exchange { get; set; }
+    public string? RoutingKey { get; set; }
+    public ExchangeType? ExchangeType { get; set; }
+    public bool? DeclareExchange { get; set; }
+    public bool? ExchangeDurable { get; set; }
+    public bool? ExchangeAutoDelete { get; set; }
 }
 
 public record ConsumerSettingsOptions

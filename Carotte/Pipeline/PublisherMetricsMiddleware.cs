@@ -1,6 +1,6 @@
-﻿namespace Carotte.pipeline;
+namespace Carotte.Pipeline;
 
-internal class PublisherMetricsMiddleware<TMessage> : IPublisherMiddleware<TMessage> where TMessage : class
+internal class PublisherMetricsMiddleware<TMessage> : IPublisherMiddleware<TMessage>
 {
     public async Task InvokeAsync(PublisherContext<TMessage> context, PublisherDelegate<TMessage> next)
     {

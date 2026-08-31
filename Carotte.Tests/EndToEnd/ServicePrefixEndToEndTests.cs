@@ -3,17 +3,17 @@ using Microsoft.Extensions.Hosting;
 using Shouldly;
 using Testcontainers.RabbitMq;
 
-namespace Carotte.Tests.EndToEnd.ClientPrefix;
+namespace Carotte.Tests.EndToEnd.ServicePrefix;
 
-[Publisher]
-public record ClientPrefixMessage(string Data);
+[Published]
+public record ServicePrefixMessage(string Data);
 
-public class ClientPrefixConsumer : IConsumer<ClientPrefixMessage>
+public class ServicePrefixConsumer : IConsumer<ServicePrefixMessage>
 {
-    public static ClientPrefixMessage? LastReceivedMessage { get; set; }
+    public static ServicePrefixMessage? LastReceivedMessage { get; set; }
     public static TaskCompletionSource<bool> MessageReceived { get; set; } = new();
 
-    public Task HandleAsync(ClientPrefixMessage message, CancellationToken cancellationToken = default)
+    public Task HandleAsync(ServicePrefixMessage message, CancellationToken cancellationToken = default)
     {
         LastReceivedMessage = message;
         MessageReceived.TrySetResult(true);
@@ -21,24 +21,24 @@ public class ClientPrefixConsumer : IConsumer<ClientPrefixMessage>
     }
 }
 
-public class ClientPrefixEndToEndTests : EndToEndTestBase
+public class ServicePrefixEndToEndTests : EndToEndTestBase
 {
     [Fact]
-    public async Task PublisherAndConsumer_ShouldWorkWithConventionAndClientName()
+    public async Task PublisherAndConsumer_ShouldWorkWithConventionAndServiceName()
     {
         var rabbitMqContainer = CreateContainer();
         await rabbitMqContainer.StartAsync();
 
         try
         {
-            ClientPrefixConsumer.LastReceivedMessage = null;
-            ClientPrefixConsumer.MessageReceived = new TaskCompletionSource<bool>();
+            ServicePrefixConsumer.LastReceivedMessage = null;
+            ServicePrefixConsumer.MessageReceived = new TaskCompletionSource<bool>();
 
             var services = new ServiceCollection();
 
             services.AddCarotte(builder =>
             {
-                builder.SetClientName("order-service");
+                builder.WithServiceName("order-service");
                 builder.AddBroker("test-broker", options =>
                 {
                     options.Host = rabbitMqContainer.Hostname;
@@ -46,8 +46,8 @@ public class ClientPrefixEndToEndTests : EndToEndTestBase
                     options.UserName = RabbitMqBuilder.DefaultUsername;
                     options.Password = RabbitMqBuilder.DefaultPassword;
                 });
-                builder.AddAssemblies(typeof(ClientPrefixConsumer).Assembly)
-                    .AddNamespaces("Carotte.Tests.EndToEnd.ClientPrefix");
+                builder.ScanAssemblies(typeof(ServicePrefixConsumer).Assembly)
+                    .ScanNamespaces("Carotte.Tests.EndToEnd.ServicePrefix");
             });
 
             var serviceProvider = services.BuildServiceProvider();
@@ -59,16 +59,16 @@ public class ClientPrefixEndToEndTests : EndToEndTestBase
 
             await Task.Delay(2000);
 
-            var publisher = serviceProvider.GetRequiredService<IPublisher<ClientPrefixMessage>>();
-            var messageToSend = new ClientPrefixMessage("ClientPrefixData");
+            var publisher = serviceProvider.GetRequiredService<IPublisher<ServicePrefixMessage>>();
+            var messageToSend = new ServicePrefixMessage("ServicePrefixData");
 
             await publisher.PublishAsync(messageToSend);
 
-            var received = await ClientPrefixConsumer.MessageReceived.Task.WaitAsync(TimeSpan.FromSeconds(10));
+            var received = await ServicePrefixConsumer.MessageReceived.Task.WaitAsync(TimeSpan.FromSeconds(10));
 
             received.ShouldBeTrue();
-            ClientPrefixConsumer.LastReceivedMessage.ShouldNotBeNull();
-            ClientPrefixConsumer.LastReceivedMessage.Data.ShouldBe("ClientPrefixData");
+            ServicePrefixConsumer.LastReceivedMessage.ShouldNotBeNull();
+            ServicePrefixConsumer.LastReceivedMessage.Data.ShouldBe("ServicePrefixData");
 
             foreach (var hostedService in serviceProvider.GetServices<IHostedService>())
             {

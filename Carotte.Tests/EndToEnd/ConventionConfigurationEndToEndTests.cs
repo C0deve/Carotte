@@ -5,7 +5,7 @@ using Testcontainers.RabbitMq;
 
 namespace Carotte.Tests.EndToEnd.Convention;
 
-[Publisher]
+[Published]
 public record ConventionMessage(string Content);
 
 public class ConventionConsumer : IConsumer<ConventionMessage>
@@ -45,8 +45,8 @@ public class ConventionConfigurationEndToEndTests : EndToEndTestBase
                     options.UserName = RabbitMqBuilder.DefaultUsername;
                     options.Password = RabbitMqBuilder.DefaultPassword;
                 });
-                builder.AddAssemblies(typeof(ConventionConsumer).Assembly)
-                    .AddNamespaces("Carotte.Tests.EndToEnd.Convention");
+                builder.ScanAssemblies(typeof(ConventionConsumer).Assembly)
+                    .ScanNamespaces("Carotte.Tests.EndToEnd.Convention");
             });
 
             var serviceProvider = services.BuildServiceProvider();

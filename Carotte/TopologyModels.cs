@@ -109,9 +109,9 @@ public readonly record struct ConsumerInfo(
     IConsumerTopology Topology
 );
 
-public readonly record struct BrokerInfos(string Host, int Port, string UserName, string Password)
+public readonly record struct BrokerInfo(string Host, int Port, string UserName, string Password)
 {
-    public static BrokerInfos Default => new("localhost", 5672, "guest", "guest");
+    public static BrokerInfo Default => new("localhost", 5672, "guest", "guest");
 }
 
 public readonly record struct BindingInfo(
@@ -122,7 +122,7 @@ public readonly record struct BindingInfo(
     bool Durable = true,
     bool AutoDelete = false);
 
-public readonly record struct ProducerInfo(
+public readonly record struct PublisherInfo(
     Type MessageType,
     string Broker,
     string ExchangePublication,

@@ -6,7 +6,7 @@ namespace Carotte.Tests;
 
 public class BackgroundServiceTests
 {
-    [Publisher]
+    [Published]
     public class TestMessage;
 
     [Fact]
@@ -23,7 +23,7 @@ public class BackgroundServiceTests
                 {
                     options.Host = "localhost";
                 });
-                builder.AddAssemblies(typeof(BackgroundServiceTests).Assembly);
+                builder.ScanAssemblies(typeof(BackgroundServiceTests).Assembly);
             });
 
             services.AddSingleton<PublisherUsingBackgroundService>();

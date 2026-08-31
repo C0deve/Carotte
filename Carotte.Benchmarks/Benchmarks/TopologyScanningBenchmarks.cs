@@ -71,7 +71,7 @@ public class TopologyScanningBenchmarks
             _brokers,
             _consumerScanResults,
             _publisherScanResults,
-            clientName: "benchmark-app");
+            serviceName: "benchmark-app");
 
     [Benchmark]
     public MessageBrokerSettings Topology_CreateSettings_WithOverrides() =>
@@ -79,6 +79,6 @@ public class TopologyScanningBenchmarks
             _brokers,
             _consumerScanResults,
             _publisherScanResults,
-            clientName: "benchmark-app",
+            serviceName: "benchmark-app",
             consumerSettings: _consumerSettingsOverrides);
 }

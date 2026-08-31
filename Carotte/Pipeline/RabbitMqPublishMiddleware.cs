@@ -1,9 +1,9 @@
-﻿using RabbitMQ.Client;
+using RabbitMQ.Client;
 
-namespace Carotte.pipeline;
+namespace Carotte.Pipeline;
 
 internal class RabbitMqPublishMiddleware<TMessage>(IRabbitMqClient rabbitMqClient)
-    : IPublisherMiddleware<TMessage> where TMessage : class
+    : IPublisherMiddleware<TMessage>
 {
     public async Task InvokeAsync(PublisherContext<TMessage> context, PublisherDelegate<TMessage> next)
     {

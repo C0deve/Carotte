@@ -6,7 +6,7 @@ namespace Carotte.Sample.Contracts;
 /// <param name="OrderId">The unique identifier of the cancelled order.</param>
 /// <param name="Reason">The cancellation reason.</param>
 /// <param name="CancelledAt">The timestamp when the order was cancelled.</param>
-[Publisher]
+[Published]
 public sealed record OrderCancelledEvent(
     Guid OrderId,
     string Reason,

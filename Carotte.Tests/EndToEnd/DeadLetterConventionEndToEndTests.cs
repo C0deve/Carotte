@@ -5,7 +5,7 @@ using Testcontainers.RabbitMq;
 
 namespace Carotte.Tests.EndToEnd.DeadLetterConvention;
 
-[Publisher]
+[Published]
 public record DeadLetterConventionMessage(string Id, string Content);
 
 public class FailingConventionConsumer : IConsumer<DeadLetterConventionMessage>
@@ -58,8 +58,8 @@ public class DeadLetterConventionEndToEndTests : EndToEndTestBase
                     options.UserName = RabbitMqBuilder.DefaultUsername;
                     options.Password = RabbitMqBuilder.DefaultPassword;
                 });
-                builder.AddAssemblies(typeof(FailingConventionConsumer).Assembly)
-                    .AddNamespaces("Carotte.Tests.EndToEnd.DeadLetterConvention");
+                builder.ScanAssemblies(typeof(FailingConventionConsumer).Assembly)
+                    .ScanNamespaces("Carotte.Tests.EndToEnd.DeadLetterConvention");
             });
 
             var serviceProvider = services.BuildServiceProvider();

@@ -21,7 +21,7 @@ public class ConfigurationOptionsTests
         var json = """
         {
           "Carotte": {
-            "ClientName": "order-service",
+            "ServiceName": "order-service",
             "Brokers": {
               "primary": {
                 "Host": "rabbit-prod",
@@ -44,15 +44,15 @@ public class ConfigurationOptionsTests
         var services = new ServiceCollection();
         services.AddCarotte(configuration.GetSection("Carotte"), carotte =>
         {
-            carotte.AddAssemblies(typeof(ConfigurationOptionsTests).Assembly)
-                   .AddNamespaces("Carotte.Tests.Configuration");
+            carotte.ScanAssemblies(typeof(ConfigurationOptionsTests).Assembly)
+                   .ScanNamespaces("Carotte.Tests.Configuration");
         });
 
         var sp = services.BuildServiceProvider();
 
         var options = sp.GetService<IOptions<CarotteOptions>>()?.Value;
         options.ShouldNotBeNull();
-        options.ClientName.ShouldBe("order-service");
+        options.ServiceName.ShouldBe("order-service");
         options.Brokers.ShouldContainKey("primary");
         options.Brokers["primary"].Host.ShouldBe("rabbit-prod");
         options.Brokers["primary"].VirtualHost.ShouldBe("/sales");
@@ -69,7 +69,7 @@ public class ConfigurationOptionsTests
         var services = new ServiceCollection();
         services.AddCarotte(opt =>
         {
-            opt.ClientName = "custom-client";
+            opt.ServiceName = "custom-client";
             opt.Brokers["default"] = new RabbitMqOptions
             {
                 Host = "remote-host",
@@ -77,15 +77,15 @@ public class ConfigurationOptionsTests
             };
         }, carotte =>
         {
-            carotte.AddAssemblies(typeof(ConfigurationOptionsTests).Assembly)
-                   .AddNamespaces("Carotte.Tests.Configuration");
+            carotte.ScanAssemblies(typeof(ConfigurationOptionsTests).Assembly)
+                   .ScanNamespaces("Carotte.Tests.Configuration");
         });
 
         var sp = services.BuildServiceProvider();
         var options = sp.GetService<IOptions<CarotteOptions>>()?.Value;
 
         options.ShouldNotBeNull();
-        options.ClientName.ShouldBe("custom-client");
+        options.ServiceName.ShouldBe("custom-client");
         options.Brokers.ShouldContainKey("default");
         options.Brokers["default"].Host.ShouldBe("remote-host");
     }

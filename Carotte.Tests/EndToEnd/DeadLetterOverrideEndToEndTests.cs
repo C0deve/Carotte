@@ -5,7 +5,7 @@ using Testcontainers.RabbitMq;
 
 namespace Carotte.Tests.EndToEnd.DeadLetterOverride;
 
-[Publisher]
+[Published]
 public record DeadLetterOverrideMessage(string Key, string Value);
 
 public class FailingOverrideConsumer : IConsumer<DeadLetterOverrideMessage>
@@ -58,8 +58,8 @@ public class DeadLetterOverrideEndToEndTests : EndToEndTestBase
                     options.UserName = RabbitMqBuilder.DefaultUsername;
                     options.Password = RabbitMqBuilder.DefaultPassword;
                 });
-                builder.AddAssemblies(typeof(FailingOverrideConsumer).Assembly)
-                    .AddNamespaces("Carotte.Tests.EndToEnd.DeadLetterOverride");
+                builder.ScanAssemblies(typeof(FailingOverrideConsumer).Assembly)
+                    .ScanNamespaces("Carotte.Tests.EndToEnd.DeadLetterOverride");
 
                 builder.ConfigureConsumer("FailingOverrideConsumer", options =>
                 {

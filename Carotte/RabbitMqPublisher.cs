@@ -1,4 +1,4 @@
-using Carotte.pipeline;
+using Carotte.Pipeline;
 using Microsoft.Extensions.Logging;
 
 namespace Carotte;
@@ -21,7 +21,6 @@ internal sealed class RabbitMqPublisher<TMessage>(
     bool autoDelete,
     IMessageTypeResolver? messageTypeResolver = null)
     : IPublisher<TMessage>, IAsyncDisposable
-    where TMessage : class
 {
     private readonly IMessageTypeResolver _messageTypeResolver = messageTypeResolver ?? MessageTypeResolver.Default;
 

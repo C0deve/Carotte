@@ -16,12 +16,12 @@ public sealed partial class MermaidDiagramGenerator : IMermaidDiagramGenerator
         sb.AppendLine("```mermaid");
         sb.AppendLine("graph LR");
 
-        var hasProducers = settings.Producers.Count > 0;
+        var hasPublishers = settings.Publishers.Count > 0;
         var hasConsumers = settings.Consumers.Count > 0;
 
-        if (!hasProducers && !hasConsumers)
+        if (!hasPublishers && !hasConsumers)
         {
-            sb.AppendLine("    %% No producers or consumers configured");
+            sb.AppendLine("    %% No publishers or consumers configured");
             sb.AppendLine("```");
             sb.AppendLine();
             return sb.ToString();
@@ -32,10 +32,10 @@ public sealed partial class MermaidDiagramGenerator : IMermaidDiagramGenerator
 
         // Subgraph for Microservice components
         sb.AppendLine("    subgraph Microservice");
-        foreach (var producer in settings.Producers.OrderBy(p => p.MessageType.Name))
+        foreach (var publisher in settings.Publishers.OrderBy(p => p.MessageType.Name))
         {
-            var pubId = $"{Sanitize(producer.MessageType.Name)}_Publisher";
-            sb.AppendLine($"        {pubId}[\"{producer.MessageType.Name} Publisher\"]");
+            var pubId = $"{Sanitize(publisher.MessageType.Name)}_Publisher";
+            sb.AppendLine($"        {pubId}[\"{publisher.MessageType.Name} Publisher\"]");
             declaredNodes.Add(pubId);
         }
 
@@ -48,20 +48,20 @@ public sealed partial class MermaidDiagramGenerator : IMermaidDiagramGenerator
         sb.AppendLine("    end");
         sb.AppendLine();
 
-        // Producer connections to Exchanges
-        foreach (var producer in settings.Producers.OrderBy(p => p.MessageType.Name))
+        // Publisher connections to Exchanges
+        foreach (var publisher in settings.Publishers.OrderBy(p => p.MessageType.Name))
         {
-            var pubId = $"{Sanitize(producer.MessageType.Name)}_Publisher";
-            var exchId = $"exch_{Sanitize(producer.ExchangePublication)}";
+            var pubId = $"{Sanitize(publisher.MessageType.Name)}_Publisher";
+            var exchId = $"exch_{Sanitize(publisher.ExchangePublication)}";
 
             if (declaredNodes.Add(exchId))
             {
-                sb.AppendLine($"    {exchId}[(\"{producer.ExchangePublication}\")]");
+                sb.AppendLine($"    {exchId}[(\"{publisher.ExchangePublication}\")]");
             }
 
-            var link = string.IsNullOrEmpty(producer.RoutingKey)
+            var link = string.IsNullOrEmpty(publisher.RoutingKey)
                 ? $"    {pubId} --> {exchId}"
-                : $"    {pubId} -->|\"{producer.RoutingKey}\"| {exchId}";
+                : $"    {pubId} -->|\"{publisher.RoutingKey}\"| {exchId}";
 
             if (declaredLinks.Add(link))
             {
