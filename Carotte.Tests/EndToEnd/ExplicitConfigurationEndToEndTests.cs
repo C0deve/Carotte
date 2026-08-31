@@ -49,8 +49,8 @@ public class ExplicitConfigurationEndToEndTests : EndToEndTestBase
                     options.UserName = RabbitMqBuilder.DefaultUsername;
                     options.Password = RabbitMqBuilder.DefaultPassword;
                 });
-                builder.AddAssemblies(typeof(SimpleConsumer).Assembly)
-                    .AddNamespaces("Carotte.Tests.EndToEnd.Explicit");
+                builder.ScanAssemblies(typeof(SimpleConsumer).Assembly)
+                    .ScanNamespaces("Carotte.Tests.EndToEnd.Explicit");
             });
 
             var serviceProvider = services.BuildServiceProvider();

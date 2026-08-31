@@ -13,7 +13,7 @@ public sealed class OrderProcessingConsumerTests
         var services = new ServiceCollection()
             .AddCarotte(c => c
                 .AddBroker("primary-broker", _ => { })
-                .AddAssemblies(typeof(OrderProcessingConsumer).Assembly))
+                .ScanAssemblies(typeof(OrderProcessingConsumer).Assembly))
             .AddCarotteTestKit()
             .BuildServiceProvider();
 

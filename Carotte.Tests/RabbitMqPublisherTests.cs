@@ -275,7 +275,7 @@ public class RabbitMqPublisherTests
         services.AddCarotte(c =>
         {
             c.AddBroker("test-broker", opt => opt.Host = "localhost");
-            c.AddAssemblies(typeof(RabbitMqPublisherTests).Assembly);
+            c.ScanAssemblies(typeof(RabbitMqPublisherTests).Assembly);
         });
 
         await using var sp = services.BuildServiceProvider();

@@ -44,7 +44,7 @@ var hostBuilder = Host.CreateDefaultBuilder()
         services.AddCarotte(carotte =>
         {
             carotte.AddBroker("test-broker", _ => { });
-            carotte.AddAssemblies(typeof(OrderConsumer).Assembly);
+            carotte.ScanAssemblies(typeof(OrderConsumer).Assembly);
         });
 
         // Replaces RabbitMQ client and publishers with TestKit in-memory equivalents

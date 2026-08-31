@@ -86,18 +86,44 @@ public class CarotteBuilder
         return this;
     }
 
-    public CarotteBuilder AddAssemblies(params Assembly[] assemblies)
+    public CarotteBuilder ScanAssemblies(params Assembly[] assemblies)
     {
         Assemblies.UnionWith(assemblies);
         return this;
     }
 
-    public CarotteBuilder AddNamespaces(params string[] namespaces)
+    public CarotteBuilder ScanAssembly(Assembly assembly)
+    {
+        ArgumentNullException.ThrowIfNull(assembly);
+        Assemblies.Add(assembly);
+        return this;
+    }
+
+    public CarotteBuilder ScanAssemblyContaining<T>() => ScanAssembly(typeof(T).Assembly);
+
+    public CarotteBuilder ScanNamespaces(params string[] namespaces)
     {
         foreach (var ns in namespaces)
         {
             Namespaces.Add(ns);
         }
         return this;
+    }
+
+    public CarotteBuilder ScanNamespace(string @namespace)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(@namespace);
+        Namespaces.Add(@namespace);
+        return this;
+    }
+
+    public CarotteBuilder ScanNamespaceOf<T>()
+    {
+        var ns = typeof(T).Namespace;
+        if (string.IsNullOrWhiteSpace(ns))
+        {
+            throw new InvalidOperationException($"Type {typeof(T).FullName} does not have a namespace.");
+        }
+        return ScanNamespace(ns);
     }
 }

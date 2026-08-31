@@ -60,8 +60,8 @@ public class BroadcastEndToEndTests : EndToEndTestBase
                     options.UserName = RabbitMqBuilder.DefaultUsername;
                     options.Password = RabbitMqBuilder.DefaultPassword;
                 });
-                builder.AddAssemblies(typeof(BroadcastAuditConsumer).Assembly)
-                    .AddNamespaces("Carotte.Tests.EndToEnd.Broadcast");
+                builder.ScanAssemblies(typeof(BroadcastAuditConsumer).Assembly)
+                    .ScanNamespaces("Carotte.Tests.EndToEnd.Broadcast");
             });
 
             var serviceProvider = services.BuildServiceProvider();

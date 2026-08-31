@@ -23,7 +23,7 @@ public class BackgroundServiceTests
                 {
                     options.Host = "localhost";
                 });
-                builder.AddAssemblies(typeof(BackgroundServiceTests).Assembly);
+                builder.ScanAssemblies(typeof(BackgroundServiceTests).Assembly);
             });
 
             services.AddSingleton<PublisherUsingBackgroundService>();

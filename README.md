@@ -89,10 +89,12 @@ builder.Services.AddCarotte(carotte =>
     // carotte.WithServiceNameFrom<Program>(); // automatically infers from specified type/assembly
 
     // Register consumers and [Published] message types from this assembly
-    carotte.AddAssemblies(typeof(Program).Assembly);
+    carotte.ScanAssemblies(typeof(Program).Assembly);
+    // carotte.ScanAssemblyContaining<Program>();
 
     // Optional: Filter by namespace
-    // carotte.AddNamespaces("MyService.Consumers");
+    // carotte.ScanNamespaces("MyService.Consumers");
+    // carotte.ScanNamespaceOf<OrderConsumer>();
 
     // Optional: Add OpenTelemetry
     carotte.AddOtlpExporter("http://localhost:4317");
@@ -134,7 +136,7 @@ If a message type is only consumed by the service, do not annotate it with `[Pub
 Carotte favors **Convention over Configuration**. By default, any class implementing `IConsumer<T>` is automatically registered and configured using top-level conventions.
 
 #### Configuration Rules
-- **Automatic Registration**: All classes implementing `IConsumer<T>` are automatically picked up via `AddAssemblies`.
+- **Automatic Registration**: All classes implementing `IConsumer<T>` are automatically picked up via `ScanAssemblies`.
 - **Explicit Producer Registration**: A message type is publishable only when it is annotated with `[Published]`. Consuming `TMessage` does not register `IPublisher<TMessage>`.
 - **Default Queue Name**: The queue name defaults to the consumer's class name in kebab-case, formatted as `q.class-name` (or `q.service-name.class-name` if `ServiceName` is set).
 - **Parallelism & Ordering**: By default, the `PrefetchCount` is set to **1**. This ensures strict message ordering (FIFO) and avoids concurrent processing of multiple messages by the same consumer instance.
@@ -448,7 +450,7 @@ builder.Services.AddSingleton<ISerializer, MySerializer>();
 builder.Services.AddCarotte(carotte =>
 {
     carotte.AddBroker("my-broker", options => { ... });
-    carotte.AddAssemblies(typeof(Program).Assembly);
+    carotte.ScanAssemblies(typeof(Program).Assembly);
 });
 ```
 
@@ -481,7 +483,7 @@ Register the TestKit in your test `IServiceCollection` (e.g. in `WebApplicationF
 services.AddCarotte(carotte =>
 {
     carotte.AddBroker("my-broker", _ => { });
-    carotte.AddAssemblies(typeof(Program).Assembly);
+    carotte.ScanAssemblies(typeof(Program).Assembly);
 });
 
 // Replaces RabbitMQ publishers with InMemoryPublisher and registers CarotteTestKit

@@ -141,7 +141,7 @@ public class CarotteTestKitTests
         var sp = new ServiceCollection()
             .AddCarotte(c => c
                 .AddBroker("test-broker", _ => { })
-                .AddAssemblies(typeof(TestConsumer).Assembly))
+                .ScanAssemblies(typeof(TestConsumer).Assembly))
             .AddCarotteTestKit().BuildServiceProvider();
         var testKit = sp.GetRequiredService<CarotteTestKit>();
         var testMessage = new TestMessage("Hello Carotte");
@@ -162,7 +162,7 @@ public class CarotteTestKitTests
         var sp = new ServiceCollection()
             .AddCarotte(c => c
                 .AddBroker("test-broker", _ => { })
-                .AddAssemblies(typeof(TestConsumer).Assembly))
+                .ScanAssemblies(typeof(TestConsumer).Assembly))
             .AddCarotteTestKit()
             // Enregistrement explicite du mock
             .AddMockPublisher<ResponseMessage>()
@@ -188,7 +188,7 @@ public class CarotteTestKitTests
         services.AddScoped<ScopedDependency>();
         services.AddCarotte(c => c
             .AddBroker("test-broker", _ => { })
-            .AddAssemblies(typeof(ScopedConsumer).Assembly));
+            .ScanAssemblies(typeof(ScopedConsumer).Assembly));
         services.AddCarotteTestKit();
 
         await using var serviceProvider = services.BuildServiceProvider();
@@ -209,7 +209,7 @@ public class CarotteTestKitTests
         var services = new ServiceCollection();
         services.AddCarotte(c => c
             .AddBroker("test-broker", _ => { })
-            .AddAssemblies(typeof(ArbitraryPublisherConsumer).Assembly));
+            .ScanAssemblies(typeof(ArbitraryPublisherConsumer).Assembly));
         services.AddCarotteTestKit();
 
         await using var serviceProvider = services.BuildServiceProvider();
@@ -229,7 +229,7 @@ public class CarotteTestKitTests
         var services = new ServiceCollection();
         services.AddCarotte(c => c
             .AddBroker("test-broker", _ => { })
-            .AddAssemblies(typeof(RetryConsumer).Assembly));
+            .ScanAssemblies(typeof(RetryConsumer).Assembly));
         services.AddCarotteTestKit();
 
         await using var serviceProvider = services.BuildServiceProvider();
@@ -247,7 +247,7 @@ public class CarotteTestKitTests
         var services = new ServiceCollection();
         services.AddCarotte(c => c
             .AddBroker("test-broker", _ => { })
-            .AddAssemblies(typeof(AlwaysFailingConsumer).Assembly));
+            .ScanAssemblies(typeof(AlwaysFailingConsumer).Assembly));
         services.AddCarotteTestKit();
 
         await using var serviceProvider = services.BuildServiceProvider();
@@ -264,7 +264,7 @@ public class CarotteTestKitTests
         var services = new ServiceCollection();
         services.AddCarotte(c => c
             .AddBroker("test-broker", _ => { })
-            .AddAssemblies(typeof(TestConsumer).Assembly));
+            .ScanAssemblies(typeof(TestConsumer).Assembly));
         services.AddCarotteTestKit();
 
         await using var serviceProvider = services.BuildServiceProvider();
@@ -281,7 +281,7 @@ public class CarotteTestKitTests
         var services = new ServiceCollection();
         services.AddCarotte(c => c
             .AddBroker("test-broker", _ => { })
-            .AddAssemblies(typeof(TestConsumer).Assembly));
+            .ScanAssemblies(typeof(TestConsumer).Assembly));
         services.AddCarotteTestKit();
 
         await using var serviceProvider = services.BuildServiceProvider();
@@ -298,7 +298,7 @@ public class CarotteTestKitTests
         var services = new ServiceCollection();
         services.AddCarotte(c => c
             .AddBroker("test-broker", _ => { })
-            .AddAssemblies(typeof(AlwaysFailingConsumer).Assembly));
+            .ScanAssemblies(typeof(AlwaysFailingConsumer).Assembly));
         services.AddCarotteTestKit();
 
         await using var serviceProvider = services.BuildServiceProvider();
@@ -315,7 +315,7 @@ public class CarotteTestKitTests
         var services = new ServiceCollection();
         services.AddCarotte(c => c
             .AddBroker("test-broker", _ => { })
-            .AddAssemblies(typeof(AlwaysFailingConsumer).Assembly));
+            .ScanAssemblies(typeof(AlwaysFailingConsumer).Assembly));
         services.AddCarotteTestKit();
 
         await using var serviceProvider = services.BuildServiceProvider();
@@ -332,7 +332,7 @@ public class CarotteTestKitTests
         var services = new ServiceCollection();
         services.AddCarotte(c => c
             .AddBroker("test-broker", _ => { })
-            .AddAssemblies(typeof(RequeueFailingConsumer).Assembly));
+            .ScanAssemblies(typeof(RequeueFailingConsumer).Assembly));
         services.AddCarotteTestKit();
 
         await using var serviceProvider = services.BuildServiceProvider();
@@ -349,7 +349,7 @@ public class CarotteTestKitTests
         var services = new ServiceCollection();
         services.AddCarotte(c => c
             .AddBroker("test-broker", _ => { })
-            .AddAssemblies(typeof(FirstBroadcastConsumer).Assembly));
+            .ScanAssemblies(typeof(FirstBroadcastConsumer).Assembly));
         services.AddCarotteTestKit();
 
         await using var serviceProvider = services.BuildServiceProvider();
@@ -375,7 +375,7 @@ public class CarotteTestKitTests
         var services = new ServiceCollection();
         services.AddCarotte(c => c
             .AddBroker("test-broker", _ => { })
-            .AddAssemblies(typeof(TestConsumer).Assembly));
+            .ScanAssemblies(typeof(TestConsumer).Assembly));
         services.AddCarotteTestKit();
 
         await using var serviceProvider = services.BuildServiceProvider();
@@ -393,7 +393,7 @@ public class CarotteTestKitTests
         var services = new ServiceCollection();
         services.AddCarotte(c => c
             .AddBroker("test-broker", _ => { })
-            .AddAssemblies(typeof(TestConsumer).Assembly));
+            .ScanAssemblies(typeof(TestConsumer).Assembly));
         services.AddCarotteTestKit();
 
         await using var serviceProvider = services.BuildServiceProvider();
@@ -411,7 +411,7 @@ public class CarotteTestKitTests
         var services = new ServiceCollection();
         services.AddCarotte(c => c
             .AddBroker("test-broker", _ => { })
-            .AddAssemblies(typeof(IncompatibleConsumer).Assembly));
+            .ScanAssemblies(typeof(IncompatibleConsumer).Assembly));
         services.AddCarotteTestKit();
 
         await using var serviceProvider = services.BuildServiceProvider();
@@ -427,7 +427,7 @@ public class CarotteTestKitTests
         var services = new ServiceCollection();
         services.AddCarotte(c => c
             .AddBroker("test-broker", _ => { })
-            .AddAssemblies(typeof(AutoDispatchConsumer).Assembly));
+            .ScanAssemblies(typeof(AutoDispatchConsumer).Assembly));
         services.AddCarotteTestKit();
 
         await using var serviceProvider = services.BuildServiceProvider();
@@ -446,7 +446,7 @@ public class CarotteTestKitTests
         var services = new ServiceCollection();
         services.AddCarotte(c => c
             .AddBroker("test-broker", _ => { })
-            .AddAssemblies(typeof(FirstBroadcastConsumer).Assembly));
+            .ScanAssemblies(typeof(FirstBroadcastConsumer).Assembly));
         services.AddCarotteTestKit();
 
         await using var serviceProvider = services.BuildServiceProvider();
@@ -464,7 +464,7 @@ public class CarotteTestKitTests
         var services = new ServiceCollection();
         services.AddCarotte(c => c
             .AddBroker("test-broker", _ => { })
-            .AddAssemblies(typeof(TestConsumer).Assembly));
+            .ScanAssemblies(typeof(TestConsumer).Assembly));
         services.AddCarotteTestKit();
 
         await using var serviceProvider = services.BuildServiceProvider();
@@ -480,7 +480,7 @@ public class CarotteTestKitTests
         var services = new ServiceCollection();
         services.AddCarotte(c => c
             .AddBroker("test-broker", _ => { })
-            .AddAssemblies(typeof(TestConsumer).Assembly));
+            .ScanAssemblies(typeof(TestConsumer).Assembly));
         services.AddCarotteTestKit();
 
         await using var serviceProvider = services.BuildServiceProvider();
@@ -512,7 +512,7 @@ public class CarotteTestKitTests
         var services = new ServiceCollection();
         services.AddCarotte(c => c
             .AddBroker("test-broker", _ => { })
-            .AddAssemblies(typeof(TestConsumer).Assembly));
+            .ScanAssemblies(typeof(TestConsumer).Assembly));
         services.AddCarotteTestKit();
 
         await using var serviceProvider = services.BuildServiceProvider();
@@ -530,7 +530,7 @@ public class CarotteTestKitTests
         var services = new ServiceCollection();
         services.AddCarotte(c => c
             .AddBroker("test-broker", _ => { })
-            .AddAssemblies(typeof(TestConsumer).Assembly));
+            .ScanAssemblies(typeof(TestConsumer).Assembly));
         services.AddCarotteTestKit();
 
         await using var serviceProvider = services.BuildServiceProvider();
@@ -561,7 +561,7 @@ public class CarotteTestKitTests
         var services = new ServiceCollection();
         services.AddCarotte(c => c
             .AddBroker("test-broker", _ => { })
-            .AddAssemblies(typeof(TestConsumer).Assembly));
+            .ScanAssemblies(typeof(TestConsumer).Assembly));
         services.AddCarotteTestKit();
 
         await using var serviceProvider = services.BuildServiceProvider();
@@ -579,7 +579,7 @@ public class CarotteTestKitTests
         var services = new ServiceCollection();
         services.AddCarotte(c => c
             .AddBroker("test-broker", _ => { })
-            .AddAssemblies(typeof(TestConsumer).Assembly));
+            .ScanAssemblies(typeof(TestConsumer).Assembly));
         services.AddCarotteTestKit();
 
         await using var serviceProvider = services.BuildServiceProvider();
@@ -596,7 +596,7 @@ public class CarotteTestKitTests
         var services = new ServiceCollection();
         services.AddCarotte(c => c
             .AddBroker("test-broker", _ => { })
-            .AddAssemblies(typeof(TestConsumer).Assembly));
+            .ScanAssemblies(typeof(TestConsumer).Assembly));
         services.AddCarotteTestKit();
 
         await using var serviceProvider = services.BuildServiceProvider();
@@ -614,7 +614,7 @@ public class CarotteTestKitTests
         var services = new ServiceCollection();
         services.AddCarotte(c => c
             .AddBroker("test-broker", _ => { })
-            .AddAssemblies(typeof(TestConsumer).Assembly));
+            .ScanAssemblies(typeof(TestConsumer).Assembly));
         services.AddCarotteTestKit();
 
         await using var serviceProvider = services.BuildServiceProvider();
@@ -632,7 +632,7 @@ public class CarotteTestKitTests
         var services = new ServiceCollection();
         services.AddCarotte(c => c
             .AddBroker("test-broker", _ => { })
-            .AddAssemblies(typeof(TestConsumer).Assembly));
+            .ScanAssemblies(typeof(TestConsumer).Assembly));
         services.AddCarotteTestKit();
 
         await using var serviceProvider = services.BuildServiceProvider();
@@ -673,7 +673,7 @@ public class CarotteTestKitTests
         var services = new ServiceCollection();
         services.AddCarotte(c => c
             .AddBroker("test-broker", _ => { })
-            .AddAssemblies(typeof(TestConsumer).Assembly));
+            .ScanAssemblies(typeof(TestConsumer).Assembly));
         services.AddCarotteTestKit();
 
         await using var serviceProvider = services.BuildServiceProvider();

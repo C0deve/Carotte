@@ -34,7 +34,7 @@ public class DefaultExchangeNameTests
         {
             builder
                 .AddBroker("test-broker", _ => { })
-                .AddAssemblies(typeof(DefaultExchangeNameTests).Assembly);
+                .ScanAssemblies(typeof(DefaultExchangeNameTests).Assembly);
         });
 
         // We need to replace the IRabbitMqClient to verify calls

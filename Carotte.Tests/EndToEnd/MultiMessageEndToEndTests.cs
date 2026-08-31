@@ -59,8 +59,8 @@ public class MultiMessageEndToEndTests : EndToEndTestBase
                     options.UserName = RabbitMqBuilder.DefaultUsername;
                     options.Password = RabbitMqBuilder.DefaultPassword;
                 });
-                builder.AddAssemblies(typeof(MultiMessageConventionConsumer).Assembly)
-                    .AddNamespaces("Carotte.Tests.EndToEnd.MultiMessage");
+                builder.ScanAssemblies(typeof(MultiMessageConventionConsumer).Assembly)
+                    .ScanNamespaces("Carotte.Tests.EndToEnd.MultiMessage");
             });
 
             var serviceProvider = services.BuildServiceProvider();

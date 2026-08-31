@@ -44,8 +44,8 @@ public class ConfigurationOptionsTests
         var services = new ServiceCollection();
         services.AddCarotte(configuration.GetSection("Carotte"), carotte =>
         {
-            carotte.AddAssemblies(typeof(ConfigurationOptionsTests).Assembly)
-                   .AddNamespaces("Carotte.Tests.Configuration");
+            carotte.ScanAssemblies(typeof(ConfigurationOptionsTests).Assembly)
+                   .ScanNamespaces("Carotte.Tests.Configuration");
         });
 
         var sp = services.BuildServiceProvider();
@@ -77,8 +77,8 @@ public class ConfigurationOptionsTests
             };
         }, carotte =>
         {
-            carotte.AddAssemblies(typeof(ConfigurationOptionsTests).Assembly)
-                   .AddNamespaces("Carotte.Tests.Configuration");
+            carotte.ScanAssemblies(typeof(ConfigurationOptionsTests).Assembly)
+                   .ScanNamespaces("Carotte.Tests.Configuration");
         });
 
         var sp = services.BuildServiceProvider();

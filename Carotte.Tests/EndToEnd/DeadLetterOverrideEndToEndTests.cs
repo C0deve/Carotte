@@ -58,8 +58,8 @@ public class DeadLetterOverrideEndToEndTests : EndToEndTestBase
                     options.UserName = RabbitMqBuilder.DefaultUsername;
                     options.Password = RabbitMqBuilder.DefaultPassword;
                 });
-                builder.AddAssemblies(typeof(FailingOverrideConsumer).Assembly)
-                    .AddNamespaces("Carotte.Tests.EndToEnd.DeadLetterOverride");
+                builder.ScanAssemblies(typeof(FailingOverrideConsumer).Assembly)
+                    .ScanNamespaces("Carotte.Tests.EndToEnd.DeadLetterOverride");
 
                 builder.ConfigureConsumer("FailingOverrideConsumer", options =>
                 {

@@ -12,7 +12,7 @@ builder.Services.AddCarotte(carotte =>
     });
 
     // Automatic consumer & publisher scan
-    carotte.AddAssemblies(typeof(Program).Assembly);
+    carotte.ScanAssemblies(typeof(Program).Assembly);
 
     // Optional OpenTelemetry exporter
     var otlpEndpoint = builder.Configuration["OpenTelemetry:OtlpEndpoint"];

@@ -66,8 +66,8 @@ public class DeadLetterExplicitEndToEndTests : EndToEndTestBase
                     options.UserName = RabbitMqBuilder.DefaultUsername;
                     options.Password = RabbitMqBuilder.DefaultPassword;
                 });
-                builder.AddAssemblies(typeof(FailingExplicitConsumer).Assembly)
-                    .AddNamespaces("Carotte.Tests.EndToEnd.DeadLetterExplicit");
+                builder.ScanAssemblies(typeof(FailingExplicitConsumer).Assembly)
+                    .ScanNamespaces("Carotte.Tests.EndToEnd.DeadLetterExplicit");
             });
 
             var serviceProvider = services.BuildServiceProvider();

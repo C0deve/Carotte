@@ -69,7 +69,9 @@ builder.Services.AddCarotte(carotte =>
     // carotte.WithServiceNameFrom<Program>(); // automatically infers from specified type/assembly
 
     // Scan assembly for IConsumer<T> handlers and [Published] message types
-    carotte.AddAssemblies(typeof(Program).Assembly);
+    carotte.ScanAssemblies(typeof(Program).Assembly);
+    // carotte.ScanAssemblyContaining<Program>();
+    // carotte.ScanNamespaces("MyApp.Consumers");
 
     // Optional: Configure OpenTelemetry OTLP Exporter
     carotte.AddOtlpExporter("http://localhost:4317");

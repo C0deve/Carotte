@@ -15,7 +15,7 @@ public class DIScanTests
         // Act
         services.AddCarotte(builder => builder
             .AddBroker("test-broker", _ => { })
-            .AddAssemblies(typeof(DIScanTests).Assembly));
+            .ScanAssemblies(typeof(DIScanTests).Assembly));
 
         // Assert
         var sp = services.BuildServiceProvider();
@@ -39,7 +39,7 @@ public class DIScanTests
         var services = new ServiceCollection()
             .AddCarotte(builder => builder
                 .AddBroker("test-broker", _ => { })
-                .AddAssemblies(typeof(DIScanTests).Assembly));
+                .ScanAssemblies(typeof(DIScanTests).Assembly));
 
         // Assert
         var sp = services.BuildServiceProvider();
@@ -50,6 +50,47 @@ public class DIScanTests
         hostedServices.ShouldContain(h => h.GetType().IsGenericType &&
                                           h.GetType().GetGenericTypeDefinition() == typeof(RabbitMqConsumerHost<>) &&
                                           h.GetType().GetGenericArguments()[0] == typeof(MultiConsumer));
+    }
+
+    [Fact]
+    public void CarotteBuilder_ScanAssembly_ShouldAddAssembly()
+    {
+        var builder = new CarotteBuilder();
+        builder.ScanAssembly(typeof(DIScanTests).Assembly);
+        builder.Assemblies.ShouldContain(typeof(DIScanTests).Assembly);
+    }
+
+    [Fact]
+    public void CarotteBuilder_ScanAssemblyContaining_ShouldAddAssembly()
+    {
+        var builder = new CarotteBuilder();
+        builder.ScanAssemblyContaining<DIScanTests>();
+        builder.Assemblies.ShouldContain(typeof(DIScanTests).Assembly);
+    }
+
+    [Fact]
+    public void CarotteBuilder_ScanNamespace_ShouldAddNamespace()
+    {
+        var builder = new CarotteBuilder();
+        builder.ScanNamespace("Carotte.Tests");
+        builder.Namespaces.ShouldContain("Carotte.Tests");
+    }
+
+    [Fact]
+    public void CarotteBuilder_ScanNamespaceOf_ShouldAddNamespace()
+    {
+        var builder = new CarotteBuilder();
+        builder.ScanNamespaceOf<DIScanTests>();
+        builder.Namespaces.ShouldContain("Carotte.Tests");
+    }
+
+    [Fact]
+    public void CarotteBuilder_ScanNamespaces_ShouldAddMultipleNamespaces()
+    {
+        var builder = new CarotteBuilder();
+        builder.ScanNamespaces("Carotte.Tests.A", "Carotte.Tests.B");
+        builder.Namespaces.ShouldContain("Carotte.Tests.A");
+        builder.Namespaces.ShouldContain("Carotte.Tests.B");
     }
 
     public class Message

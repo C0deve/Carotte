@@ -53,8 +53,8 @@ public class ConsumerOverridesTests
 
         foreach (var (k, v) in options.Brokers) builder.AddBroker(k, v);
         foreach (var (k, v) in options.Consumers) builder.ConsumerSettings[k] = v;
-        builder.AddAssemblies(typeof(ConsumerOverridesTests).Assembly)
-               .AddNamespaces("Carotte.Tests.Overrides");
+        builder.ScanAssemblies(typeof(ConsumerOverridesTests).Assembly)
+               .ScanNamespaces("Carotte.Tests.Overrides");
 
         var (consumers, _) = builder.Assemblies.Scan(builder.Namespaces);
         var settings = TopologyProvider.CreateSettings(
@@ -103,8 +103,8 @@ public class ConsumerOverridesTests
 
         foreach (var (k, v) in options.Brokers) builder.AddBroker(k, v);
         foreach (var (k, v) in options.Consumers) builder.ConsumerSettings[k] = v;
-        builder.AddAssemblies(typeof(ConsumerOverridesTests).Assembly)
-               .AddNamespaces("Carotte.Tests.Overrides");
+        builder.ScanAssemblies(typeof(ConsumerOverridesTests).Assembly)
+               .ScanNamespaces("Carotte.Tests.Overrides");
 
         var (consumers, _) = builder.Assemblies.Scan(builder.Namespaces);
         var settings = TopologyProvider.CreateSettings(
