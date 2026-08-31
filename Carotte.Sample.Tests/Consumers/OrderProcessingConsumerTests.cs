@@ -26,7 +26,7 @@ public sealed class OrderProcessingConsumerTests
             DateTimeOffset.UtcNow);
 
         // Act
-        await testKit.SimulateReceiveAsync(orderEvent);
+        await testKit.ConsumeAsync(orderEvent);
 
         // Assert
         testKit.ShouldHavePublished<OrderProcessedEvent>(e => e.OrderId == orderEvent.OrderId);

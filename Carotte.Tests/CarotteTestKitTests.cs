@@ -145,7 +145,7 @@ public class CarotteTestKitTests
     }
 
     [Fact]
-    public async Task SimulateReceive_ShouldInvokeConsumer_AndStoreSentMessages()
+    public async Task Consume_ShouldInvokeConsumer_AndStorePublishedMessages()
     {
         // Arrange
         var sp = new ServiceCollection()
@@ -157,10 +157,10 @@ public class CarotteTestKitTests
         var testMessage = new TestMessage("Hello Carotte");
 
         // Act
-        await testKit.SimulateReceiveAsync<TestConsumer, TestMessage>(testMessage);
+        await testKit.ConsumeAsync<TestConsumer, TestMessage>(testMessage);
 
         // Assert
-        var sentMessages = testKit.GetSentMessages<ResponseMessage>();
+        var sentMessages = testKit.GetPublishedMessages<ResponseMessage>();
         sentMessages.Count.ShouldBe(1);
         sentMessages[0].Content.ShouldBe("Received: Hello Carotte");
     }
@@ -180,10 +180,10 @@ public class CarotteTestKitTests
         var testMessage = new TestMessage("Hello Fluent TestKit");
 
         // Act
-        await testKit.SimulateReceiveAsync<TestConsumer, TestMessage>(testMessage);
+        await testKit.ConsumeAsync<TestConsumer, TestMessage>(testMessage);
 
         // Assert
-        var sentMessages = testKit.GetSentMessages<ResponseMessage>();
+        var sentMessages = testKit.GetPublishedMessages<ResponseMessage>();
         sentMessages.Count.ShouldBe(1);
         sentMessages[0].Content.ShouldBe("Received: Hello Fluent TestKit");
     }
@@ -207,14 +207,14 @@ public class CarotteTestKitTests
         var testMessage = new TestMessage("Mock Me");
 
         // Act
-        await testKit.SimulateReceiveAsync<TestConsumer, TestMessage>(testMessage);
+        await testKit.ConsumeAsync<TestConsumer, TestMessage>(testMessage);
 
         // Assert
         mockPublisher.Verify(p => p.PublishAsync(It.Is<ResponseMessage>(r => r.Content == "Received: Mock Me"), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
-    public async Task SimulateReceive_ShouldCreateAndDisposeOneScopePerMessage()
+    public async Task Consume_ShouldCreateAndDisposeOneScopePerMessage()
     {
         var services = new ServiceCollection();
         services.AddSingleton<ScopeTracker>();
@@ -227,8 +227,8 @@ public class CarotteTestKitTests
         await using var serviceProvider = services.BuildServiceProvider();
         var testKit = serviceProvider.GetRequiredService<CarotteTestKit>();
 
-        await testKit.SimulateReceiveAsync<ScopedConsumer, TestMessage>(new TestMessage("first"));
-        await testKit.SimulateReceiveAsync<ScopedConsumer, TestMessage>(new TestMessage("second"));
+        await testKit.ConsumeAsync<ScopedConsumer, TestMessage>(new TestMessage("first"));
+        await testKit.ConsumeAsync<ScopedConsumer, TestMessage>(new TestMessage("second"));
 
         var tracker = serviceProvider.GetRequiredService<ScopeTracker>();
         tracker.ConsumerScopeIds.Count.ShouldBe(2);
@@ -248,15 +248,15 @@ public class CarotteTestKitTests
         await using var serviceProvider = services.BuildServiceProvider();
         var testKit = serviceProvider.GetRequiredService<CarotteTestKit>();
 
-        await testKit.SimulateReceiveAsync<ArbitraryPublisherConsumer, TestMessage>(new TestMessage("custom payload"));
+        await testKit.ConsumeAsync<ArbitraryPublisherConsumer, TestMessage>(new TestMessage("custom payload"));
 
-        var messages = testKit.GetSentMessages<UnregisteredMessage>();
+        var messages = testKit.GetPublishedMessages<UnregisteredMessage>();
         messages.Count.ShouldBe(1);
         messages[0].Info.ShouldBe("custom payload");
     }
 
     [Fact]
-    public async Task SimulateReceive_ShouldRetryAndSucceed_WhenTransientFailureOccurs()
+    public async Task Consume_ShouldRetryAndSucceed_WhenTransientFailureOccurs()
     {
         RetryConsumer.Attempts = 0;
         var services = new ServiceCollection();
@@ -268,13 +268,13 @@ public class CarotteTestKitTests
         await using var serviceProvider = services.BuildServiceProvider();
         var testKit = serviceProvider.GetRequiredService<CarotteTestKit>();
 
-        await testKit.SimulateReceiveAsync<RetryConsumer, TestMessage>(new TestMessage("retry"));
+        await testKit.ConsumeAsync<RetryConsumer, TestMessage>(new TestMessage("retry"));
 
         RetryConsumer.Attempts.ShouldBe(2);
     }
 
     [Fact]
-    public async Task SimulateReceive_ShouldReturnNackResult_WhenMaxRetryAttemptsExceeded()
+    public async Task Consume_ShouldReturnNackResult_WhenMaxRetryAttemptsExceeded()
     {
         AlwaysFailingConsumer.Attempts = 0;
         var services = new ServiceCollection();
@@ -286,13 +286,13 @@ public class CarotteTestKitTests
         await using var serviceProvider = services.BuildServiceProvider();
         var testKit = serviceProvider.GetRequiredService<CarotteTestKit>();
 
-        var result = await testKit.SimulateReceiveAsync<AlwaysFailingConsumer, TestMessage>(new TestMessage("fail"));
+        var result = await testKit.ConsumeAsync<AlwaysFailingConsumer, TestMessage>(new TestMessage("fail"));
 
         result.IsNacked.ShouldBeTrue();
     }
 
     [Fact]
-    public async Task SimulateReceive_ShouldReturnAckResult_WhenMessageProcessedSuccessfully()
+    public async Task Consume_ShouldReturnAckResult_WhenMessageProcessedSuccessfully()
     {
         var services = new ServiceCollection();
         services.AddCarotte(c => c
@@ -303,13 +303,13 @@ public class CarotteTestKitTests
         await using var serviceProvider = services.BuildServiceProvider();
         var testKit = serviceProvider.GetRequiredService<CarotteTestKit>();
 
-        var result = await testKit.SimulateReceiveAsync<TestConsumer, TestMessage>(new TestMessage("hello"));
+        var result = await testKit.ConsumeAsync<TestConsumer, TestMessage>(new TestMessage("hello"));
 
         result.IsAcked.ShouldBeTrue();
     }
 
     [Fact]
-    public async Task SimulateReceive_ShouldMeasureElapsedTime_WhenMessageProcessed()
+    public async Task Consume_ShouldMeasureElapsedTime_WhenMessageProcessed()
     {
         var services = new ServiceCollection();
         services.AddCarotte(c => c
@@ -320,13 +320,13 @@ public class CarotteTestKitTests
         await using var serviceProvider = services.BuildServiceProvider();
         var testKit = serviceProvider.GetRequiredService<CarotteTestKit>();
 
-        var result = await testKit.SimulateReceiveAsync<TestConsumer, TestMessage>(new TestMessage("hello"));
+        var result = await testKit.ConsumeAsync<TestConsumer, TestMessage>(new TestMessage("hello"));
 
         result.ElapsedTime.ShouldBeGreaterThan(TimeSpan.Zero);
     }
 
     [Fact]
-    public async Task SimulateReceive_ShouldContainException_WhenConsumerFails()
+    public async Task Consume_ShouldContainException_WhenConsumerFails()
     {
         var services = new ServiceCollection();
         services.AddCarotte(c => c
@@ -337,13 +337,13 @@ public class CarotteTestKitTests
         await using var serviceProvider = services.BuildServiceProvider();
         var testKit = serviceProvider.GetRequiredService<CarotteTestKit>();
 
-        var result = await testKit.SimulateReceiveAsync<AlwaysFailingConsumer, TestMessage>(new TestMessage("fail"));
+        var result = await testKit.ConsumeAsync<AlwaysFailingConsumer, TestMessage>(new TestMessage("fail"));
 
         result.Exception.ShouldBeOfType<InvalidOperationException>();
     }
 
     [Fact]
-    public async Task SimulateReceive_ShouldSetRequeuedFalse_WhenDefaultFailureActionIsDeadLetter()
+    public async Task Consume_ShouldSetRequeuedFalse_WhenDefaultFailureActionIsDeadLetter()
     {
         var services = new ServiceCollection();
         services.AddCarotte(c => c
@@ -354,13 +354,13 @@ public class CarotteTestKitTests
         await using var serviceProvider = services.BuildServiceProvider();
         var testKit = serviceProvider.GetRequiredService<CarotteTestKit>();
 
-        var result = await testKit.SimulateReceiveAsync<AlwaysFailingConsumer, TestMessage>(new TestMessage("fail"));
+        var result = await testKit.ConsumeAsync<AlwaysFailingConsumer, TestMessage>(new TestMessage("fail"));
 
         result.Requeued.ShouldBeFalse();
     }
 
     [Fact]
-    public async Task SimulateReceive_ShouldSetRequeuedTrue_WhenFailureActionIsRequeue()
+    public async Task Consume_ShouldSetRequeuedTrue_WhenFailureActionIsRequeue()
     {
         var services = new ServiceCollection();
         services.AddCarotte(c => c
@@ -371,13 +371,13 @@ public class CarotteTestKitTests
         await using var serviceProvider = services.BuildServiceProvider();
         var testKit = serviceProvider.GetRequiredService<CarotteTestKit>();
 
-        var result = await testKit.SimulateReceiveAsync<RequeueFailingConsumer, TestMessage>(new TestMessage("fail"));
+        var result = await testKit.ConsumeAsync<RequeueFailingConsumer, TestMessage>(new TestMessage("fail"));
 
         result.Requeued.ShouldBeTrue();
     }
 
     [Fact]
-    public async Task SimulateReceive_ShouldApplyConsumerSettingsOverrides_ForFailureAction()
+    public async Task Consume_ShouldApplyConsumerSettingsOverrides_ForFailureAction()
     {
         var services = new ServiceCollection();
         services.AddCarotte(c => c
@@ -392,13 +392,13 @@ public class CarotteTestKitTests
         await using var serviceProvider = services.BuildServiceProvider();
         var testKit = serviceProvider.GetRequiredService<CarotteTestKit>();
 
-        var result = await testKit.SimulateReceiveAsync<AlwaysFailingConsumer, TestMessage>(new TestMessage("fail"));
+        var result = await testKit.ConsumeAsync<AlwaysFailingConsumer, TestMessage>(new TestMessage("fail"));
 
         result.Requeued.ShouldBeTrue();
     }
 
     [Fact]
-    public async Task SimulateReceive_NonGeneric_ShouldReturnListOfResults_ForBroadcastMessage()
+    public async Task Consume_NonGeneric_ShouldReturnListOfResults_ForBroadcastMessage()
     {
         var services = new ServiceCollection();
         services.AddCarotte(c => c
@@ -409,13 +409,13 @@ public class CarotteTestKitTests
         await using var serviceProvider = services.BuildServiceProvider();
         var testKit = serviceProvider.GetRequiredService<CarotteTestKit>();
 
-        var results = await testKit.SimulateReceiveAsync(new BroadcastMessage("hello"));
+        var results = await testKit.ConsumeAsync(new BroadcastMessage("hello"));
 
         results.Count.ShouldBe(2);
     }
 
     [Fact]
-    public async Task SimulateReceive_ShouldExecuteTracingMiddleware()
+    public async Task Consume_ShouldExecuteTracingMiddleware()
     {
         var activities = new List<Activity>();
         using var listener = new ActivityListener
@@ -435,14 +435,14 @@ public class CarotteTestKitTests
         await using var serviceProvider = services.BuildServiceProvider();
         var testKit = serviceProvider.GetRequiredService<CarotteTestKit>();
 
-        await testKit.SimulateReceiveAsync<TestConsumer, TestMessage>(new TestMessage("tracing test"));
+        await testKit.ConsumeAsync<TestConsumer, TestMessage>(new TestMessage("tracing test"));
 
         var activity = activities.FirstOrDefault(a => a.OperationName == "Consume TestMessage");
         activity.ShouldNotBeNull();
     }
 
     [Fact]
-    public async Task SimulateReceive_ShouldExecuteCustomRegisteredMiddleware()
+    public async Task Consume_ShouldExecuteCustomRegisteredMiddleware()
     {
         var middlewareExecuted = false;
         var customMiddleware = new CustomTestMiddleware(() => middlewareExecuted = true);
@@ -457,13 +457,13 @@ public class CarotteTestKitTests
         await using var serviceProvider = services.BuildServiceProvider();
         var testKit = serviceProvider.GetRequiredService<CarotteTestKit>();
 
-        await testKit.SimulateReceiveAsync<TestConsumer, TestMessage>(new TestMessage("custom-middleware"));
+        await testKit.ConsumeAsync<TestConsumer, TestMessage>(new TestMessage("custom-middleware"));
 
         middlewareExecuted.ShouldBeTrue();
     }
 
     [Fact]
-    public async Task SimulateReceive_SingleGenericType_ShouldInvokeConsumer()
+    public async Task Consume_SingleGenericType_ShouldInvokeConsumer()
     {
         var services = new ServiceCollection();
         services.AddCarotte(c => c
@@ -474,14 +474,14 @@ public class CarotteTestKitTests
         await using var serviceProvider = services.BuildServiceProvider();
         var testKit = serviceProvider.GetRequiredService<CarotteTestKit>();
 
-        await testKit.SimulateReceiveAsync<TestConsumer>(new TestMessage("inferred-message"));
+        await testKit.ConsumeAsync<TestConsumer>(new TestMessage("inferred-message"));
 
-        var messages = testKit.GetSentMessages<ResponseMessage>();
+        var messages = testKit.GetPublishedMessages<ResponseMessage>();
         messages.Count.ShouldBe(1);
     }
 
     [Fact]
-    public async Task SimulateReceive_SingleGenericType_ShouldThrow_WhenConsumerDoesNotHandleMessageType()
+    public async Task Consume_SingleGenericType_ShouldThrow_WhenConsumerDoesNotHandleMessageType()
     {
         var services = new ServiceCollection();
         services.AddCarotte(c => c
@@ -493,11 +493,11 @@ public class CarotteTestKitTests
         var testKit = serviceProvider.GetRequiredService<CarotteTestKit>();
 
         await Should.ThrowAsync<InvalidOperationException>(() =>
-            testKit.SimulateReceiveAsync<IncompatibleConsumer>(new TestMessage("incompatible")));
+            testKit.ConsumeAsync<IncompatibleConsumer>(new TestMessage("incompatible")));
     }
 
     [Fact]
-    public async Task SimulateReceive_NonGeneric_ShouldAutoDispatchByMessageType()
+    public async Task Consume_NonGeneric_ShouldAutoDispatchByMessageType()
     {
         var services = new ServiceCollection();
         services.AddCarotte(c => c
@@ -508,15 +508,15 @@ public class CarotteTestKitTests
         await using var serviceProvider = services.BuildServiceProvider();
         var testKit = serviceProvider.GetRequiredService<CarotteTestKit>();
 
-        await testKit.SimulateReceiveAsync(new AutoDispatchMessage("auto-dispatched"));
+        await testKit.ConsumeAsync(new AutoDispatchMessage("auto-dispatched"));
 
-        var messages = testKit.GetSentMessages<ResponseMessage>();
+        var messages = testKit.GetPublishedMessages<ResponseMessage>();
         messages.Count.ShouldBe(1);
         messages[0].Content.ShouldBe("Auto: auto-dispatched");
     }
 
     [Fact]
-    public async Task SimulateReceive_NonGeneric_ShouldDispatchToAllMatchingConsumers()
+    public async Task Consume_NonGeneric_ShouldDispatchToAllMatchingConsumers()
     {
         var services = new ServiceCollection();
         services.AddCarotte(c => c
@@ -527,14 +527,14 @@ public class CarotteTestKitTests
         await using var serviceProvider = services.BuildServiceProvider();
         var testKit = serviceProvider.GetRequiredService<CarotteTestKit>();
 
-        await testKit.SimulateReceiveAsync(new BroadcastMessage("hello broadcast"));
+        await testKit.ConsumeAsync(new BroadcastMessage("hello broadcast"));
 
-        var messages = testKit.GetSentMessages<ResponseMessage>();
+        var messages = testKit.GetPublishedMessages<ResponseMessage>();
         messages.Count.ShouldBe(2);
     }
 
     [Fact]
-    public async Task SimulateReceive_NonGeneric_ShouldThrow_WhenNoConsumerFound()
+    public async Task Consume_NonGeneric_ShouldThrow_WhenNoConsumerFound()
     {
         var services = new ServiceCollection();
         services.AddCarotte(c => c
@@ -546,7 +546,7 @@ public class CarotteTestKitTests
         var testKit = serviceProvider.GetRequiredService<CarotteTestKit>();
 
         await Should.ThrowAsync<InvalidOperationException>(() =>
-            testKit.SimulateReceiveAsync(new UnregisteredMessage("unhandled")));
+            testKit.ConsumeAsync(new UnregisteredMessage("unhandled")));
     }
 
     [Fact]
@@ -561,7 +561,7 @@ public class CarotteTestKitTests
         await using var serviceProvider = services.BuildServiceProvider();
         var testKit = serviceProvider.GetRequiredService<CarotteTestKit>();
 
-        await testKit.SimulateReceiveAsync<TestConsumer>(new TestMessage("hello"));
+        await testKit.ConsumeAsync<TestConsumer>(new TestMessage("hello"));
 
         var published = testKit.ShouldHavePublished<ResponseMessage>();
         published.Content.ShouldBe("Received: hello");
@@ -593,7 +593,7 @@ public class CarotteTestKitTests
         await using var serviceProvider = services.BuildServiceProvider();
         var testKit = serviceProvider.GetRequiredService<CarotteTestKit>();
 
-        await testKit.SimulateReceiveAsync<TestConsumer>(new TestMessage("target-msg"));
+        await testKit.ConsumeAsync<TestConsumer>(new TestMessage("target-msg"));
 
         var published = testKit.ShouldHavePublished<ResponseMessage>(m => m.Content.Contains("target-msg"));
         published.ShouldNotBeNull();
@@ -611,7 +611,7 @@ public class CarotteTestKitTests
         await using var serviceProvider = services.BuildServiceProvider();
         var testKit = serviceProvider.GetRequiredService<CarotteTestKit>();
 
-        await testKit.SimulateReceiveAsync<TestConsumer>(new TestMessage("hello"));
+        await testKit.ConsumeAsync<TestConsumer>(new TestMessage("hello"));
 
         Should.Throw<CarotteTestAssertionException>(() =>
             testKit.ShouldHavePublished<ResponseMessage>(m => m.Content == "non-existent"));
@@ -642,7 +642,7 @@ public class CarotteTestKitTests
         await using var serviceProvider = services.BuildServiceProvider();
         var testKit = serviceProvider.GetRequiredService<CarotteTestKit>();
 
-        await testKit.SimulateReceiveAsync<TestConsumer>(new TestMessage("hello"));
+        await testKit.ConsumeAsync<TestConsumer>(new TestMessage("hello"));
 
         Should.Throw<CarotteTestAssertionException>(() =>
             testKit.ShouldNotHavePublished<ResponseMessage>());
@@ -660,7 +660,7 @@ public class CarotteTestKitTests
         await using var serviceProvider = services.BuildServiceProvider();
         var testKit = serviceProvider.GetRequiredService<CarotteTestKit>();
 
-        await testKit.SimulateReceiveAsync<TestConsumer>(new TestMessage("hello"));
+        await testKit.ConsumeAsync<TestConsumer>(new TestMessage("hello"));
 
         testKit.ShouldNotHavePublished<ResponseMessage>(m => m.Content == "different-content");
     }
@@ -677,7 +677,7 @@ public class CarotteTestKitTests
         await using var serviceProvider = services.BuildServiceProvider();
         var testKit = serviceProvider.GetRequiredService<CarotteTestKit>();
 
-        await testKit.SimulateReceiveAsync<TestConsumer>(new TestMessage("matching"));
+        await testKit.ConsumeAsync<TestConsumer>(new TestMessage("matching"));
 
         Should.Throw<CarotteTestAssertionException>(() =>
             testKit.ShouldNotHavePublished<ResponseMessage>(m => m.Content.Contains("matching")));
@@ -695,7 +695,7 @@ public class CarotteTestKitTests
         await using var serviceProvider = services.BuildServiceProvider();
         var testKit = serviceProvider.GetRequiredService<CarotteTestKit>();
 
-        await testKit.SimulateReceiveAsync<TestConsumer>(new TestMessage("existing"));
+        await testKit.ConsumeAsync<TestConsumer>(new TestMessage("existing"));
 
         var msg = await testKit.WaitForPublishedMessageAsync<ResponseMessage>(m => m.Content.Contains("existing"));
         msg.Content.ShouldBe("Received: existing");
@@ -754,9 +754,9 @@ public class CarotteTestKitTests
         await using var serviceProvider = services.BuildServiceProvider();
         var testKit = serviceProvider.GetRequiredService<CarotteTestKit>();
 
-        await testKit.SimulateReceiveAsync<TestConsumer>(new TestMessage("hello"));
+        await testKit.ConsumeAsync<TestConsumer>(new TestMessage("hello"));
         testKit.Clear();
 
-        testKit.GetSentMessages<ResponseMessage>().ShouldBeEmpty();
+        testKit.GetPublishedMessages<ResponseMessage>().ShouldBeEmpty();
     }
 }

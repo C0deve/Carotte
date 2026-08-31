@@ -6,10 +6,19 @@ using RabbitMQ.Client;
 // ReSharper disable once CheckNamespace
 namespace Carotte;
 
+/// <summary>
+/// Extension methods for registering and configuring Carotte TestKit in the service collection and fluent builder.
+/// </summary>
 public static class CarotteTestKitExtensions
 {
     extension(IServiceCollection services)
     {
+        /// <summary>
+        /// Registers Carotte TestKit services in the service collection, replacing real RabbitMQ connections
+        /// and clients with in-memory test doubles and enabling in-memory message publishing and capture.
+        /// </summary>
+        /// <param name="services">The service collection to configure.</param>
+        /// <returns>The configured service collection for method chaining.</returns>
         public IServiceCollection AddCarotteTestKit()
         {
             // Register core TestKit components
@@ -49,6 +58,13 @@ public static class CarotteTestKitExtensions
             return services;
         }
 
+        /// <summary>
+        /// Replaces the registered publisher for <typeparamref name="TMessage"/> with a Moq <see cref="Mock{T}"/>
+        /// while still forwarding published messages to <see cref="MessageTestStore"/> for test assertions.
+        /// </summary>
+        /// <typeparam name="TMessage">The message payload type.</typeparam>
+        /// <param name="services">The service collection to configure.</param>
+        /// <returns>The configured service collection for method chaining.</returns>
         public IServiceCollection AddMockPublisher<TMessage>()
         {
             var mock = new Mock<IPublisher<TMessage>>();
@@ -70,12 +86,23 @@ public static class CarotteTestKitExtensions
 
     extension(IServiceProvider sp)
     {
+        /// <summary>
+        /// Resolves the <see cref="Mock{T}"/> instance registered for <see cref="IPublisher{TMessage}"/> from the service provider.
+        /// </summary>
+        /// <typeparam name="TMessage">The message payload type.</typeparam>
+        /// <param name="sp">The service provider to resolve from.</param>
+        /// <returns>The mock publisher instance.</returns>
         public Mock<IPublisher<TMessage>> GetMockPublisher<TMessage>() =>
             sp.GetRequiredService<Mock<IPublisher<TMessage>>>();
     }
 
     extension(CarotteBuilder builder)
     {
+        /// <summary>
+        /// Configures Carotte to use TestKit in-memory mode, bypassing live RabbitMQ connections and capturing published messages.
+        /// </summary>
+        /// <param name="builder">The Carotte configuration builder.</param>
+        /// <returns>The updated builder instance for method chaining.</returns>
         public CarotteBuilder UseTestKit()
         {
             builder.AddCustomServiceConfigurator(services => services.AddCarotteTestKit());

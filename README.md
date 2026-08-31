@@ -490,29 +490,29 @@ services.AddCarotte(carotte =>
 services.AddCarotteTestKit();
 ```
 
-### Simulating Received Messages
+### Consuming Messages in Tests
 
-You can simulate message consumption using various overloads:
+You can simulate message consumption using various overloads of `ConsumeAsync`:
 
 ```csharp
 var testKit = host.Services.GetRequiredService<CarotteTestKit>();
 
 // 1. Explicit consumer and message types
-TestDeliveryResult result = await testKit.SimulateReceiveAsync<OrderConsumer, OrderCreatedMessage>(orderCreated);
+TestDeliveryResult result = await testKit.ConsumeAsync<OrderConsumer, OrderCreatedMessage>(orderCreated);
 
 // 2. Inferred message type from instance
-TestDeliveryResult result = await testKit.SimulateReceiveAsync<OrderConsumer>(orderCreated);
+TestDeliveryResult result = await testKit.ConsumeAsync<OrderConsumer>(orderCreated);
 
 // 3. Automatic consumer discovery and dispatch (broadcasts to all matching consumers)
-IReadOnlyList<TestDeliveryResult> results = await testKit.SimulateReceiveAsync(orderCreated);
+IReadOnlyList<TestDeliveryResult> results = await testKit.ConsumeAsync(orderCreated);
 ```
 
 ### Inspecting Delivery Results (`TestDeliveryResult`)
 
-`SimulateReceiveAsync` returns a `TestDeliveryResult` detailing how the pipeline handled the message (including retries, duration, and error status):
+`ConsumeAsync` returns a `TestDeliveryResult` detailing how the pipeline handled the message (including retries, duration, and error status):
 
 ```csharp
-var result = await testKit.SimulateReceiveAsync<OrderConsumer>(orderCreated);
+var result = await testKit.ConsumeAsync<OrderConsumer>(orderCreated);
 
 // Assert delivery outcome
 Assert.True(result.IsAcked);
@@ -540,7 +540,7 @@ var delayed = await testKit.WaitForPublishedMessageAsync<NotificationMessage>(
 );
 
 // Get all published messages of a given type
-IReadOnlyList<OrderProcessedMessage> allMessages = testKit.GetSentMessages<OrderProcessedMessage>();
+IReadOnlyList<OrderProcessedMessage> allMessages = testKit.GetPublishedMessages<OrderProcessedMessage>();
 
 // Clear message history between test steps
 testKit.Clear();
