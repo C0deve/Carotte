@@ -68,6 +68,9 @@ public static class CarotteTestKitExtensions
         }
     }
 
-    public static Mock<IPublisher<TMessage>> GetMockPublisher<TMessage>(this IServiceProvider sp) =>
-        sp.GetRequiredService<Mock<IPublisher<TMessage>>>();
+    extension(IServiceProvider sp)
+    {
+        public Mock<IPublisher<TMessage>> GetMockPublisher<TMessage>() =>
+            sp.GetRequiredService<Mock<IPublisher<TMessage>>>();
+    }
 }
