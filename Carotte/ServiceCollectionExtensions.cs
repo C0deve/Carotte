@@ -141,23 +141,23 @@ public static class ServiceCollectionExtensions
 
         private IServiceCollection AddPublishers(MessageBrokerSettings messageBrokerSettings)
         {
-            foreach (var producer in messageBrokerSettings.Producers)
+            foreach (var publisher in messageBrokerSettings.Publishers)
             {
-                var interfaceTypeToRegister = typeof(IPublisher<>).MakeGenericType(producer.MessageType);
+                var interfaceTypeToRegister = typeof(IPublisher<>).MakeGenericType(publisher.MessageType);
                 services.TryAddSingleton(interfaceTypeToRegister, sp =>
                 {
-                    var implementationType = typeof(RabbitMqPublisher<>).MakeGenericType(producer.MessageType);
+                    var implementationType = typeof(RabbitMqPublisher<>).MakeGenericType(publisher.MessageType);
 
                     return ActivatorUtilities.CreateInstance(
                         sp,
                         implementationType,
-                        producer.Broker,
-                        producer.ExchangePublication,
-                        producer.RoutingKey,
-                        producer.ExchangeType,
-                        producer.DeclareExchange,
-                        producer.Durable,
-                        producer.AutoDelete);
+                        publisher.Broker,
+                        publisher.ExchangePublication,
+                        publisher.RoutingKey,
+                        publisher.ExchangeType,
+                        publisher.DeclareExchange,
+                        publisher.Durable,
+                        publisher.AutoDelete);
                 });
             }
 

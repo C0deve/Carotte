@@ -9,7 +9,7 @@ internal static class CarotteBuilderValidator
         var consumerValidation = ValidateConsumers(settings);
         if (!consumerValidation.IsSuccess) return consumerValidation;
 
-        var producerValidation = ValidateProducers(settings);
+        var producerValidation = ValidatePublishers(settings);
         if (!producerValidation.IsSuccess) return producerValidation;
 
         var topologyValidation = ValidateExchangeDeclarations(settings);
@@ -18,12 +18,12 @@ internal static class CarotteBuilderValidator
         return ValidationResult.Success();
     }
 
-    private static ValidationResult ValidateProducers(MessageBrokerSettings settings)
+    private static ValidationResult ValidatePublishers(MessageBrokerSettings settings)
     {
         var errors = (
-                from producer in settings.Producers
-                where !settings.Brokers.ContainsKey(producer.Broker)
-                select new BrokerNotFoundForPublisher(producer.Broker, producer.MessageType.Name))
+                from publisher in settings.Publishers
+                where !settings.Brokers.ContainsKey(publisher.Broker)
+                select new BrokerNotFoundForPublisher(publisher.Broker, publisher.MessageType.Name))
             .Cast<ConfigurationError>()
             .ToList();
 
@@ -48,15 +48,15 @@ internal static class CarotteBuilderValidator
 
     private static ValidationResult ValidateExchangeDeclarations(MessageBrokerSettings settings)
     {
-        var (_, consumers, producers) = settings;
-        var declarations = producers
-            .Where(producer => producer.DeclareExchange)
-            .Select(producer => new ExchangeDeclaration(
-                producer.Broker,
-                producer.ExchangePublication,
-                producer.ExchangeType,
-                producer.Durable,
-                producer.AutoDelete))
+        var (_, consumers, publishers) = settings;
+        var declarations = publishers
+            .Where(publisher => publisher.DeclareExchange)
+            .Select(publisher => new ExchangeDeclaration(
+                publisher.Broker,
+                publisher.ExchangePublication,
+                publisher.ExchangeType,
+                publisher.Durable,
+                publisher.AutoDelete))
             .ToList();
 
         foreach (var consumer in consumers)

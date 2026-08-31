@@ -14,7 +14,7 @@ public class MermaidDiagramGeneratorTests
         var settings = new MessageBrokerSettings(
             ReadOnlyDictionary<string, BrokerInfo>.Empty,
             ReadOnlyCollection<ConsumerInfo>.Empty,
-            ReadOnlyCollection<ProducerInfo>.Empty);
+            ReadOnlyCollection<PublisherInfo>.Empty);
 
         // Act
         var result = _generator.Generate(settings);
@@ -27,11 +27,11 @@ public class MermaidDiagramGeneratorTests
     public void Generate_WithProducer_ShouldIncludePublisherNode()
     {
         // Arrange
-        var producer = new ProducerInfo(typeof(OrderCreatedMessage), "primary-broker", "orders.exchange", "order.created", ExchangeType.Topic, true, true, false);
+        var publisher = new PublisherInfo(typeof(OrderCreatedMessage), "primary-broker", "orders.exchange", "order.created", ExchangeType.Topic, true, true, false);
         var settings = new MessageBrokerSettings(
             ReadOnlyDictionary<string, BrokerInfo>.Empty,
             ReadOnlyCollection<ConsumerInfo>.Empty,
-            [producer]);
+            [publisher]);
 
         // Act
         var result = _generator.Generate(settings);
@@ -44,11 +44,11 @@ public class MermaidDiagramGeneratorTests
     public void Generate_WithProducer_ShouldIncludeExchangeNode()
     {
         // Arrange
-        var producer = new ProducerInfo(typeof(OrderCreatedMessage), "primary-broker", "orders.exchange", "order.created", ExchangeType.Topic, true, true, false);
+        var publisher = new PublisherInfo(typeof(OrderCreatedMessage), "primary-broker", "orders.exchange", "order.created", ExchangeType.Topic, true, true, false);
         var settings = new MessageBrokerSettings(
             ReadOnlyDictionary<string, BrokerInfo>.Empty,
             ReadOnlyCollection<ConsumerInfo>.Empty,
-            [producer]);
+            [publisher]);
 
         // Act
         var result = _generator.Generate(settings);
@@ -71,7 +71,7 @@ public class MermaidDiagramGeneratorTests
         var settings = new MessageBrokerSettings(
             ReadOnlyDictionary<string, BrokerInfo>.Empty,
             [consumer],
-            ReadOnlyCollection<ProducerInfo>.Empty);
+            ReadOnlyCollection<PublisherInfo>.Empty);
 
         // Act
         var result = _generator.Generate(settings);

@@ -104,13 +104,13 @@ public class TopologyConfigurationTests
             new List<ConsumerScanResult>().AsReadOnly(),
             new List<PublisherScanResult> { new(typeof(TestMessage), attribute) }.AsReadOnly());
 
-        var producer = settings.Producers.Single();
-        producer.ExchangePublication.ShouldBe("orders");
-        producer.RoutingKey.ShouldBe("order.created");
-        producer.ExchangeType.ShouldBe(ExchangeType.Topic);
-        producer.DeclareExchange.ShouldBeTrue();
-        producer.Durable.ShouldBeFalse();
-        producer.AutoDelete.ShouldBeTrue();
+        var publisher = settings.Publishers.Single();
+        publisher.ExchangePublication.ShouldBe("orders");
+        publisher.RoutingKey.ShouldBe("order.created");
+        publisher.ExchangeType.ShouldBe(ExchangeType.Topic);
+        publisher.DeclareExchange.ShouldBeTrue();
+        publisher.Durable.ShouldBeFalse();
+        publisher.AutoDelete.ShouldBeTrue();
     }
 
     [Fact]
@@ -157,12 +157,12 @@ public class TopologyConfigurationTests
     {
         var brokers = new ReadOnlyDictionary<string, BrokerInfo>(
             new Dictionary<string, BrokerInfo> { ["broker"] = BrokerInfo.Default });
-        var producers = new List<ProducerInfo>
+        var publishers = new List<PublisherInfo>
         {
             new(typeof(TestMessage), "broker", "orders", "", ExchangeType.Topic, true, true, false),
             new(typeof(OtherMessage), "broker", "orders", "", ExchangeType.Fanout, true, true, false)
         }.AsReadOnly();
-        var settings = new MessageBrokerSettings(brokers, new List<ConsumerInfo>().AsReadOnly(), producers);
+        var settings = new MessageBrokerSettings(brokers, new List<ConsumerInfo>().AsReadOnly(), publishers);
 
         var result = CarotteBuilderValidator.Validate(settings);
 
@@ -247,8 +247,8 @@ public class TopologyConfigurationTests
             new List<ConsumerScanResult> { scanResult }.AsReadOnly(),
             new List<PublisherScanResult> { new(typeof(TestMessage), publisherAttr) }.AsReadOnly());
 
-        var producer = settings.Producers.Single();
-        producer.DeclareExchange.ShouldBeTrue();
+        var publisher = settings.Publishers.Single();
+        publisher.DeclareExchange.ShouldBeTrue();
 
         var topology = settings.Consumers.Single().Topology.ShouldBeOfType<ConsumerAttributeTopology>();
         topology.Bindings.Count.ShouldBe(2);
@@ -274,8 +274,8 @@ public class TopologyConfigurationTests
             new List<ConsumerScanResult> { scanResult }.AsReadOnly(),
             new List<PublisherScanResult> { new(typeof(TestMessage), publisherAttr) }.AsReadOnly());
 
-        var producer = settings.Producers.Single();
-        producer.DeclareExchange.ShouldBeFalse();
+        var publisher = settings.Publishers.Single();
+        publisher.DeclareExchange.ShouldBeFalse();
 
         var topology = settings.Consumers.Single().Topology.ShouldBeOfType<ConsumerAttributeTopology>();
         topology.Bindings.Count.ShouldBe(2);

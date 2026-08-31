@@ -4,7 +4,7 @@ namespace Carotte;
 
 /// <summary>
 /// Provides factory and mapping methods to convert reflection scan results and configuration options
-/// into strongly-typed topology models (<see cref="MessageBrokerSettings"/>, <see cref="ConsumerInfo"/>, <see cref="ProducerInfo"/>).
+/// into strongly-typed topology models (<see cref="MessageBrokerSettings"/>, <see cref="ConsumerInfo"/>, <see cref="PublisherInfo"/>).
 /// </summary>
 internal static class TopologyProvider
 {
@@ -179,13 +179,13 @@ internal static class TopologyProvider
     }
 
     /// <summary>
-    /// Converts a scanned publisher result into a <see cref="ProducerInfo"/> runtime descriptor.
+    /// Converts a scanned publisher result into a <see cref="PublisherInfo"/> runtime descriptor.
     /// </summary>
-    private static ProducerInfo ToProducerInfo(this PublisherScanResult scan)
+    private static PublisherInfo ToPublisherInfo(this PublisherScanResult scan)
     {
         var usesConvention = string.IsNullOrWhiteSpace(scan.PublishedAttribute.Exchange);
 
-        return new ProducerInfo(
+        return new PublisherInfo(
             scan.MessageType,
             scan.PublishedAttribute.Broker ?? string.Empty,
             usesConvention
@@ -228,8 +228,8 @@ internal static class TopologyProvider
                 .ToList()
                 .AsReadOnly();
 
-        var producers = publisherScanResults
-            .Select(sc => sc.ToProducerInfo())
+        var publishers = publisherScanResults
+            .Select(sc => sc.ToPublisherInfo())
             .Select(info => string.IsNullOrEmpty(info.Broker)
                 ? info with { Broker = firstBrokerName }
                 : info)
@@ -239,7 +239,7 @@ internal static class TopologyProvider
         return new MessageBrokerSettings(
             brokerInfos.AsReadOnly(),
             consumers,
-            producers
+            publishers
         );
     }
 }

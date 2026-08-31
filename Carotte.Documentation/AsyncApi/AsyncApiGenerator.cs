@@ -81,7 +81,7 @@ public sealed partial class AsyncApiGenerator(
         IXmlDocumentationReader? xmlReader)
     {
         var servers = BuildServers(settings);
-        var messageTypes = settings.Producers
+        var messageTypes = settings.Publishers
             .Select(p => p.MessageType)
             .Concat(settings.Consumers.SelectMany(c => c.MessageTypes))
             .Distinct()
@@ -92,15 +92,15 @@ public sealed partial class AsyncApiGenerator(
         var channels = new Dictionary<string, AsyncApiChannel>();
         var operations = new Dictionary<string, AsyncApiOperation>();
 
-        foreach (var producer in settings.Producers)
+        foreach (var publisher in settings.Publishers)
         {
-            var channelAddress = string.IsNullOrEmpty(producer.RoutingKey)
-                ? producer.ExchangePublication
-                : $"{producer.ExchangePublication}/{producer.RoutingKey}";
+            var channelAddress = string.IsNullOrEmpty(publisher.RoutingKey)
+                ? publisher.ExchangePublication
+                : $"{publisher.ExchangePublication}/{publisher.RoutingKey}";
 
-            var channelKey = SanitizeChannelKey(string.IsNullOrEmpty(producer.RoutingKey)
-                ? producer.ExchangePublication
-                : $"{producer.ExchangePublication}.{producer.RoutingKey}");
+            var channelKey = SanitizeChannelKey(string.IsNullOrEmpty(publisher.RoutingKey)
+                ? publisher.ExchangePublication
+                : $"{publisher.ExchangePublication}.{publisher.RoutingKey}");
 
             if (!channels.TryGetValue(channelKey, out var channel))
             {
@@ -114,10 +114,10 @@ public sealed partial class AsyncApiGenerator(
                             Is = "routingKey",
                             Exchange = new AsyncApiAmqpExchangeBinding
                             {
-                                Name = producer.ExchangePublication,
-                                Type = producer.ExchangeType.ToString().ToLowerInvariant(),
-                                Durable = producer.Durable,
-                                AutoDelete = producer.AutoDelete,
+                                Name = publisher.ExchangePublication,
+                                Type = publisher.ExchangeType.ToString().ToLowerInvariant(),
+                                Durable = publisher.Durable,
+                                AutoDelete = publisher.AutoDelete,
                                 Vhost = "/"
                             },
                             BindingVersion = "0.3.0"
@@ -128,18 +128,18 @@ public sealed partial class AsyncApiGenerator(
             }
 
             channel.Messages ??= new Dictionary<string, AsyncApiMessageRef>();
-            channel.Messages[producer.MessageType.Name] = new AsyncApiMessageRef
+            channel.Messages[publisher.MessageType.Name] = new AsyncApiMessageRef
             {
-                Ref = $"#/components/messages/{producer.MessageType.Name}"
+                Ref = $"#/components/messages/{publisher.MessageType.Name}"
             };
 
-            var opId = $"publish{producer.MessageType.Name}";
+            var opId = $"publish{publisher.MessageType.Name}";
             operations[opId] = new AsyncApiOperation
             {
                 Action = "send",
-                Summary = $"Publishes {producer.MessageType.Name} message",
+                Summary = $"Publishes {publisher.MessageType.Name} message",
                 Channel = new AsyncApiChannelRef { Ref = $"#/channels/{channelKey}" },
-                Messages = [new AsyncApiMessageRef { Ref = $"#/components/messages/{producer.MessageType.Name}" }]
+                Messages = [new AsyncApiMessageRef { Ref = $"#/components/messages/{publisher.MessageType.Name}" }]
             };
         }
 
@@ -282,7 +282,7 @@ public sealed partial class AsyncApiGenerator(
         }
         else
         {
-            var referencedBrokers = settings.Producers.Select(p => p.Broker)
+            var referencedBrokers = settings.Publishers.Select(p => p.Broker)
                 .Concat(settings.Consumers.Select(c => c.Broker))
                 .Where(b => !string.IsNullOrWhiteSpace(b))
                 .Distinct()

@@ -5,12 +5,12 @@ namespace Carotte.Documentation;
 
 public sealed class CarotteDocGenerator(
     IMermaidDiagramGenerator? mermaidGenerator = null,
-    IProducerDocumenter? producerDocumenter = null,
+    IPublisherDocumenter? publisherDocumenter = null,
     IConsumerDocumenter? consumerDocumenter = null,
     IDataContractDocumenter? dataContractDocumenter = null) : ICarotteDocGenerator
 {
     private readonly IMermaidDiagramGenerator _mermaidGenerator = mermaidGenerator ?? new MermaidDiagramGenerator();
-    private readonly IProducerDocumenter _producerDocumenter = producerDocumenter ?? new ProducerDocumenter();
+    private readonly IPublisherDocumenter _publisherDocumenter = publisherDocumenter ?? new PublisherDocumenter();
     private readonly IConsumerDocumenter _consumerDocumenter = consumerDocumenter ?? new ConsumerDocumenter();
     private readonly IDataContractDocumenter _dataContractDocumenter = dataContractDocumenter ?? new DataContractDocumenter();
 
@@ -91,9 +91,9 @@ public sealed class CarotteDocGenerator(
             sb.Append(_mermaidGenerator.Generate(settings));
         }
 
-        if (options.IncludeProducers)
+        if (options.IncludePublishers)
         {
-            sb.Append(_producerDocumenter.Generate(settings.Producers));
+            sb.Append(_publisherDocumenter.Generate(settings.Publishers));
             sb.AppendLine();
         }
 
@@ -105,7 +105,7 @@ public sealed class CarotteDocGenerator(
 
         if (options.IncludeDataContracts)
         {
-            var messageTypes = settings.Producers
+            var messageTypes = settings.Publishers
                 .Select(p => p.MessageType)
                 .Concat(settings.Consumers.SelectMany(c => c.MessageTypes))
                 .Distinct()
