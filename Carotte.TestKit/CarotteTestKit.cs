@@ -202,7 +202,7 @@ public class CarotteTestKit(IServiceProvider serviceProvider)
         {
             if (messages.Count == 0)
             {
-                throw new InvalidOperationException(
+                throw new CarotteTestAssertionException(
                     $"Expected at least one message of type '{typeof(TMessage).Name}' to be published, but none was found.");
             }
             return messages[0];
@@ -210,7 +210,7 @@ public class CarotteTestKit(IServiceProvider serviceProvider)
 
         var matching = messages.FirstOrDefault(predicate);
         return matching ??
-               throw new InvalidOperationException(
+               throw new CarotteTestAssertionException(
                    $"Expected a message of type '{typeof(TMessage).Name}' matching the predicate to be published, but none was found.");
     }
 
@@ -221,14 +221,14 @@ public class CarotteTestKit(IServiceProvider serviceProvider)
         if (predicate == null)
         {
             if (messages.Count > 0)
-                throw new InvalidOperationException(
+                throw new CarotteTestAssertionException(
                     $"Expected no message of type '{typeof(TMessage).Name}' to be published, but found {messages.Count}.");
         }
         else
         {
             var matchingCount = messages.Count(predicate);
             if (matchingCount > 0)
-                throw new InvalidOperationException(
+                throw new CarotteTestAssertionException(
                     $"Expected no message of type '{typeof(TMessage).Name}' matching the predicate to be published, but found {matchingCount}.");
         }
     }

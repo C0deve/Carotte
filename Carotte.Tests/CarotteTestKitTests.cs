@@ -502,7 +502,7 @@ public class CarotteTestKitTests
         await using var serviceProvider = services.BuildServiceProvider();
         var testKit = serviceProvider.GetRequiredService<CarotteTestKit>();
 
-        Should.Throw<InvalidOperationException>(() =>
+        Should.Throw<CarotteTestAssertionException>(() =>
             testKit.ShouldHavePublished<ResponseMessage>());
     }
 
@@ -538,7 +538,7 @@ public class CarotteTestKitTests
 
         await testKit.SimulateReceiveAsync<TestConsumer>(new TestMessage("hello"));
 
-        Should.Throw<InvalidOperationException>(() =>
+        Should.Throw<CarotteTestAssertionException>(() =>
             testKit.ShouldHavePublished<ResponseMessage>(m => m.Content == "non-existent"));
     }
 
@@ -569,7 +569,7 @@ public class CarotteTestKitTests
 
         await testKit.SimulateReceiveAsync<TestConsumer>(new TestMessage("hello"));
 
-        Should.Throw<InvalidOperationException>(() =>
+        Should.Throw<CarotteTestAssertionException>(() =>
             testKit.ShouldNotHavePublished<ResponseMessage>());
     }
 
@@ -604,7 +604,7 @@ public class CarotteTestKitTests
 
         await testKit.SimulateReceiveAsync<TestConsumer>(new TestMessage("matching"));
 
-        Should.Throw<InvalidOperationException>(() =>
+        Should.Throw<CarotteTestAssertionException>(() =>
             testKit.ShouldNotHavePublished<ResponseMessage>(m => m.Content.Contains("matching")));
     }
 
