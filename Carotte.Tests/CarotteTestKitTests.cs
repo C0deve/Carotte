@@ -344,6 +344,27 @@ public class CarotteTestKitTests
     }
 
     [Fact]
+    public async Task SimulateReceive_ShouldApplyConsumerSettingsOverrides_ForFailureAction()
+    {
+        var services = new ServiceCollection();
+        services.AddCarotte(c => c
+            .AddBroker("test-broker", _ => { })
+            .ScanAssemblies(typeof(AlwaysFailingConsumer).Assembly)
+            .ConfigureConsumer(nameof(AlwaysFailingConsumer), opt =>
+            {
+                opt.FailureAction = ConsumerFailureAction.Requeue;
+            }));
+        services.AddCarotteTestKit();
+
+        await using var serviceProvider = services.BuildServiceProvider();
+        var testKit = serviceProvider.GetRequiredService<CarotteTestKit>();
+
+        var result = await testKit.SimulateReceiveAsync<AlwaysFailingConsumer, TestMessage>(new TestMessage("fail"));
+
+        result.Requeued.ShouldBeTrue();
+    }
+
+    [Fact]
     public async Task SimulateReceive_NonGeneric_ShouldReturnListOfResults_ForBroadcastMessage()
     {
         var services = new ServiceCollection();

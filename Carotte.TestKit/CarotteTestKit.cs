@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Reflection;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
 using Carotte.Pipeline;
@@ -62,9 +63,26 @@ public class CarotteTestKit(IServiceProvider serviceProvider)
         CancellationToken cancellationToken)
     {
         var queueAttr = consumerType.GetCustomAttribute<QueueAttribute>();
-        var routingKey = !string.IsNullOrEmpty(queueAttr?.RoutingKey)
-            ? queueAttr.RoutingKey
-            : (queueAttr?.Name ?? messageType.Name);
+
+        var options = serviceProvider.GetService<IOptions<CarotteOptions>>()?.Value;
+        var builder = serviceProvider.GetService<CarotteBuilder>();
+        var consumerSettingsDict = options?.Consumers ?? builder?.ConsumerSettings;
+
+        ConsumerSettingsOptions? overrideSettings = null;
+        if (consumerSettingsDict != null)
+        {
+            if (consumerSettingsDict.TryGetValue(consumerType.Name, out var byName))
+                overrideSettings = byName;
+            else if (consumerType.FullName != null && consumerSettingsDict.TryGetValue(consumerType.FullName, out var byFullName))
+                overrideSettings = byFullName;
+            else if (queueAttr?.Name != null && consumerSettingsDict.TryGetValue(queueAttr.Name, out var byQueue))
+                overrideSettings = byQueue;
+        }
+
+        var routingKey = overrideSettings?.RoutingKey
+            ?? (!string.IsNullOrEmpty(queueAttr?.RoutingKey)
+                ? queueAttr.RoutingKey
+                : (overrideSettings?.QueueName ?? queueAttr?.Name ?? messageType.Name));
 
         var properties = new BasicProperties
         {
@@ -97,8 +115,9 @@ public class CarotteTestKit(IServiceProvider serviceProvider)
 
         var context = new ConsumerContext(ea, scope.ServiceProvider, Message: message, MessageType: messageType, CancellationToken: cancellationToken);
 
-        var maxRetryAttempts = Math.Max(0, queueAttr?.MaxRetryAttempts ?? 3);
-        var requeueOnFailure = queueAttr?.FailureAction == ConsumerFailureAction.Requeue;
+        var maxRetryAttempts = Math.Max(0, overrideSettings?.MaxRetryAttempts ?? queueAttr?.MaxRetryAttempts ?? 3);
+        var failureAction = overrideSettings?.FailureAction ?? queueAttr?.FailureAction ?? ConsumerFailureAction.DeadLetter;
+        var requeueOnFailure = failureAction == ConsumerFailureAction.Requeue;
         var logger = scope.ServiceProvider.GetService<ILogger<CarotteTestKit>>();
         var attempt = 0;
 
