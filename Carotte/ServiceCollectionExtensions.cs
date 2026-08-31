@@ -173,7 +173,7 @@ public static class ServiceCollectionExtensions
         {
             if (!string.IsNullOrWhiteSpace(options.ClientName))
             {
-                builder.SetClientName(options.ClientName);
+                builder.WithClientName(options.ClientName);
             }
 
             foreach (var (brokerName, brokerOptions) in options.Brokers)
@@ -188,7 +188,7 @@ public static class ServiceCollectionExtensions
 
             if (options.Serialization?.JsonSerializerOptions != null)
             {
-                builder.SetJsonSerializerOptions(options.Serialization.JsonSerializerOptions);
+                builder.WithJsonSerializerOptions(options.Serialization.JsonSerializerOptions);
             }
         }
 

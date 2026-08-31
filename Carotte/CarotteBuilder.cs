@@ -19,8 +19,6 @@ public class CarotteBuilder
         return this;
     }
 
-    public CarotteBuilder SetClientName(string name) => WithClientName(name);
-
     public CarotteBuilder WithJsonSerializerOptions(JsonSerializerOptions options)
     {
         CustomJsonSerializerOptions = options;
@@ -34,8 +32,6 @@ public class CarotteBuilder
         CustomJsonSerializerOptions = options;
         return this;
     }
-
-    public CarotteBuilder SetJsonSerializerOptions(JsonSerializerOptions options) => WithJsonSerializerOptions(options);
 
     public CarotteBuilder WithOtlpExporter(string endpoint) => WithOtlpExporter(new Uri(endpoint));
 

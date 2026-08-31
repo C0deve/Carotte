@@ -64,7 +64,7 @@ builder.Services.AddCarotte(carotte =>
     });
 
     // Optional: Prefix queues and exchanges with client/service name
-    carotte.SetClientName("order-service");
+    carotte.WithClientName("order-service");
 
     // Scan assembly for IConsumer<T> handlers and [Published] message types
     carotte.AddAssemblies(typeof(Program).Assembly);

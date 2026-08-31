@@ -31,7 +31,7 @@ public class ClientNameTests
         services.AddCarotte(builder =>
         {
             builder
-                .SetClientName("OrderApi")
+                .WithClientName("OrderApi")
                 .AddBroker("test-broker", _ => { })
                 .AddAssemblies(typeof(ClientNameTests).Assembly)
                 .AddNamespaces("Carotte.Tests");

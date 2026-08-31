@@ -84,7 +84,7 @@ builder.Services.AddCarotte(carotte =>
     });
 
     // Optional: Set a client name for prefixing queues and exchanges
-    carotte.SetClientName("order-service");
+    carotte.WithClientName("order-service");
 
     // Register consumers and [Published] message types from this assembly
     carotte.AddAssemblies(typeof(Program).Assembly);

@@ -38,7 +38,7 @@ public class ClientPrefixEndToEndTests : EndToEndTestBase
 
             services.AddCarotte(builder =>
             {
-                builder.SetClientName("order-service");
+                builder.WithClientName("order-service");
                 builder.AddBroker("test-broker", options =>
                 {
                     options.Host = rabbitMqContainer.Hostname;
