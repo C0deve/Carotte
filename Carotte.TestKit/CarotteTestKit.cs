@@ -94,22 +94,48 @@ public class CarotteTestKit(IServiceProvider serviceProvider)
         CancellationToken cancellationToken)
     {
         var queueAttr = consumerType.GetCustomAttribute<QueueAttribute>();
+        var overrideSettings = ResolveConsumerSettings(consumerType, queueAttr);
+        var ea = CreateDeliveryEventArgs(messageType, queueAttr, overrideSettings, cancellationToken);
 
+        await using var scope = serviceProvider.CreateAsyncScope();
+        var pipeline = ResolvePipeline(scope.ServiceProvider, consumerType);
+        var context = new ConsumerContext(ea, scope.ServiceProvider, Message: message, MessageType: messageType, CancellationToken: cancellationToken);
+
+        var maxRetryAttempts = Math.Max(0, overrideSettings?.MaxRetryAttempts ?? queueAttr?.MaxRetryAttempts ?? 3);
+        var failureAction = overrideSettings?.FailureAction ?? queueAttr?.FailureAction ?? ConsumerFailureAction.DeadLetter;
+        var requeueOnFailure = failureAction == ConsumerFailureAction.Requeue;
+        var logger = scope.ServiceProvider.GetService<ILogger<CarotteTestKit>>();
+
+        return await ExecuteWithRetryAsync(pipeline, context, consumerType, maxRetryAttempts, requeueOnFailure, logger);
+    }
+
+    private ConsumerSettingsOptions? ResolveConsumerSettings(Type consumerType, QueueAttribute? queueAttr)
+    {
         var options = serviceProvider.GetService<IOptions<CarotteOptions>>()?.Value;
         var builder = serviceProvider.GetService<CarotteBuilder>();
         var consumerSettingsDict = options?.Consumers ?? builder?.ConsumerSettings;
 
-        ConsumerSettingsOptions? overrideSettings = null;
-        if (consumerSettingsDict != null)
-        {
-            if (consumerSettingsDict.TryGetValue(consumerType.Name, out var byName))
-                overrideSettings = byName;
-            else if (consumerType.FullName != null && consumerSettingsDict.TryGetValue(consumerType.FullName, out var byFullName))
-                overrideSettings = byFullName;
-            else if (queueAttr?.Name != null && consumerSettingsDict.TryGetValue(queueAttr.Name, out var byQueue))
-                overrideSettings = byQueue;
-        }
+        if (consumerSettingsDict == null)
+            return null;
 
+        if (consumerSettingsDict.TryGetValue(consumerType.Name, out var byName))
+            return byName;
+
+        if (consumerType.FullName != null && consumerSettingsDict.TryGetValue(consumerType.FullName, out var byFullName))
+            return byFullName;
+
+        if (queueAttr?.Name != null && consumerSettingsDict.TryGetValue(queueAttr.Name, out var byQueue))
+            return byQueue;
+
+        return null;
+    }
+
+    private static BasicDeliverEventArgs CreateDeliveryEventArgs(
+        Type messageType,
+        QueueAttribute? queueAttr,
+        ConsumerSettingsOptions? overrideSettings,
+        CancellationToken cancellationToken)
+    {
         var routingKey = overrideSettings?.RoutingKey
             ?? (!string.IsNullOrEmpty(queueAttr?.RoutingKey)
                 ? queueAttr.RoutingKey
@@ -120,7 +146,7 @@ public class CarotteTestKit(IServiceProvider serviceProvider)
             Type = messageType.Name
         };
 
-        var ea = new BasicDeliverEventArgs(
+        return new BasicDeliverEventArgs(
             consumerTag: "testkit-consumer",
             deliveryTag: 1,
             redelivered: false,
@@ -129,52 +155,52 @@ public class CarotteTestKit(IServiceProvider serviceProvider)
             properties: properties,
             body: ReadOnlyMemory<byte>.Empty,
             cancellationToken: cancellationToken);
+    }
 
-        await using var scope = serviceProvider.CreateAsyncScope();
-
-        var mediator = scope.ServiceProvider.GetService<ConsumerMediator>() ?? new ConsumerMediator(scope.ServiceProvider);
+    private static ConsumerPipeline ResolvePipeline(IServiceProvider scopedProvider, Type consumerType)
+    {
+        var mediator = scopedProvider.GetService<ConsumerMediator>() ?? new ConsumerMediator(scopedProvider);
         mediator.Initialize(consumerType);
 
-        var serializer = scope.ServiceProvider.GetService<ISerializer>() ?? new JsonSerializerImpl();
-
-        ConsumerPipeline pipeline;
-        var existingPipeline = scope.ServiceProvider.GetService<ConsumerPipeline>();
+        var existingPipeline = scopedProvider.GetService<ConsumerPipeline>();
         if (existingPipeline != null)
         {
-            pipeline = existingPipeline;
+            return existingPipeline;
+        }
+
+        var pipelineBuilder = scopedProvider.GetService<ConsumerPipelineBuilder>() ?? new ConsumerPipelineBuilder();
+        var registeredMiddlewares = scopedProvider.GetServices<IConsumerMiddleware>().ToList();
+        if (registeredMiddlewares.Count > 0)
+        {
+            foreach (var middleware in registeredMiddlewares)
+            {
+                pipelineBuilder.Use(middleware);
+            }
         }
         else
         {
-            var pipelineBuilder = scope.ServiceProvider.GetService<ConsumerPipelineBuilder>() ?? new ConsumerPipelineBuilder();
-            var registeredMiddlewares = scope.ServiceProvider.GetServices<IConsumerMiddleware>().ToList();
-            if (registeredMiddlewares.Count > 0)
-            {
-                foreach (var middleware in registeredMiddlewares)
-                {
-                    pipelineBuilder.Use(middleware);
-                }
-            }
-            else
-            {
-                pipelineBuilder
-                    .Use(scope.ServiceProvider.GetService<MetricsMiddleware>() ?? new MetricsMiddleware())
-                    .Use(scope.ServiceProvider.GetService<TracingMiddleware>() ?? new TracingMiddleware())
-                    .Use(scope.ServiceProvider.GetService<DeserializationMiddleware>() ?? new DeserializationMiddleware(serializer));
-            }
-
-            pipelineBuilder.Use(new ConsumerInvocationMiddleware(mediator));
-            pipeline = pipelineBuilder.Build();
+            var serializer = scopedProvider.GetService<ISerializer>() ?? new JsonSerializerImpl();
+            pipelineBuilder
+                .Use(scopedProvider.GetService<MetricsMiddleware>() ?? new MetricsMiddleware())
+                .Use(scopedProvider.GetService<TracingMiddleware>() ?? new TracingMiddleware())
+                .Use(scopedProvider.GetService<DeserializationMiddleware>() ?? new DeserializationMiddleware(serializer));
         }
 
-        var context = new ConsumerContext(ea, scope.ServiceProvider, Message: message, MessageType: messageType, CancellationToken: cancellationToken);
+        pipelineBuilder.Use(new ConsumerInvocationMiddleware(mediator));
+        return pipelineBuilder.Build();
+    }
 
-        var maxRetryAttempts = Math.Max(0, overrideSettings?.MaxRetryAttempts ?? queueAttr?.MaxRetryAttempts ?? 3);
-        var failureAction = overrideSettings?.FailureAction ?? queueAttr?.FailureAction ?? ConsumerFailureAction.DeadLetter;
-        var requeueOnFailure = failureAction == ConsumerFailureAction.Requeue;
-        var logger = scope.ServiceProvider.GetService<ILogger<CarotteTestKit>>();
+    private static async Task<TestDeliveryResult> ExecuteWithRetryAsync(
+        ConsumerPipeline pipeline,
+        ConsumerContext context,
+        Type consumerType,
+        int maxRetryAttempts,
+        bool requeueOnFailure,
+        ILogger? logger)
+    {
         var attempt = 0;
-
         var stopwatch = Stopwatch.StartNew();
+
         while (true)
         {
             try
