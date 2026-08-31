@@ -152,6 +152,25 @@ internal sealed class RabbitMqClient(IConnectionManager connectionManager, ILogg
         await channel.ExchangeDeclareAsync(exchange, type, durable, autoDelete, arguments, passive, noWait, cancellationToken);
     }
 
+    public Task ExchangeDeclareAsync(
+        string exchange,
+        ExchangeType type,
+        bool durable = true,
+        bool autoDelete = false,
+        IDictionary<string, object?>? arguments = null,
+        bool passive = false,
+        bool noWait = false,
+        CancellationToken cancellationToken = default) =>
+        ExchangeDeclareAsync(
+            exchange,
+            type.ToString().ToLowerInvariant(),
+            durable,
+            autoDelete,
+            arguments,
+            passive,
+            noWait,
+            cancellationToken);
+
     public async Task QueueBindAsync(
         string queue,
         string exchange,

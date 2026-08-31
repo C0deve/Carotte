@@ -46,6 +46,16 @@ public interface IRabbitMqClient : IAsyncDisposable
         bool noWait = false,
         CancellationToken cancellationToken = default);
 
+    Task ExchangeDeclareAsync(
+        string exchange,
+        ExchangeType type,
+        bool durable = true,
+        bool autoDelete = false,
+        IDictionary<string, object?>? arguments = null,
+        bool passive = false,
+        bool noWait = false,
+        CancellationToken cancellationToken = default);
+
     Task QueueBindAsync(
         string queue,
         string exchange,
