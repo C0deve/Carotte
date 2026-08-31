@@ -6,7 +6,7 @@
     <WarnOnPackingNonPackableProject>false</WarnOnPackingNonPackableProject>
 
     <!-- Versioning -->
-    <Version>1.0.0-preview.1</Version>
+    <Version>1.0.0-preview.3</Version>
 
     <!-- NuGet Package Metadata -->
     <Authors>Carotte</Authors>
