@@ -3,10 +3,20 @@ using Microsoft.Extensions.DependencyInjection;
 using Moq;
 using Shouldly;
 
+using Carotte.Pipeline;
+
 namespace Carotte.Tests;
 
 public class CarotteTestKitTests
 {
+    private sealed class CustomTestMiddleware(Action onExecute) : IConsumerMiddleware
+    {
+        public Task InvokeAsync(ConsumerContext context, ConsumerDelegate next)
+        {
+            onExecute();
+            return next(context);
+        }
+    }
     public record TestMessage(string Content);
 
     [Published]
@@ -406,6 +416,27 @@ public class CarotteTestKitTests
 
         var activity = activities.FirstOrDefault(a => a.OperationName == "Consume TestMessage");
         activity.ShouldNotBeNull();
+    }
+
+    [Fact]
+    public async Task SimulateReceive_ShouldExecuteCustomRegisteredMiddleware()
+    {
+        var middlewareExecuted = false;
+        var customMiddleware = new CustomTestMiddleware(() => middlewareExecuted = true);
+
+        var services = new ServiceCollection();
+        services.AddSingleton<IConsumerMiddleware>(customMiddleware);
+        services.AddCarotte(c => c
+            .AddBroker("test-broker", _ => { })
+            .ScanAssemblies(typeof(TestConsumer).Assembly));
+        services.AddCarotteTestKit();
+
+        await using var serviceProvider = services.BuildServiceProvider();
+        var testKit = serviceProvider.GetRequiredService<CarotteTestKit>();
+
+        await testKit.SimulateReceiveAsync<TestConsumer, TestMessage>(new TestMessage("custom-middleware"));
+
+        middlewareExecuted.ShouldBeTrue();
     }
 
     [Fact]

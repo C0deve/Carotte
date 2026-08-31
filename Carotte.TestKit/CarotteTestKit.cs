@@ -106,12 +106,34 @@ public class CarotteTestKit(IServiceProvider serviceProvider)
 
         var serializer = scope.ServiceProvider.GetService<ISerializer>() ?? new JsonSerializerImpl();
 
-        var pipeline = new ConsumerPipelineBuilder()
-            .Use(new MetricsMiddleware())
-            .Use(new TracingMiddleware())
-            .Use(new DeserializationMiddleware(serializer))
-            .Use(new ConsumerInvocationMiddleware(mediator))
-            .Build();
+        ConsumerPipeline pipeline;
+        var existingPipeline = scope.ServiceProvider.GetService<ConsumerPipeline>();
+        if (existingPipeline != null)
+        {
+            pipeline = existingPipeline;
+        }
+        else
+        {
+            var pipelineBuilder = scope.ServiceProvider.GetService<ConsumerPipelineBuilder>() ?? new ConsumerPipelineBuilder();
+            var registeredMiddlewares = scope.ServiceProvider.GetServices<IConsumerMiddleware>().ToList();
+            if (registeredMiddlewares.Count > 0)
+            {
+                foreach (var middleware in registeredMiddlewares)
+                {
+                    pipelineBuilder.Use(middleware);
+                }
+            }
+            else
+            {
+                pipelineBuilder
+                    .Use(scope.ServiceProvider.GetService<MetricsMiddleware>() ?? new MetricsMiddleware())
+                    .Use(scope.ServiceProvider.GetService<TracingMiddleware>() ?? new TracingMiddleware())
+                    .Use(scope.ServiceProvider.GetService<DeserializationMiddleware>() ?? new DeserializationMiddleware(serializer));
+            }
+
+            pipelineBuilder.Use(new ConsumerInvocationMiddleware(mediator));
+            pipeline = pipelineBuilder.Build();
+        }
 
         var context = new ConsumerContext(ea, scope.ServiceProvider, Message: message, MessageType: messageType, CancellationToken: cancellationToken);
 
