@@ -1,5 +1,14 @@
 ﻿# Carotte 🥕
 
+[![CI](https://github.com/C0deve/Carotte/actions/workflows/ci.yml/badge.svg?branch=develop)](https://github.com/C0deve/Carotte/actions/workflows/ci.yml)
+[![Release](https://github.com/C0deve/Carotte/actions/workflows/release.yml/badge.svg)](https://github.com/C0deve/Carotte/actions/workflows/release.yml)
+[![NuGet Version](https://img.shields.io/nuget/v/Carotte.svg?logo=nuget&style=flat-square)](https://www.nuget.org/packages/Carotte)
+[![NuGet Downloads](https://img.shields.io/nuget/dt/Carotte.svg?logo=nuget&style=flat-square)](https://www.nuget.org/packages/Carotte)
+[![Target Framework](https://img.shields.io/badge/.NET-10.0-512BD4?logo=dotnet&style=flat-square)](https://dotnet.microsoft.com/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](https://opensource.org/licenses/MIT)
+[![GitHub Stars](https://img.shields.io/github/stars/C0deve/Carotte?style=flat-square&logo=github)](https://github.com/C0deve/Carotte/stargazers)
+[![GitHub Issues](https://img.shields.io/github/issues/C0deve/Carotte?style=flat-square&logo=github)](https://github.com/C0deve/Carotte/issues)
+
 > [!WARNING]
 > This library is currently under development and is not yet ready for production use.
 > This is a **Proof of Concept (PoC)** created entirely using **Junie**, with a focus on writing as little code as possible.
